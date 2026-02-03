@@ -3,64 +3,55 @@
 ## 0. 프로젝트 개요
 
 ### 프로젝트명
-
-```
-ai-library-platform
-```
+`ai-library-platform`
 
 ### 목적
-
-공공 도서 데이터를 활용하여 **전통적인 검색 시스템이 AI 시스템(RAG · Vector · MCP)으로 진화하는 전체 흐름**을 학습한다.
+공공 도서 데이터를 활용하여 **전통적인 검색 시스템이 AI 시스템(RAG · Vector · MCP)으로 진화하는 전체 흐름**을 학습합니다.
 
 이 프로젝트는 단순히 AI 기능을 붙이는 것이 아니라,
+* **왜** AI가 필요한지
+* AI를 기존 백엔드 아키텍처에 **어떻게** 녹이는지
+* AI 도입 시 발생하는 **성능·비용·운영** 문제를 어떻게 다루는지
+를 단계적으로 경험하는 것을 목표로 합니다.
 
-* 왜 AI가 필요한지
-* AI를 기존 백엔드 아키텍처에 어떻게 녹이는지
-* 성능·비용·운영 문제를 어떻게 다루는지
-  를 단계적으로 경험하는 것을 목표로 한다.
+> **핵심 메시지**
+> AI는 처음부터 등장하지 않습니다. **데이터 → 검색 → 의미 → 생성 → 판단 → 도구 활용**으로 진화합니다.
 
-> 핵심 메시지
-> **AI는 처음부터 등장하지 않는다. 데이터 → 검색 → 의미 → 생성 → 판단 → 도구 활용으로 진화한다.**
+### 학생들을 위한 학습 가이드
+본 문서는 단순한 소스코드 제공이 아닌, 각 단계별로 **"무엇을(What)", "어떻게(How)", "왜(Why)"** 구현해야 하는지를 안내합니다. 
+코드를 직접 작성하기 전에 해당 주차의 가이드 문서를 충분히 읽고, 제시된 **학습 포인트**와 **참고 링크**를 통해 기술적 배경을 먼저 이해하는 것을 권장합니다.
 
 ---
 
-## 1. 멀티 프로젝트 구조
+## 1. 프로젝트 패키지 구조
 
 ```
-library-platform
- ├─ core
- ├─ ai
- ├─ batch
- └─ front
+src/main/java/com/nhnacademy/library
+ ├─ batch.init     # 공공 데이터 적재 및 초기화 로직
+ ├─ core.book      # 도서 관련 핵심 비즈니스 로직 및 DB 접근
+ ├─ core.config    # 공통 설정 (QueryDSL 등)
+ ├─ front.web      # 웹 컨트롤러 및 화면 처리
 ```
 
-### 각 프로젝트 역할
+### 각 패키지 역할
 
-* **library-core**
+* **com.nhnacademy.library.core.book**
 
-    * 도서 조회
-    * 키워드 검색 / Full Text 검색
-    * Vector 검색
-    * DB 중심 비즈니스 로직
+    * 도서 조회 및 상세 정보 처리
+    * 키워드 검색 / 전문 검색(Full Text Search)
+    * 벡터 검색(Vector Search) (예정)
+    * DB 중심 비즈니스 로직(Business Logic)
 
-* **library-ai**
+* **com.nhnacademy.library.batch.init**
 
-    * RAG 구성
-    * LLM 연동
-    * MCP 진입점
-    * AI 오케스트레이션
+    * 공공 CSV 데이터 파싱(Parsing) 및 적재(Load)
+    * Google Books API 데이터 보강 (예정)
+    * 임베딩(Embedding) 생성 (예정)
 
-* **library-batch**
+* **com.nhnacademy.library.front.web**
 
-    * 공공 CSV 데이터 적재
-    * Google Books API 데이터 보강
-    * 임베딩 생성
-    * 재처리 / 재시도 Batch
-
-* **library-front**
-
-    * 도서 검색 UI
-    * AI 질의 UI
+    * 도서 검색 및 상세 페이지 UI 컨트롤러
+    * AI 질의 UI (예정)
 
 > 외부 Open API는 **Batch 또는 MCP를 통해서만 접근**하며,
 > 서비스 런타임 검색에서는 직접 호출하지 않는다.
@@ -72,7 +63,7 @@ library-platform
 * Java 21
 * Spring Boot 4
 * Spring Data JPA (기본 CRUD)
-* MyBatis (검색 전용)
+* QueryDSL (동적 쿼리)
 * PostgreSQL
 * pgvector
 * LLM (API 또는 로컬)
@@ -94,40 +85,38 @@ library-platform
 
 ## 4. 주차별 시나리오
 
-### Week 1 — 데이터 구축과 AI 준비
+### Week 1 — 데이터 구축과 전통적 검색
 
 #### 주요 흐름
 
-* 공공 도서 CSV Batch 적재
-* 누락 필드 탐지
-* Google Books API 데이터 보강
-* DB 캐싱
-* 기본 UI 구현
+* [01. 데이터 적재: 공공 도서 CSV Batch Load](week-1/01.csv-batch-load.md)
+* [02. 기본 검색: LIKE 기반 동적 쿼리 구현](week-1/02.book-search-implementation.md)
+* [03. 검색 UI: Thymeleaf와 Tabler 기반 화면 구축](week-1/03.book-search-front.md)
+* [04. 성능 최적화: 인덱싱과 전문 검색(Full Text Search)](week-1/04.search-optimization-and-indexing.md)
 
 #### 학습 포인트
 
-* AI 이전 단계의 Corpus 구축
-* 데이터 품질의 중요성
-* 외부 API는 검색 수단이 아님
+* 데이터 구축(Corpus)과 이벤트 기반 아키텍처(EDA) 이해
+* QueryDSL을 활용한 타입 세이프(Type-safe) 동적 쿼리
+* 디자인 시스템(Tabler)과 레이아웃 엔진 활용 능력
+* RDBMS 검색의 성능 한계와 인덱싱(B-Tree, GIN) 전략
 
 ---
 
-### Week 2 — 검색의 한계와 Vector 검색
+### Week 2 — 검색의 진화: 벡터 검색(Vector Search)
 
 #### 주요 흐름
 
-* LIKE / Full Text 검색 구현
-* 인덱스 미사용 문제 관찰
-* 검색 품질 한계 체감
-* pgvector 컬럼 추가
-* 임베딩 생성 Batch
-* 자연어 검색 도입
+* [01. 한계 체감: 키워드 검색의 품질 문제 분석](week-2/01.search-quality-limitations.md)
+* [02. 환경 구축: PostgreSQL pgvector 설정](week-2/02.add-pgvector-column.md)
+* [03. 지식 수치화: AI 임베딩(Embedding) 생성 Batch](week-2/03.embedding-generation-batch.md)
+* [04. 의미 검색: 자연어 기반 벡터 검색 도입](week-2/04.natural-language-search.md)
 
 #### 학습 포인트
 
-* 검색 문제는 SQL만의 문제가 아님
-* 임베딩은 AI의 첫 실전 적용
-* LLM 없는 AI 활용
+* **의미 기반 검색(Semantic Search)**: 키워드 매칭의 한계를 이해하고 벡터 공간에서의 유사도 검색 원리를 습득합니다.
+* **벡터 데이터베이스 활용**: PostgreSQL `pgvector`를 통해 비정형 데이터(텍스트)를 수치화하여 저장하고 검색하는 실무 기법을 익힙니다.
+* **AI 모델 통합**: 외부 임베딩 모델 API를 백엔드 서비스와 연동하고 대량 데이터를 처리하는 배치 프로세스를 경험합니다.
 
 ---
 

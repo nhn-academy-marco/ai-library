@@ -8,8 +8,11 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * 도서 검색 응답 DTO
+ */
 @Getter
-@NoArgsConstructor // Querydsl이나 기타 프레임워크에서 리플렉션을 위해 필요할 수 있음
+@NoArgsConstructor
 public class BookSearchResponse {
 
     private Long id;

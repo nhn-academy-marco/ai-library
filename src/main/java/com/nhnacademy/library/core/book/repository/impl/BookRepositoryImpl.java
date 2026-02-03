@@ -6,10 +6,13 @@ import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import com.nhnacademy.library.core.book.dto.QBookSearchResponse;
 import com.nhnacademy.library.core.book.repository.BookRepositoryCustom;
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -26,7 +29,7 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
     QBook book = QBook.book;
 
     @Override
-    public List<BookSearchResponse> search(Pageable pageable, BookSearchRequest request) {
+    public Page<BookSearchResponse> search(Pageable pageable, BookSearchRequest request) {
 
         List<BookSearchResponse> bookSearchResponseList = queryFactory
                 .from(book)
@@ -53,25 +56,36 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                 .where(commonWhere(request))
                 .fetchCount();
 
-        return new PageImpl<>(bookSearchResponseList, pageable, totalCount).getContent();
+        return new PageImpl<>(bookSearchResponseList, pageable, totalCount);
     }
 
     private BooleanBuilder commonWhere(BookSearchRequest request) {
         BooleanBuilder builder = new BooleanBuilder();
 
-        if (StringUtils.isEmpty(request.keyword())) {
-            builder
-                    .or(book.bookContent.contains(request.keyword()))
-                    .or(book.authorName.contains(request.keyword()))
-                    .or(book.publisherName.contains(request.keyword()))
-                    .or(book.subtitle.contains(request.keyword()))
-                    .or(book.title.contains(request.keyword()))
-                    .or(book.volumeTitle.contains(request.keyword()));
+        if (StringUtils.isNotEmpty(request.keyword())) {
+            String keyword = request.keyword();
+
+            // 1. LIKE 검색 (기존)
+            builder.or(book.title.contains(keyword))
+                    .or(book.authorName.contains(keyword))
+                    .or(book.publisherName.contains(keyword))
+                    .or(book.subtitle.contains(keyword))
+                    .or(book.volumeTitle.contains(keyword));
+
+            // 2. Full Text Search (PostgreSQL 전용)
+            // book_content 필드에 대해 전문 검색 적용
+            // plainto_tsquery를 사용하여 검색어를 tsquery로 변환하고 @@ 연산자로 매칭 확인
+            // 하이버네이트 6의 SyntaxException을 방지하기 위해 전체를 하나의 SQL 템플릿으로 처리
+            BooleanExpression fts = Expressions.booleanTemplate(
+                    "function('ts_match_korean', {0}, {1}) = true",
+                    book.bookContent,
+                    keyword
+            );
+            builder.or(fts);
         }
 
         if (StringUtils.isNotEmpty(request.isbn())) {
-            builder
-                    .or(book.isbn.eq(request.isbn()));
+            builder.and(book.isbn.eq(request.isbn()));
         }
 
         return builder;

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/default}">
+<head>
+    <title>도서 검색</title>
+    <style>
+        .book-card { height: 100%; }
+        .book-img { height: 200px; overflow: hidden; background-color: #f8f9fa; }
+    </style>
+</head>
+<body>
+
+<div layout:fragment="content">
+    <div class="page-header d-print-none mb-4">
+        <div class="row align-items-center">
+            <div class="col">
+                <h2 class="page-title">
+                    도서 검색
+                </h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form action="/" method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">ISBN</label>
+                            <input type="text" name="isbn" class="form-control" placeholder="ISBN 검색" th:value="${request.isbn()}">
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label">키워드</label>
+                            <input type="text" name="keyword" class="form-control" placeholder="제목, 저자, 출판사, 내용 등" th:value="${request.keyword()}">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">검색</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row row-cards">
+        <div class="col-12 mb-2">
+            <p th:if="${page != null}" class="text-muted">
+                총 <span th:text="${page.totalElements}" class="fw-bold">0</span>권의 도서가 검색되었습니다.
+            </p>
+        </div>
+
+        <div th:each="book : ${books}" class="col-sm-6 col-lg-4">
+            <div class="card book-card">
+                <div class="card-img-top book-img d-flex align-items-center justify-content-center bg-light">
+                    <a th:href="@{/books/{id}(id=${book.id})}" class="d-block w-100 h-100 d-flex align-items-center justify-content-center">
+                        <img th:if="${book.imageUrl != null && !book.imageUrl.isEmpty()}" 
+                             th:src="${book.imageUrl}" 
+                             class="img-fluid" style="max-height: 200px;" alt="도서 이미지">
+                        <div th:unless="${book.imageUrl != null && !book.imageUrl.isEmpty()}" class="text-secondary text-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-photo-off mb-2" width="48" height="48" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M15 8h.01" />
+                                <path d="M7 3h10a3 3 0 0 1 3 3v10m-1 3h-12a3 3 0 0 1 -3 -3v-12a3 3 0 0 1 3 -3" />
+                                <path d="M3 3l18 18" />
+                                <path d="M4 15l4 -4c.928 -.893 2.072 -.893 3 0l5 5" />
+                                <path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l2 2" />
+                            </svg>
+                            <div class="small">이미지 없음</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="card-body">
+                    <h3 class="card-title text-truncate">
+                        <a th:href="@{/books/{id}(id=${book.id})}" th:text="${book.title}" class="text-reset">도서 제목</a>
+                    </h3>
+                    <div class="text-muted mb-2" th:text="${book.authorName}">저자</div>
+                    <div class="small">
+                        <div class="text-muted">출판사: <span th:text="${book.publisherName}">출판사</span></div>
+                        <div class="text-muted">출판일: <span th:text="${book.editionPublishDate}">2021-01-01</span></div>
+                        <div class="text-muted">ISBN: <span th:text="${book.isbn}">ISBN</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 페이징 처리 -->
+    <div th:replace="~{fragments/pagination :: pagination(${page}, '/', ${request})}"></div>
+</div>
+
+</body>
+</html>
