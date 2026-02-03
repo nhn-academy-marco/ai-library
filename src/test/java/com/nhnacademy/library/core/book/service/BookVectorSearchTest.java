@@ -58,7 +58,8 @@ class BookVectorSearchTest {
         PageRequest pageable = PageRequest.of(0, 5);
 
         // When
-        Page<BookSearchResponse> results = bookSearchService.searchBooks(pageable, request);
+        BookSearchService.SearchResult searchResult = bookSearchService.searchBooks(pageable, request);
+        Page<BookSearchResponse> results = searchResult.getBooks();
 
         // Then
         assertThat(results).isNotNull();
