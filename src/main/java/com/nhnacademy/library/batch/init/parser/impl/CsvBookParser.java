@@ -19,11 +19,10 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+
 
 @Component
 @Slf4j
@@ -51,12 +50,12 @@ public class CsvBookParser implements BooKParser {
         log.info("Starting CSV parsing with properties: {}", initProperties);
 
         try(
-                Reader reader = new InputStreamReader(getInputStream(initProperties.getBookFile()), "UTF-8");
+                Reader reader = new InputStreamReader(getInputStream(initProperties.getBookFile()), StandardCharsets.UTF_8);
                 CSVParser parser = CSVFormat.DEFAULT
                         .withFirstRecordAsHeader()
                         .withIgnoreHeaderCase()
                         .withTrim()
-                        .parse(reader);
+                        .parse(reader)
         ){
 
             for (CSVRecord record : parser.getRecords()) {
