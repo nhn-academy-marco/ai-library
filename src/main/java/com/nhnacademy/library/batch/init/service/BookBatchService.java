@@ -19,17 +19,17 @@ public class BookBatchService {
 
     @Transactional
     public void initializeBooks(List<BookRawData> buffer, int batchSize) {
-        log.info("buffer size:{}",buffer.size());
-        log.info("batch size:{}",batchSize);
-        log.info("delete all books");
+        log.info("Starting book initialization. Buffer size: {}, Batch size: {}", buffer.size(), batchSize);
+        log.info("Deleting all existing books before batch load.");
         bookRepository.deleteAll();
         bookRepository.flush();
 
         for (int i = 0; i < buffer.size(); i += batchSize) {
-            log.info("save batch:{}",i);
             int endIndex = Math.min(i + batchSize, buffer.size());
+            log.debug("Saving batch from {} to {}", i, endIndex);
             List<BookRawData> batch = buffer.subList(i, endIndex);
             bookRepository.saveAll(BookMapper.toEntity(batch));
         }
+        log.info("Book initialization completed.");
     }
 }

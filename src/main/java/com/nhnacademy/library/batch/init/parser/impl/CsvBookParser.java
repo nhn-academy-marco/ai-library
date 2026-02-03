@@ -31,13 +31,25 @@ import java.util.Objects;
 public class CsvBookParser implements BooKParser {
     private final InitProperties initProperties;
     private static final String DEFAULT_DATE_FORMAT_NO_LINE = "yyyyMMdd";
+    private static final String CSV_HEADER_SEQ = "SEQ_NO";
+    private static final String CSV_HEADER_ISBN = "ISBN_THIRTEEN_NO";
+    private static final String CSV_HEADER_VOLUME_TITLE = "VLM_NM";
+    private static final String CSV_HEADER_TITLE = "TITLE_NM";
+    private static final String CSV_HEADER_AUTHOR = "AUTHR_NM";
+    private static final String CSV_HEADER_PUBLISHER = "PUBLISHER_NM";
+    private static final String CSV_HEADER_PUB_DATE = "PBLICTE_DE";
+    private static final String CSV_HEADER_PRICE = "PRC_VALUE";
+    private static final String CSV_HEADER_IMAGE = "IMAGE_URL";
+    private static final String CSV_HEADER_CONTENT = "BOOK_INTRCN_CN";
+    private static final String CSV_HEADER_SUBTITLE = "TITLE_SBST_NM";
+    private static final String CSV_HEADER_EDITION_DATE = "TWO_PBLICTE_DE";
+
     private final ApplicationEventPublisher applicationEventPublisher;
 
     @Override
     public void parse() throws UnsupportedEncodingException {
-        log.info("initProperties:{}",initProperties);
+        log.info("Starting CSV parsing with properties: {}", initProperties);
 
-        List<BookRawData> books = new ArrayList<>();
         try(
                 Reader reader = new InputStreamReader(getInputStream(initProperties.getBookFile()), "UTF-8");
                 CSVParser parser = CSVFormat.DEFAULT
@@ -51,40 +63,38 @@ public class CsvBookParser implements BooKParser {
                 BookRawData book = new BookRawData();
 
                 // Long 변환
-                String seq = record.get("SEQ_NO");
+                String seq = record.get(CSV_HEADER_SEQ);
                 if (!seq.isBlank()) {
                     book.setId(Long.parseLong(seq));
                 }
 
-                book.setIsbn(record.get("ISBN_THIRTEEN_NO"));
-                book.setVolumeTitle(record.get("VLM_NM"));
-                book.setTitle(record.get("TITLE_NM"));
-                book.setAuthorName(record.get("AUTHR_NM"));
-                book.setPublisherName(record.get("PUBLISHER_NM"));
+                book.setIsbn(record.get(CSV_HEADER_ISBN));
+                book.setVolumeTitle(record.get(CSV_HEADER_VOLUME_TITLE));
+                book.setTitle(record.get(CSV_HEADER_TITLE));
+                book.setAuthorName(record.get(CSV_HEADER_AUTHOR));
+                book.setPublisherName(record.get(CSV_HEADER_PUBLISHER));
 
-                String pbDate = record.get("PBLICTE_DE");
+                String pbDate = record.get(CSV_HEADER_PUB_DATE);
                 if (!pbDate.isBlank()) {
                     book.setFirstPublishDate(LocalDate.parse(pbDate, DateTimeFormatter.ofPattern(DEFAULT_DATE_FORMAT_NO_LINE)));
                 }
 
-                String price = record.get("PRC_VALUE");
+                String price = record.get(CSV_HEADER_PRICE);
                 if (!price.isBlank()) {
                     book.setPrice(new BigDecimal(price));
                 }
 
-                book.setImageUrl(record.get("IMAGE_URL"));
-                book.setBookContent(record.get("BOOK_INTRCN_CN"));
-                book.setSubtitle(record.get("TITLE_SBST_NM"));
+                book.setImageUrl(record.get(CSV_HEADER_IMAGE));
+                book.setBookContent(record.get(CSV_HEADER_CONTENT));
+                book.setSubtitle(record.get(CSV_HEADER_SUBTITLE));
 
-                String editionDate = record.get("TWO_PBLICTE_DE");
+                String editionDate = record.get(CSV_HEADER_EDITION_DATE);
                 if (!editionDate.isBlank()) {
                     book.setEditionPublishDate(convertToLocalDate(editionDate));
                 }
 
                 applicationEventPublisher.publishEvent(new BookParsedEvent(book));
-
-                log.info("book:{}",book);
-                //books.add(book);
+                log.debug("Parsed book: {}", book);
             }//end for
 
             applicationEventPublisher.publishEvent(new BookParsingComplateEvent());
