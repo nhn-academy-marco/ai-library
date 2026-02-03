@@ -6,6 +6,8 @@ import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import com.nhnacademy.library.core.book.dto.QBookSearchResponse;
 import com.nhnacademy.library.core.book.repository.BookRepositoryCustom;
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.dsl.NumberTemplate;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -30,6 +32,10 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
 
     @Override
     public Page<BookSearchResponse> search(Pageable pageable, BookSearchRequest request) {
+
+        if ("vector".equals(request.searchType()) && request.vector() != null) {
+            return vectorSearch(pageable, request);
+        }
 
         List<BookSearchResponse> bookSearchResponseList = queryFactory
                 .from(book)
@@ -57,6 +63,55 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                 .fetchCount();
 
         return new PageImpl<>(bookSearchResponseList, pageable, totalCount);
+    }
+
+    @Override
+    public Page<BookSearchResponse> vectorSearch(Pageable pageable, BookSearchRequest request) {
+        String vectorString = arrayToVectorString(request.vector());
+
+        NumberTemplate<Double> similarityTemplate = Expressions.numberTemplate(Double.class, "function('vector_cosine_similarity', {0})", vectorString);
+
+        List<BookSearchResponse> bookSearchResponseList = queryFactory
+                .from(book)
+                .select(
+                        Projections.constructor(
+                                BookSearchResponse.class,
+                                book.id,
+                                book.isbn,
+                                book.title,
+                                book.volumeTitle,
+                                book.authorName,
+                                book.publisherName,
+                                book.price,
+                                book.editionPublishDate,
+                                book.imageUrl,
+                                similarityTemplate
+                        )
+                )
+                .where(Expressions.booleanTemplate("embedding is not null"))
+                .orderBy(similarityTemplate.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        long totalCount = queryFactory
+                .selectFrom(book)
+                .where(Expressions.booleanTemplate("embedding is not null"))
+                .fetchCount();
+
+        return new PageImpl<>(bookSearchResponseList, pageable, totalCount);
+    }
+
+    private String arrayToVectorString(float[] vector) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < vector.length; i++) {
+            sb.append(vector[i]);
+            if (i < vector.length - 1) {
+                sb.append(",");
+            }
+        }
+        sb.append("]");
+        return sb.toString();
     }
 
     private BooleanBuilder commonWhere(BookSearchRequest request) {

@@ -24,6 +24,8 @@ public class BookSearchResponse {
     private BigDecimal price;
     private LocalDate editionPublishDate;
     private String imageUrl;
+    private Double similarity;
+    private Double rrfScore;
 
     @QueryProjection // 빌드 시 QBookSearchResponse를 생성하게 함
     public BookSearchResponse(Long id, String isbn, String title, String volumeTitle,
@@ -38,6 +40,21 @@ public class BookSearchResponse {
         this.price = price;
         this.editionPublishDate = editionPublishDate;
         this.imageUrl = imageUrl;
+    }
+
+    @QueryProjection
+    public BookSearchResponse(Long id, String isbn, String title, String volumeTitle,
+                              String authorName, String publisherName, BigDecimal price,
+                              LocalDate editionPublishDate, String imageUrl, Double similarity) {
+        this(id, isbn, title, volumeTitle, authorName, publisherName, price, editionPublishDate, imageUrl);
+        this.similarity = similarity;
+    }
+
+    public BookSearchResponse(Long id, String isbn, String title, String volumeTitle,
+                              String authorName, String publisherName, BigDecimal price,
+                              LocalDate editionPublishDate, String imageUrl, Double similarity, Double rrfScore) {
+        this(id, isbn, title, volumeTitle, authorName, publisherName, price, editionPublishDate, imageUrl, similarity);
+        this.rrfScore = rrfScore;
     }
 
     // 기존 Entity 변환 로직 유지

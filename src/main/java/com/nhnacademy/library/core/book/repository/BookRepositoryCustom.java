@@ -9,4 +9,5 @@ import org.springframework.data.repository.NoRepositoryBean;
 @NoRepositoryBean
 public interface BookRepositoryCustom {
     Page<BookSearchResponse> search(Pageable pageable, BookSearchRequest request);
+    Page<BookSearchResponse> vectorSearch(Pageable pageable, BookSearchRequest request);
 }

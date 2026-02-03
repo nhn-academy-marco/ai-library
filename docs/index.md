@@ -111,6 +111,7 @@ src/main/java/com/nhnacademy/library
 * [02. 환경 구축: PostgreSQL pgvector 설정](week-2/02.add-pgvector-column.md)
 * [03. 지식 수치화: AI 임베딩(Embedding) 생성 Batch](week-2/03.embedding-generation-batch.md)
 * [04. 의미 검색: 자연어 기반 벡터 검색 도입](week-2/04.natural-language-search.md)
+* [05. 하이브리드 검색: 키워드와 벡터의 결합](week-2/05.hybrid-search.md)
 
 #### 학습 포인트
 
