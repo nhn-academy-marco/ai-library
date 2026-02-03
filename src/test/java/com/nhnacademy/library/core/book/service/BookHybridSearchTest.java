@@ -75,8 +75,9 @@ class BookHybridSearchTest {
         String keyword = "스프링 서버";
         BookSearchRequest request = new BookSearchRequest(keyword, null, "hybrid", null);
         PageRequest pageable = PageRequest.of(0, 10);
-
-        Page<BookSearchResponse> results = bookSearchService.searchBooks(pageable, request);
+        
+        BookSearchService.SearchResult searchResult = bookSearchService.searchBooks(pageable, request);
+        Page<BookSearchResponse> results = searchResult.getBooks();
 
         // Then
         assertThat(results).isNotNull();
