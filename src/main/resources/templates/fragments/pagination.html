@@ -14,7 +14,7 @@
     <ul class="pagination">
         <!-- 이전 페이지 -->
         <li class="page-item" th:classappend="${!page.hasPrevious()} ? 'disabled'">
-            <a class="page-link" th:href="@{${baseUrl}(page=${page.number - 1}, isbn=${request.isbn()}, keyword=${request.keyword()})}" tabindex="-1">
+            <a class="page-link" th:href="@{${baseUrl}(page=${page.number - 1}, isbn=${request.isbn()}, keyword=${request.keyword()}, searchType=${request.searchType()})}" tabindex="-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 6l-6 6l6 6" /></svg>
                 prev
             </a>
@@ -24,12 +24,12 @@
         <li th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
             th:if="${i >= (page.number / 10) * 10 && i < (page.number / 10 + 1) * 10}"
             class="page-item" th:classappend="${i == page.number} ? 'active'">
-            <a class="page-link" th:href="@{${baseUrl}(page=${i}, isbn=${request.isbn()}, keyword=${request.keyword()})}" th:text="${i + 1}">1</a>
+            <a class="page-link" th:href="@{${baseUrl}(page=${i}, isbn=${request.isbn()}, keyword=${request.keyword()}, searchType=${request.searchType()})}" th:text="${i + 1}">1</a>
         </li>
 
         <!-- 다음 페이지 -->
         <li class="page-item" th:classappend="${!page.hasNext()} ? 'disabled'">
-            <a class="page-link" th:href="@{${baseUrl}(page=${page.number + 1}, isbn=${request.isbn()}, keyword=${request.keyword()})}">
+            <a class="page-link" th:href="@{${baseUrl}(page=${page.number + 1}, isbn=${request.isbn()}, keyword=${request.keyword()}, searchType=${request.searchType()})}">
                 next
                 <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
             </a>

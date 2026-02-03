@@ -27,11 +27,19 @@
             <div class="card">
                 <div class="card-body">
                     <form action="/" method="get" class="row g-3">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label">검색 방식</label>
+                            <select name="searchType" class="form-select">
+                                <option value="keyword" th:selected="${request.searchType() == 'keyword'}">키워드 검색</option>
+                                <option value="vector" th:selected="${request.searchType() == 'vector'}">vector 검색</option>
+                                <option value="hybrid" th:selected="${request.searchType() == 'hybrid'}">하이브리드 검색</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label">ISBN</label>
                             <input type="text" name="isbn" class="form-control" placeholder="ISBN 검색" th:value="${request.isbn()}">
                         </div>
-                        <div class="col-md-7">
+                        <div class="col-md-6">
                             <label class="form-label">키워드</label>
                             <input type="text" name="keyword" class="form-control" placeholder="제목, 저자, 출판사, 내용 등" th:value="${request.keyword()}">
                         </div>
@@ -72,6 +80,10 @@
                     </a>
                 </div>
                 <div class="card-body">
+                    <div th:if="${book.similarity != null || book.rrfScore != null}" class="mb-2">
+                        <span th:if="${book.similarity != null}" class="badge bg-green-lt" th:text="${#numbers.formatPercent(book.similarity, 1, 1)} + ' 일치'">95% 일치</span>
+                        <span th:if="${book.rrfScore != null}" class="badge bg-blue-lt" th:text="'RRF: ' + ${#numbers.formatDecimal(book.rrfScore, 1, 4)}">RRF: 0.0333</span>
+                    </div>
                     <h3 class="card-title text-truncate">
                         <a th:href="@{/books/{id}(id=${book.id})}" th:text="${book.title}" class="text-reset">도서 제목</a>
                     </h3>

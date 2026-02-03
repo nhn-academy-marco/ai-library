@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -73,6 +75,15 @@ public class Book {
 
     @Column(name="updated_at")
     private OffsetDateTime updatedAt;
+
+    @Convert(converter = VectorConverter.class)
+    @Column(name = "embedding", columnDefinition = "vector(1024)")
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    private float[] embedding;
+
+    public void updateEmbedding(float[] embedding) {
+        this.embedding = embedding;
+    }
 
     @PrePersist
     protected void onCreate() {

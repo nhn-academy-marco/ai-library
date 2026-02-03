@@ -22,5 +22,10 @@ public class PostgreSQLFunctionContributor implements FunctionContributor {
                 .registerPattern("ts_match_korean", 
                         "to_tsvector('korean', ?1) @@ plainto_tsquery('korean', ?2)",
                         functionContributions.getTypeConfiguration().getBasicTypeRegistry().resolve(StandardBasicTypes.BOOLEAN));
+
+        functionContributions.getFunctionRegistry()
+                .registerPattern("vector_cosine_similarity",
+                        "(1.0 - (embedding <=> cast(?1 as vector)))",
+                        functionContributions.getTypeConfiguration().getBasicTypeRegistry().resolve(StandardBasicTypes.DOUBLE));
     }
 }

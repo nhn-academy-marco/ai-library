@@ -1,11 +1,14 @@
 # Guidelines
 
-
+## 공통 GuideLines
+* 맞춤법, 띄어쓰기
+* 
 ## 용어 사용 Guidelines
 
 * 가능한 경우 **공식 용어**를 사용합니다.
 * 영어 표현이 더 적절하거나 일반적으로 사용되는 경우에는 영어 원문을 그대로 사용합니다.
 * 선택한 용어는 모든 문서와 코드 주석에서 **일관되게 사용**합니다.
+
 
 ## 코드 작성 공통 Guidelines
 
@@ -19,6 +22,8 @@
     * 로직이 복잡하면 코드 내부 주석 추가
     * 의미가 명확하지 않은 값은 주석(Comment)으로 설명
 
+* unusend improt 제거
+
 ## Backend 작성 Guidelines
 
 * **Spring Boot 사용**
@@ -28,8 +33,8 @@
 * **REST API 설계**
     * HTTP Status Code를 표준에 맞게 반환
     * DTO를 사용해 요청(Request)/응답(Response) 정의
-        * 요청 객체 예시: `BookRequest`
-        * 응답 객체 예시: `BookResponse`
+        * 요청 객체 예시: `BookSearchRequest`
+        * 응답 객체 예시: `BookSearchResponse`
 * Dto Validation 처리 
   * 대상 : 모든 Request dto
 
@@ -47,6 +52,9 @@
         * 디버깅용: `log.debug()`
         * 정보 전달용: `log.info()`
         * 에러: `log.error()`
+
+## Test Code Guidelines
+* @DisplayName annotation을 활용해서 어떤 테스트 인지 설명을 작성한다.
 
 
 ## Frontend 작성 Guidelines

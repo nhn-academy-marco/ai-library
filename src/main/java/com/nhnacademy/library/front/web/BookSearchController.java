@@ -3,6 +3,8 @@ import com.nhnacademy.library.core.book.dto.BookSearchRequest;
 import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import com.nhnacademy.library.core.book.dto.BookViewResponse;
 import com.nhnacademy.library.core.book.service.BookSearchService;
+import java.util.List;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -10,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,11 +36,20 @@ public class BookSearchController {
      * @return index 뷰 이름
      */
     @GetMapping("/")
-    public String index(@ModelAttribute BookSearchRequest bookSearchRequest,
+    public String index(@Valid @ModelAttribute BookSearchRequest bookSearchRequest,
+                        BindingResult bindingResult,
                         @PageableDefault(size = 24) Pageable pageable,
                         Model model) {
 
         log.debug("GET / with request: {}", bookSearchRequest);
+
+        if (bindingResult.hasErrors()) {
+            model.addAttribute("books", List.of());
+            model.addAttribute("page", null);
+            model.addAttribute("request", bookSearchRequest);
+            return "index/index";
+        }
+
         Page<BookSearchResponse> results = bookSearchService.searchBooks(pageable, bookSearchRequest);
 
         model.addAttribute("books", results.getContent());

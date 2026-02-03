@@ -6,7 +6,6 @@ import com.nhnacademy.library.batch.init.parser.BooKParser;
 import com.nhnacademy.library.batch.init.dto.BookRawData;
 import com.nhnacademy.library.batch.init.properties.InitProperties;
 import com.nhnacademy.library.batch.init.service.BookBatchService;
-import com.nhnacademy.library.core.book.repository.BookRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
