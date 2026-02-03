@@ -24,13 +24,14 @@ public class BookSearchResponse {
     private BigDecimal price;
     private LocalDate editionPublishDate;
     private String imageUrl;
+    private String bookContent;
     private Double similarity;
     private Double rrfScore;
 
     @QueryProjection // 빌드 시 QBookSearchResponse를 생성하게 함
     public BookSearchResponse(Long id, String isbn, String title, String volumeTitle,
                               String authorName, String publisherName, BigDecimal price,
-                              LocalDate editionPublishDate, String imageUrl) {
+                              LocalDate editionPublishDate, String imageUrl, String bookContent) {
         this.id = id;
         this.isbn = isbn;
         this.title = title;
@@ -40,20 +41,21 @@ public class BookSearchResponse {
         this.price = price;
         this.editionPublishDate = editionPublishDate;
         this.imageUrl = imageUrl;
+        this.bookContent = bookContent;
     }
 
     @QueryProjection
     public BookSearchResponse(Long id, String isbn, String title, String volumeTitle,
                               String authorName, String publisherName, BigDecimal price,
-                              LocalDate editionPublishDate, String imageUrl, Double similarity) {
-        this(id, isbn, title, volumeTitle, authorName, publisherName, price, editionPublishDate, imageUrl);
+                              LocalDate editionPublishDate, String imageUrl, String bookContent, Double similarity) {
+        this(id, isbn, title, volumeTitle, authorName, publisherName, price, editionPublishDate, imageUrl, bookContent);
         this.similarity = similarity;
     }
 
     public BookSearchResponse(Long id, String isbn, String title, String volumeTitle,
                               String authorName, String publisherName, BigDecimal price,
-                              LocalDate editionPublishDate, String imageUrl, Double similarity, Double rrfScore) {
-        this(id, isbn, title, volumeTitle, authorName, publisherName, price, editionPublishDate, imageUrl, similarity);
+                              LocalDate editionPublishDate, String imageUrl, String bookContent, Double similarity, Double rrfScore) {
+        this(id, isbn, title, volumeTitle, authorName, publisherName, price, editionPublishDate, imageUrl, bookContent, similarity);
         this.rrfScore = rrfScore;
     }
 
@@ -68,7 +70,8 @@ public class BookSearchResponse {
                 book.getPublisherName(),
                 book.getPrice(),
                 book.getEditionPublishDate(),
-                book.getImageUrl()
+                book.getImageUrl(),
+                book.getBookContent()
         );
     }
 }

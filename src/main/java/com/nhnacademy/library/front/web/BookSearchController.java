@@ -50,10 +50,11 @@ public class BookSearchController {
             return "index/index";
         }
 
-        Page<BookSearchResponse> results = bookSearchService.searchBooks(pageable, bookSearchRequest);
+        BookSearchService.SearchResult searchResult = bookSearchService.searchBooks(pageable, bookSearchRequest);
 
-        model.addAttribute("books", results.getContent());
-        model.addAttribute("page", results);
+        model.addAttribute("books", searchResult.getBooks().getContent());
+        model.addAttribute("page", searchResult.getBooks());
+        model.addAttribute("aiResponse", searchResult.getAiResponse());
         model.addAttribute("request", bookSearchRequest);
 
         return "index/index";

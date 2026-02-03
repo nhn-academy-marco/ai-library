@@ -49,7 +49,8 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                                 book.publisherName,
                                 book.price,
                                 book.editionPublishDate,
-                                book.imageUrl
+                                book.imageUrl,
+                                book.bookContent
                         )
                 )
                 .where(commonWhere(request))
@@ -85,6 +86,7 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                                 book.price,
                                 book.editionPublishDate,
                                 book.imageUrl,
+                                book.bookContent,
                                 similarityTemplate
                         )
                 )

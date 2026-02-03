@@ -5,6 +5,8 @@ import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import com.nhnacademy.library.core.book.dto.BookViewResponse;
 import com.nhnacademy.library.core.book.exception.BookNotFoundException;
 import com.nhnacademy.library.core.book.repository.BookRepository;
+import lombok.Builder;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -30,6 +32,7 @@ public class BookSearchService {
 
     private final BookRepository bookRepository;
     private final EmbeddingService embeddingService;
+    private final BookAiService bookAiService;
 
     private static final int DEFAULT_BATCH_SIZE = 100;
     private static final int RRF_K = 60;
@@ -42,20 +45,68 @@ public class BookSearchService {
      * @return 페이징된 도서 검색 결과
      */
     @Transactional(readOnly = true)
-    public Page<BookSearchResponse> searchBooks(Pageable pageable, BookSearchRequest request) {
+    public SearchResult searchBooks(Pageable pageable, BookSearchRequest request) {
         log.info("Searching books with request: {}, pageable: {}", request, pageable);
 
-        if (("vector".equals(request.searchType()) || "hybrid".equals(request.searchType()))
+        if (("vector".equals(request.searchType()) || "hybrid".equals(request.searchType()) || "rag".equals(request.searchType()))
                 && request.keyword() != null && !request.keyword().isBlank()) {
             float[] vector = embeddingService.getEmbedding(request.keyword());
             request = new BookSearchRequest(request.keyword(), request.isbn(), request.searchType(), vector);
         }
 
+        Page<BookSearchResponse> results;
+        String aiResponse = null;
+
         if ("hybrid".equals(request.searchType()) && request.vector() != null) {
-            return hybridSearch(pageable, request);
+            results = hybridSearch(pageable, request);
+        } else if ("rag".equals(request.searchType()) && request.vector() != null) {
+            results = bookRepository.vectorSearch(pageable, request);
+            aiResponse = generateAiResponse(request.keyword(), results.getContent());
+        } else {
+            results = bookRepository.search(pageable, request);
         }
 
-        return bookRepository.search(pageable, request);
+        return SearchResult.builder()
+                .books(results)
+                .aiResponse(aiResponse)
+                .build();
+    }
+
+    private String generateAiResponse(String question, List<BookSearchResponse> books) {
+        if (books.isEmpty()) {
+            return "검색 결과가 없어 답변을 생성할 수 없습니다.";
+        }
+
+        StringBuilder context = new StringBuilder();
+        int index = 1;
+        for (BookSearchResponse book : books) {
+            context.append(String.format("%d. 제목: %s / 저자: %s\n", index++, book.getTitle(), book.getAuthorName()));
+            if (book.getBookContent() != null && !book.getBookContent().isBlank()) {
+                context.append(String.format("   내용: %s\n", book.getBookContent()));
+            }
+        }
+
+        String prompt = String.format("""
+            당신은 도서관의 전문 사서입니다. 
+            아래 제공된 [참고 도서 리스트]를 바탕으로 사용자의 질문에 친절하게 답변해 주세요.
+            리스트에 없는 책은 절대로 추천하지 마세요.
+            정보가 부족하다면 정직하게 모른다고 답해 주세요.
+
+            [참고 도서 리스트]
+            %s
+            
+            사용자 질문: %s
+            답변:
+            """, context.toString(), question);
+
+        return bookAiService.askAboutBooks(prompt);
+    }
+
+    @Getter
+    @Builder
+    public static class SearchResult {
+        private final Page<BookSearchResponse> books;
+        private final String aiResponse;
     }
 
     private Page<BookSearchResponse> hybridSearch(Pageable pageable, BookSearchRequest request) {
@@ -88,7 +139,7 @@ public class BookSearchService {
                 bookMap.put(b.getId(), new BookSearchResponse(
                         existing.getId(), existing.getIsbn(), existing.getTitle(), existing.getVolumeTitle(),
                         existing.getAuthorName(), existing.getPublisherName(), existing.getPrice(),
-                        existing.getEditionPublishDate(), existing.getImageUrl(), b.getSimilarity()
+                        existing.getEditionPublishDate(), existing.getImageUrl(), existing.getBookContent(), b.getSimilarity()
                 ));
             }
         }
@@ -112,7 +163,7 @@ public class BookSearchService {
                 content.add(new BookSearchResponse(
                         original.getId(), original.getIsbn(), original.getTitle(), original.getVolumeTitle(),
                         original.getAuthorName(), original.getPublisherName(), original.getPrice(),
-                        original.getEditionPublishDate(), original.getImageUrl(), original.getSimilarity(),
+                        original.getEditionPublishDate(), original.getImageUrl(), original.getBookContent(), original.getSimilarity(),
                         rrfScore
                 ));
             }
