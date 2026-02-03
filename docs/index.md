@@ -125,9 +125,9 @@ src/main/java/com/nhnacademy/library
 
 #### 주요 흐름
 
-* Vector 검색 결과 기반 Context 구성
-* LLM 호출
-* 도서 추천 / 요약 / 설명 생성
+* [01. RAG 이해: Retrieval-Augmented Generation 개념과 구조](week-3/01.understanding-rag.md)
+* [02. Context 구성: Vector 검색 결과 기반 프롬프트 문맥화](week-3/02.context-construction.md)
+* [03. LLM 호출과 응답 처리: 추천/요약/설명 생성](week-3/03.llm-invocation-and-response.md)
 
 #### 학습 포인트
 
