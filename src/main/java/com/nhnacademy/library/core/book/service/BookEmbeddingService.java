@@ -5,6 +5,7 @@ import com.nhnacademy.library.core.book.repository.BookRepository;
 import com.nhnacademy.library.core.book.util.TextPreprocessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -23,7 +24,7 @@ public class BookEmbeddingService {
     @Transactional
     public int processEmptyEmbeddings(int batchSize) {
         // 1. 임베딩이 없는 도서 조회
-        List<Book> booksToProcess = bookRepository.findTop10ByEmbeddingIsNull();
+        List<Book> booksToProcess = bookRepository.findAllByEmbeddingIsNull(PageRequest.of(0, batchSize));
 
         if (booksToProcess.isEmpty()) {
             return 0;

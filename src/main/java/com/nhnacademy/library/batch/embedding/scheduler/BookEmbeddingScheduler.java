@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 public class BookEmbeddingScheduler {
 
     private final BookEmbeddingService bookEmbeddingService;
-    private static final int BATCH_SIZE = 10;
+    private static final int BATCH_SIZE = 32;
 
     @Scheduled(fixedDelay = 5000)
     public void runEmbeddingBatch() {
