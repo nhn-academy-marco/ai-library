@@ -162,7 +162,6 @@
             <artifactId>spring-ai-starter-model-ollama</artifactId>
         </dependency>
 
-
     </dependencies>
 
     <dependencyManagement>
