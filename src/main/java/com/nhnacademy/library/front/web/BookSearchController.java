@@ -50,12 +50,15 @@ public class BookSearchController {
             return "index/index";
         }
 
+        long startTime = System.currentTimeMillis();
         BookSearchService.SearchResult searchResult = bookSearchService.searchBooks(pageable, bookSearchRequest);
+        long endTime = System.currentTimeMillis();
 
         model.addAttribute("books", searchResult.getBooks().getContent());
         model.addAttribute("page", searchResult.getBooks());
-        model.addAttribute("aiResponse", searchResult.getAiResponse());
+        model.addAttribute("aiRecommendations", searchResult.getAiResponse());
         model.addAttribute("request", bookSearchRequest);
+        model.addAttribute("searchTime", (endTime - startTime) / 1000.0);
 
         return "index/index";
     }
