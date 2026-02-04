@@ -2,17 +2,24 @@ package com.nhnacademy.library.core.book.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nhnacademy.library.core.book.domain.BookReview;
 import com.nhnacademy.library.core.book.dto.BookAiRecommendationResponse;
 import com.nhnacademy.library.core.book.dto.BookSearchRequest;
 import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import com.nhnacademy.library.core.book.dto.BookViewResponse;
+import com.nhnacademy.library.core.book.event.BookSearchEvent;
 import com.nhnacademy.library.core.book.exception.BookNotFoundException;
 import com.nhnacademy.library.core.book.repository.BookRepository;
+import com.nhnacademy.library.core.book.repository.BookReviewRepository;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -24,6 +31,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 도서 검색 서비스
@@ -38,6 +46,11 @@ public class BookSearchService {
     private final EmbeddingService embeddingService;
     private final BookAiService bookAiService;
     private final ObjectMapper objectMapper;
+    private final BookSearchCacheService bookSearchCacheService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final CacheManager cacheManager;
+    private final BookReviewRepository bookReviewRepository;
+    private final ReviewSummarizer reviewSummarizer;
 
     private static final int DEFAULT_BATCH_SIZE = 100;
     private static final int RRF_K = 60;
@@ -50,8 +63,29 @@ public class BookSearchService {
      * @return 페이징된 도서 검색 결과
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "bookSearchCache", key = "#request", condition = "#request.searchType() == 'rag'")
     public SearchResult searchBooks(Pageable pageable, BookSearchRequest request) {
         log.info("Searching books with request: {}, pageable: {}", request, pageable);
+        
+        // 캐시 테스트를 위해 로그 추가
+        if ("캐싱테스트".equals(request.keyword())) {
+            log.info("[CACHE_TEST] Executing searchBooks for cache test keyword");
+        }
+
+        // background warm-up 중일 때는 이벤트를 또 던지지 않도록 함
+        boolean isFromWarmUp = false;
+        for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+            if (element.getClassName().contains("BookSearchCacheService")) {
+                isFromWarmUp = true;
+                break;
+            }
+        }
+
+        // [미션 2] 전략적 캐싱: 하이브리드 검색 시 이벤트를 발생시켜 백그라운드에서 RAG 결과 캐싱 시도
+        if (!isFromWarmUp && "hybrid".equals(request.searchType()) && request.keyword() != null && !request.keyword().isBlank()) {
+            log.info("[STRATEGIC_CACHE] Publishing search event for keyword: {}", request.keyword());
+            eventPublisher.publishEvent(new BookSearchEvent(this, request.keyword()));
+        }
 
         if (("vector".equals(request.searchType()) || "hybrid".equals(request.searchType()) || "rag".equals(request.searchType()))
                 && request.keyword() != null && !request.keyword().isBlank()) {
@@ -65,8 +99,36 @@ public class BookSearchService {
         if ("hybrid".equals(request.searchType()) && request.vector() != null) {
             results = hybridSearch(pageable, request);
         } else if ("rag".equals(request.searchType()) && request.vector() != null) {
-            results = hybridSearch(pageable, request);
-            aiResponse = generateAiResponse(request.keyword(), results.getContent());
+            // RAG 검색 시 캐시 확인 (isFromWarmUp이 아닐 때만 이벤트 발행 및 폴백)
+            Cache cache = cacheManager.getCache("bookSearchCache");
+            if (!isFromWarmUp && cache != null && cache.get(request) == null) {
+                log.info("[STRATEGIC_CACHE] No RAG cache found. Publishing search event and falling back to hybrid search results.");
+                eventPublisher.publishEvent(new BookSearchEvent(this, request.keyword()));
+                
+                // 캐시가 없으면 하이브리드 검색 결과를 보여줌
+                results = hybridSearch(pageable, request);
+                aiResponse = null;
+            } else {
+                // [분리 구현] AI는 더 넓은 범위를 훑어보기 위해 Retrieval K를 넉넉히(100) 설정
+                Pageable retrievalPageable = PageRequest.of(0, DEFAULT_BATCH_SIZE);
+                Page<BookSearchResponse> retrievalResults = hybridSearch(retrievalPageable, request);
+                
+                double threshold = 0.02;
+                List<BookSearchResponse> topKBooks = retrievalResults.getContent().stream()
+                        .filter(b -> b.getRrfScore() != null && b.getRrfScore() >= threshold)
+                        .limit(5)
+                        .toList();
+                
+                if (topKBooks.isEmpty()) {
+                    log.info("No books passed the threshold (>= {}). Skipping AI response generation to save cost and avoid noise.", threshold);
+                    aiResponse = List.of();
+                } else {
+                    aiResponse = generateAiResponse(request.keyword(), topKBooks);
+                }
+
+                // 화면 결과는 사용자가 요청한 페이징 크기를 유지
+                results = hybridSearch(pageable, request);
+            }
         } else {
             results = bookRepository.search(pageable, request);
         }
@@ -78,12 +140,20 @@ public class BookSearchService {
     }
 
     private List<BookAiRecommendationResponse> generateAiResponse(String question, List<BookSearchResponse> books) {
-        if (books.isEmpty()) {
+        if (books == null || books.isEmpty()) {
             return List.of();
         }
 
+        // [미션 3] Context 재구성: RRF 점수 내림차순으로 정렬하여 가장 중요한 정보가 컨텍스트의 앞부분에 오도록 함
+        List<BookSearchResponse> sortedBooks = new ArrayList<>(books);
+        sortedBooks.sort((b1, b2) -> {
+            Double s1 = b1.getRrfScore() != null ? b1.getRrfScore() : 0.0;
+            Double s2 = b2.getRrfScore() != null ? b2.getRrfScore() : 0.0;
+            return s2.compareTo(s1);
+        });
+
         StringBuilder context = new StringBuilder();
-        for (BookSearchResponse book : books) {
+        for (BookSearchResponse book : sortedBooks) {
             context.append(String.format("ID: %d, 제목: %s, 저자: %s, 출판일: %s, 내용: %s\n",
                     book.getId(), book.getTitle(), book.getAuthorName(),
                     book.getEditionPublishDate() != null ? book.getEditionPublishDate().toString() : "알 수 없음",
@@ -99,6 +169,7 @@ public class BookSearchService {
               - 50–69: query와 간접적으로 관련, 배경 지식에 도움이 됨
               - 50 미만: 관련성이 낮으므로 출력에서 제외
             - 추천 사유("why")에는 점수를 포함하지 말고, 순수하게 이유만 설명하세요.
+            - 추천 사유("why")는 사용자에게 친절하고 공손한 어투(예: "~입니다", "~를 추천해 드립니다")로 작성하세요.
             - 최신 출간일과 query와의 직접적인 관련성을 함께 고려하세요.
             
             [출력 형식]
@@ -235,5 +306,20 @@ public class BookSearchService {
         return bookRepository.findById(id)
                 .map(BookViewResponse::from)
                 .orElseThrow(() -> new BookNotFoundException(id));
+    }
+
+    /**
+     * 도서 리뷰 요약을 생성합니다.
+     *
+     * @param bookId 도서 ID
+     * @return 요약된 리뷰 텍스트
+     */
+    public String getReviewSummary(Long bookId) {
+        log.info("Generating review summary for book id: {}", bookId);
+        List<String> reviews = bookReviewRepository.findAllByBookId(bookId).stream()
+                .map(BookReview::getContent)
+                .toList();
+        
+        return reviewSummarizer.summarizeReviews(reviews);
     }
 }

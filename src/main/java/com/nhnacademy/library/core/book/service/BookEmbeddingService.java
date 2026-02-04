@@ -72,6 +72,7 @@ public class BookEmbeddingService {
 
     private String createCombinedText(Book book) {
         String title = TextPreprocessor.preprocess(book.getTitle());
+        String volumeTitle = TextPreprocessor.preprocess(book.getVolumeTitle());
         String subtitle = TextPreprocessor.preprocess(book.getSubtitle());
         String author = TextPreprocessor.preprocess(book.getAuthorName());
         String content = TextPreprocessor.preprocess(book.getBookContent());
@@ -79,6 +80,9 @@ public class BookEmbeddingService {
         StringBuilder sb = new StringBuilder();
         if (StringUtils.hasText(title)) {
             sb.append("[제목] ").append(title).append(" ");
+        }
+        if (StringUtils.hasText(volumeTitle)) {
+            sb.append("[권차제목] ").append(volumeTitle).append(" ");
         }
         if (StringUtils.hasText(subtitle)) {
             sb.append("[부제] ").append(subtitle).append(" ");

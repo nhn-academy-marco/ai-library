@@ -52,6 +52,14 @@
         * 디버깅용: `log.debug()`
         * 정보 전달용: `log.info()`
         * 에러: `log.error()`
+      
+* JPA DDL Auto 전략 규칙 (테스트환경 포함)
+
+  * spring.jpa.hibernate.ddl-auto 설정에서
+  create, create-drop, update 전략을 절대 사용하지 않는다. 
+  * 코드 및 테스트 레벨 모두에서 JPA를 통한 스키마 자동 생성·변경을 금지한다. 
+  * 테이블 및 시퀀스 등 DB 스키마 관리는 **SQL 스크립트 또는 마이그레이션 도구(Flyway/Liquibase)**를 통해서만 수행한다. 
+  * JPA ddl-auto 값은 validate로만 설정하여 엔티티 매핑과 실제 DB 스키마 간의 정합성 검증 용도로만 사용한다.
 
 ## Test Code Guidelines
 * @DisplayName annotation을 활용해서 어떤 테스트 인지 설명을 작성한다.
