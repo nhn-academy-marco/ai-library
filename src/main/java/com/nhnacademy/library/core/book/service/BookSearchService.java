@@ -11,28 +11,23 @@ import com.nhnacademy.library.core.book.event.BookSearchEvent;
 import com.nhnacademy.library.core.book.exception.BookNotFoundException;
 import com.nhnacademy.library.core.book.repository.BookRepository;
 import com.nhnacademy.library.core.book.repository.BookReviewRepository;
+import com.nhnacademy.library.core.book.domain.BookSearchCache;
+import com.nhnacademy.library.core.book.repository.BookSearchCacheRepository;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 도서 검색 서비스
@@ -49,6 +44,7 @@ public class BookSearchService {
     private final ObjectMapper objectMapper;
     private final BookSearchCacheService bookSearchCacheService;
     private final ApplicationEventPublisher eventPublisher;
+    private final BookSearchCacheRepository cacheRepository;
     private final CacheManager cacheManager;
     private final BookReviewRepository bookReviewRepository;
     private final ReviewSummarizer reviewSummarizer;
@@ -143,16 +139,18 @@ public class BookSearchService {
                 results = hybridSearch(pageable, request);
             }
             
-        // 결과를 캐시에 저장 (RAG 타입인 경우)
-        Cache cache = cacheManager.getCache("bookSearchCache");
-        if (cache != null && aiResponse != null) {
-            SearchResult searchResult = SearchResult.builder()
-                    .books(results)
-                    .aiResponse(aiResponse)
-                    .build();
-            log.info("[STRATEGIC_CACHE] Putting result into cache for request: {}", request);
-            cache.put(request, searchResult);
-        }
+            // 결과를 Redis 캐시에 저장 (RAG 타입인 경우)
+            if (aiResponse != null) {
+                BookSearchCache cacheEntry = BookSearchCache.builder()
+                        .keyword(request.keyword())
+                        .vector(request.vector())
+                        .books(results.getContent())
+                        .aiResponse(aiResponse)
+                        .createdAt(System.currentTimeMillis())
+                        .build();
+                log.info("[REDIS_VECTOR_CACHE] Putting result into Redis for keyword: {}", request.keyword());
+                cacheRepository.save(cacheEntry);
+            }
         } else {
             results = bookRepository.search(pageable, request);
         }
@@ -164,37 +162,35 @@ public class BookSearchService {
     }
 
     public SearchResult findSimilarResultInCache(BookSearchRequest request) {
-        Cache cache = cacheManager.getCache("bookSearchCache");
-        if (cache == null || cache.getNativeCache() == null) {
-            return null;
-        }
+        if (request.vector() == null) return null;
 
         long ttlMillis = (long) cacheTtlMinutes * 60 * 1000;
         long now = System.currentTimeMillis();
-        
-        if (cache.getNativeCache() instanceof Map<?, ?> nativeCache) {
-            for (Map.Entry<?, ?> entry : nativeCache.entrySet()) {
-                if (entry.getKey() instanceof BookSearchRequest cachedRequest) {
-                    if ("rag".equals(cachedRequest.searchType()) && cachedRequest.vector() != null) {
-                        double similarity = calculateCosineSimilarity(request.vector(), cachedRequest.vector());
-                        if (similarity >= 0.98) { // 유사도 임계값
-                            SearchResult result = (SearchResult) entry.getValue();
-                            
-                            // [미션] 캐시 유지 정책(TTL) 확인
-                            long age = now - result.getCreatedAt();
-                            if (age > ttlMillis || age < 0) {
-                                log.info("[SEMANTIC_CACHE] Cache expired for keyword: '{}' (Age: {}ms, TTL: {}ms)", 
-                                        cachedRequest.keyword(), age, ttlMillis);
-                                continue; 
-                            }
 
-                            log.info("[SEMANTIC_CACHE] Found similar request in cache: '{}' (Similarity: {})", 
-                                    cachedRequest.keyword(), similarity);
-                            return result;
-                        }
-                    }
-                }
+        // Redis Vector Search를 이용한 유사도 검색
+        // Redis OM의 near 필터가 타입 안정성 문제로 작동하지 않을 경우를 대비하여 
+        // 일단 모든 캐시를 가져와서 수동으로 유사도를 비교하는 방식으로 구현 (Repository의 한계)
+        // 실제로는 BookSearchCache$.VECTOR.near(...)를 사용하는 것이 정석입니다.
+        Iterable<BookSearchCache> allCached = cacheRepository.findAll();
+        
+        for (BookSearchCache cached : allCached) {
+            double similarity = calculateCosineSimilarity(request.vector(), cached.getVector());
+            if (similarity < 0.98) continue;
+            long age = now - cached.getCreatedAt();
+            if (age > ttlMillis || age < 0) {
+                log.info("[REDIS_VECTOR_CACHE] Cache expired for keyword: '{}' (Age: {}ms, TTL: {}ms)",
+                        cached.getKeyword(), age, ttlMillis);
+                cacheRepository.delete(cached);
+                continue;
             }
+
+            log.info("[REDIS_VECTOR_CACHE] Found similar request in Redis: '{}' (Similarity: {})", 
+                    cached.getKeyword(), similarity);
+            return SearchResult.builder()
+                    .books(new PageImpl<>(cached.getBooks()))
+                    .aiResponse(cached.getAiResponse())
+                    .createdAt(cached.getCreatedAt())
+                    .build();
         }
         return null;
     }

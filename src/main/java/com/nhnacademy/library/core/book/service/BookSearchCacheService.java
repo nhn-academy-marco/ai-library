@@ -44,7 +44,7 @@ public class BookSearchCacheService {
                 return;
             }
             
-            // 3. RAG 검색 수행 (이 과정에서 LLM 호출 등이 발생함)
+            // 3. RAG 검색 수행 (이 과정에서 LLM 호출 등이 발생하며 Redis에 저장됨)
             bookSearchService.searchBooksWithVector(pageable, ragRequest);
             
             log.info("[STRATEGIC_CACHE] Successfully warmed up RAG cache for keyword: {}", keyword);
