@@ -9,7 +9,7 @@ import org.springframework.util.StringUtils;
 public class TextPreprocessor {
 
     private static final String HTML_TAG_PATTERN = "<[^>]*>";
-    private static final String SPECIAL_CHARACTER_PATTERN = "[^가-힣a-zA-Z0-9\\s]";
+    private static final String SPECIAL_CHARACTER_PATTERN = "[^\\p{L}\\p{N}\\s]";
     private static final String CONTINUOUS_SPACE_PATTERN = "\\s+";
 
     public static String preprocess(String text) {

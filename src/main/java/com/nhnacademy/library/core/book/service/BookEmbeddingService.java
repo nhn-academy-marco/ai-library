@@ -23,8 +23,8 @@ public class BookEmbeddingService {
 
     @Transactional
     public int processEmptyEmbeddings(int batchSize) {
-        // 1. 임베딩이 없는 도서 조회
-        List<Book> booksToProcess = bookRepository.findAllByEmbeddingIsNull(PageRequest.of(0, batchSize));
+        // 1. 제목과 내용이 모두 있고 임베딩이 없는 도서 조회
+        List<Book> booksToProcess = bookRepository.findAllByTitleIsNotNullAndBookContentIsNotNullAndEmbeddingIsNull(PageRequest.of(0, batchSize));
 
         if (booksToProcess.isEmpty()) {
             return 0;
@@ -38,11 +38,14 @@ public class BookEmbeddingService {
 
         for (Book book : booksToProcess) {
             String combinedText = createCombinedText(book);
+            log.info("Preprocessed text for book ID: {}: {}", book.getId(), combinedText);
             if (StringUtils.hasText(combinedText)) {
                 validBooks.add(book);
                 combinedTexts.add(combinedText);
             } else {
-                log.warn("Skipping book ID: {} due to empty content after preprocessing.", book.getId());
+                log.warn("Skipping book ID: {} due to empty combined text after preprocessing.", book.getId());
+                // 제목 조차 없는 경우 (최소한의 정보 부족)
+                log.warn("Skipping book ID: {} due to empty title and content after preprocessing.", book.getId());
             }
         }
 
