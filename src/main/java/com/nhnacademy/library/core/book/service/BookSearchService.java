@@ -63,13 +63,27 @@ public class BookSearchService {
      * @return 페이징된 도서 검색 결과
      */
     @Transactional(readOnly = true)
-    @Cacheable(value = "bookSearchCache", key = "#request", condition = "#request.searchType() == 'rag'")
     public SearchResult searchBooks(Pageable pageable, BookSearchRequest request) {
         log.info("Searching books with request: {}, pageable: {}", request, pageable);
+
+        if (("vector".equals(request.searchType()) || "hybrid".equals(request.searchType()) || "rag".equals(request.searchType()))
+                && request.keyword() != null && !request.keyword().isBlank() && request.vector() == null) {
+            float[] vector = embeddingService.getEmbedding(request.keyword());
+            request = new BookSearchRequest(request.keyword(), request.isbn(), request.searchType(), vector);
+        }
         
-        // 캐시 테스트를 위해 로그 추가
-        if ("캐싱테스트".equals(request.keyword())) {
-            log.info("[CACHE_TEST] Executing searchBooks for cache test keyword");
+        return searchBooksWithVector(pageable, request);
+    }
+
+    @Transactional(readOnly = true)
+    public SearchResult searchBooksWithVector(Pageable pageable, BookSearchRequest request) {
+        // [미션 2-1] 의미적 캐싱 (Semantic Caching): 벡터 유사도 기반 캐시 조회
+        if ("rag".equals(request.searchType()) && request.vector() != null) {
+            SearchResult cachedResult = findSimilarResultInCache(request);
+            if (cachedResult != null) {
+                log.info("[SEMANTIC_CACHE] Cache hit for similar keyword: {}", request.keyword());
+                return cachedResult;
+            }
         }
 
         // background warm-up 중일 때는 이벤트를 또 던지지 않도록 함
@@ -87,21 +101,15 @@ public class BookSearchService {
             eventPublisher.publishEvent(new BookSearchEvent(this, request.keyword()));
         }
 
-        if (("vector".equals(request.searchType()) || "hybrid".equals(request.searchType()) || "rag".equals(request.searchType()))
-                && request.keyword() != null && !request.keyword().isBlank()) {
-            float[] vector = embeddingService.getEmbedding(request.keyword());
-            request = new BookSearchRequest(request.keyword(), request.isbn(), request.searchType(), vector);
-        }
-
         Page<BookSearchResponse> results;
         List<BookAiRecommendationResponse> aiResponse = null;
 
         if ("hybrid".equals(request.searchType()) && request.vector() != null) {
             results = hybridSearch(pageable, request);
         } else if ("rag".equals(request.searchType()) && request.vector() != null) {
+            // [수정] 의미적 캐싱이 적용되었으므로, 여기까지 왔다면 캐시 미스임.
             // RAG 검색 시 캐시 확인 (isFromWarmUp이 아닐 때만 이벤트 발행 및 폴백)
-            Cache cache = cacheManager.getCache("bookSearchCache");
-            if (!isFromWarmUp && cache != null && cache.get(request) == null) {
+            if (!isFromWarmUp) {
                 log.info("[STRATEGIC_CACHE] No RAG cache found. Publishing search event and falling back to hybrid search results.");
                 eventPublisher.publishEvent(new BookSearchEvent(this, request.keyword()));
                 
@@ -109,6 +117,7 @@ public class BookSearchService {
                 results = hybridSearch(pageable, request);
                 aiResponse = null;
             } else {
+                // Warm-up 중일 때만 실제로 AI 호출 및 결과 생성
                 // [분리 구현] AI는 더 넓은 범위를 훑어보기 위해 Retrieval K를 넉넉히(100) 설정
                 Pageable retrievalPageable = PageRequest.of(0, DEFAULT_BATCH_SIZE);
                 Page<BookSearchResponse> retrievalResults = hybridSearch(retrievalPageable, request);
@@ -129,6 +138,17 @@ public class BookSearchService {
                 // 화면 결과는 사용자가 요청한 페이징 크기를 유지
                 results = hybridSearch(pageable, request);
             }
+            
+        // 결과를 캐시에 저장 (RAG 타입인 경우)
+        Cache cache = cacheManager.getCache("bookSearchCache");
+        if (cache != null && aiResponse != null) {
+            SearchResult searchResult = SearchResult.builder()
+                    .books(results)
+                    .aiResponse(aiResponse)
+                    .build();
+            log.info("[STRATEGIC_CACHE] Putting result into cache for request: {}", request);
+            cache.put(request, searchResult);
+        }
         } else {
             results = bookRepository.search(pageable, request);
         }
@@ -137,6 +157,47 @@ public class BookSearchService {
                 .books(results)
                 .aiResponse(aiResponse)
                 .build();
+    }
+
+    public SearchResult findSimilarResultInCache(BookSearchRequest request) {
+        Cache cache = cacheManager.getCache("bookSearchCache");
+        if (cache == null || cache.getNativeCache() == null) {
+            return null;
+        }
+
+        if (cache.getNativeCache() instanceof Map<?, ?> nativeCache) {
+            for (Map.Entry<?, ?> entry : nativeCache.entrySet()) {
+                if (entry.getKey() instanceof BookSearchRequest cachedRequest) {
+                    if ("rag".equals(cachedRequest.searchType()) && cachedRequest.vector() != null) {
+                        double similarity = calculateCosineSimilarity(request.vector(), cachedRequest.vector());
+                        if (similarity >= 0.98) { // 유사도 임계값
+                            log.info("[SEMANTIC_CACHE] Found similar request in cache: '{}' (Similarity: {})", 
+                                    cachedRequest.keyword(), similarity);
+                            return (SearchResult) entry.getValue();
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private double calculateCosineSimilarity(float[] vectorA, float[] vectorB) {
+        if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+            return 0.0;
+        }
+        double dotProduct = 0.0;
+        double normA = 0.0;
+        double normB = 0.0;
+        for (int i = 0; i < vectorA.length; i++) {
+            dotProduct += vectorA[i] * vectorB[i];
+            normA += Math.pow(vectorA[i], 2);
+            normB += Math.pow(vectorB[i], 2);
+        }
+        if (normA == 0 || normB == 0) {
+            return 0.0;
+        }
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
     }
 
     private List<BookAiRecommendationResponse> generateAiResponse(String question, List<BookSearchResponse> books) {
