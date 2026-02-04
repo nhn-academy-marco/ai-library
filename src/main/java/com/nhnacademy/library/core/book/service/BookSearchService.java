@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -86,20 +87,25 @@ public class BookSearchService {
             }
         }
 
-        String prompt = String.format("""
+        String template = """
             당신은 도서관의 전문 사서입니다. 
             아래 제공된 [참고 도서 리스트]를 바탕으로 사용자의 질문에 친절하게 답변해 주세요.
             리스트에 없는 책은 절대로 추천하지 마세요.
             정보가 부족하다면 정직하게 모른다고 답해 주세요.
 
             [참고 도서 리스트]
-            %s
+            {context}
             
-            사용자 질문: %s
+            사용자 질문: {question}
             답변:
-            """, context.toString(), question);
+            """;
 
-        return bookAiService.askAboutBooks(prompt);
+        PromptTemplate promptTemplate = new PromptTemplate(template);
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("context", context.toString());
+        variables.put("question", question);
+
+        return bookAiService.askAboutBooks(promptTemplate.render(variables));
     }
 
     @Getter
