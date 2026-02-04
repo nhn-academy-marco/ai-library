@@ -1,7 +1,11 @@
 package com.nhnacademy.library.core.book.repository;
 
 import com.nhnacademy.library.core.book.domain.BookSearchCache;
-import com.redis.om.spring.repository.RedisDocumentRepository;
+import java.util.Optional;
 
-public interface BookSearchCacheRepository extends RedisDocumentRepository<BookSearchCache, String> {
+public interface BookSearchCacheRepository {
+    BookSearchCache save(BookSearchCache cache);
+    Iterable<BookSearchCache> findAll();
+    void delete(BookSearchCache cache);
+    void deleteAll();
 }

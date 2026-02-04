@@ -1,7 +1,6 @@
 package com.nhnacademy.library.core.book.dto;
 
 import jakarta.validation.constraints.Size;
-
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -12,14 +11,14 @@ import java.util.Objects;
  * @param isbn    도서 ISBN (13자리)
  */
 public record BookSearchRequest(
-        @Size(max = 100)
-        String keyword,
+    @Size(max = 100)
+    String keyword,
 
-        @Size(max = 20)
-        String isbn,
+    @Size(max = 20)
+    String isbn,
 
-        String searchType,
-        float[] vector
+    String searchType,
+    float[] vector
 ) {
     public BookSearchRequest {
         if (searchType == null) {
