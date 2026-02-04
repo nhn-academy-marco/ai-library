@@ -19,8 +19,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
@@ -45,7 +43,6 @@ public class BookSearchService {
     private final BookSearchCacheService bookSearchCacheService;
     private final ApplicationEventPublisher eventPublisher;
     private final BookSearchCacheRepository cacheRepository;
-    private final CacheManager cacheManager;
     private final BookReviewRepository bookReviewRepository;
     private final ReviewSummarizer reviewSummarizer;
 

@@ -6,8 +6,6 @@ import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,7 +20,6 @@ import java.util.List;
 public class BookSearchCacheService {
 
     private final ApplicationContext applicationContext;
-    private final CacheManager cacheManager;
 
     @Async
     public void warmUpRagCache(String keyword) {
