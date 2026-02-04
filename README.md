@@ -23,7 +23,7 @@
 - **AI/LLM**: Spring AI, Google Gemini, Ollama, BGE-M3 (Embedding)
 - **Batch**: Spring Scheduler (임베딩 일괄 처리)
 - **Frontend**: Thymeleaf, Tabler (UI/UX)
-- **Demo**: [https://ai.java21.net/library/](https://ai.java21.net/library/)
+- **Demo**: [https://library.java21.net](https://library.java21.net)
 
 ## 📂 프로젝트 구조
 
@@ -44,9 +44,9 @@ src/main/java/com/nhnacademy/library
 3. **하이브리드 검색**: RRF(Reciprocal Rank Fusion) 알고리즘을 통한 키워드와 벡터 검색 결과의 최적 조합.
 4. **RAG (AI 답변)**: 검색 결과를 문맥(Context)으로 활용하여 LLM이 정확한 답변을 생성하도록 유도.
 5. **AI 최적화**: 
-   - 질문 의도에 따른 동적 Top-K 설정
    - RRF 점수 임계값 필터링 (Noise Reduction)
    - 'Lost in the Middle' 방지를 위한 컨텍스트 재구성
+   - Spring Cache를 활용한 RAG 응답 캐싱 (성능 및 비용 최적화)
 
 ## 📅 주차별 학습 로드맵
 

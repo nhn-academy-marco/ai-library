@@ -103,6 +103,38 @@
                     최종 수정일: <span th:text="${#temporals.format(book.updatedAt != null ? book.updatedAt : book.createdAt, 'yyyy-MM-dd HH:mm:ss')}">2021-01-01 00:00:00</span>
                 </div>
             </div>
+
+            <!-- AI 리뷰 요약 섹션 추가 -->
+            <div class="card mt-4 border-primary">
+                <div class="card-status-top bg-primary"></div>
+                <div class="card-header bg-primary-lt">
+                    <h3 class="card-title text-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-stars me-2" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                            <path d="M17.8 19.817l-2.172 1.138a.392 .392 0 0 1 -.568 -.41l.415 -2.411l-1.752 -1.707a.397 .397 0 0 1 .22 -.677l2.421 -.352l1.083 -2.193a.397 .397 0 0 1 .71 0l1.083 2.193l2.421 .352a.398 .398 0 0 1 .22 .677l-1.752 1.707l.415 2.411a.393 .393 0 0 1 -.568 .41l-2.172 -1.138z"></path>
+                            <path d="M6.2 19.817l-2.172 1.138a.392 .392 0 0 1 -.568 -.41l.415 -2.411l-1.752 -1.707a.397 .397 0 0 1 .22 -.677l2.421 -.352l1.083 -2.193a.397 .397 0 0 1 .71 0l1.083 2.193l2.421 .352a.398 .398 0 0 1 .22 .677l-1.752 1.707l.415 2.411a.393 .393 0 0 1 -.568 .41l-2.172 -1.138z"></path>
+                            <path d="M12 9.817l-2.172 1.138a.392 .392 0 0 1 -.568 -.41l.415 -2.411l-1.752 -1.707a.397 .397 0 0 1 .22 -.677l2.421 -.352l1.083 -2.193a.397 .397 0 0 1 .71 0l1.083 2.193l2.421 .352a.398 .398 0 0 1 .22 .677l-1.752 1.707l.415 2.411a.393 .393 0 0 1 -.568 .41l-2.172 -1.138z"></path>
+                        </svg>
+                        AI 독자 평판 요약
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="book-content" th:text="${reviewSummary}">
+                        AI가 리뷰를 분석 중입니다...
+                    </div>
+                </div>
+                <div class="card-footer bg-light-lt small">
+                    <span class="text-muted">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-info-circle me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                            <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"></path>
+                            <path d="M12 9h.01"></path>
+                            <path d="M11 12h1v4h1"></path>
+                        </svg>
+                        이 요약은 실제 독자들의 리뷰를 바탕으로 AI가 생성한 정보입니다.
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
 </div>

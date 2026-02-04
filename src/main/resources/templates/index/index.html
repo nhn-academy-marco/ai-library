@@ -257,7 +257,7 @@
     </div>
 
     <!-- 페이징 처리 -->
-    <div th:replace="~{fragments/pagination :: pagination(${page}, '/', ${request})}"></div>
+    <div th:if="${request.searchType() != 'rag'}" th:replace="~{fragments/pagination :: pagination(${page}, '/', ${request})}"></div>
 </div>
 
 </body>

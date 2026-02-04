@@ -143,8 +143,8 @@ src/main/java/com/nhnacademy/library
 
 * [01. 성능과 비용: 응답 지연 및 비용 문제 인식](week-4/01.performance-and-cost.md)
 * [02. 최적화: Top-K 및 Context 길이 제한](week-4/02.topk-and-context-optimization.md)
-* [03. 요약 전략: 요약 → 재요약 전략](week-4/03.summarization-strategies.md)
-* [04. 캐싱: 결과 캐싱(Semantic Caching)](week-4/04.result-caching.md)
+* [03. 캐싱: 결과 캐싱(Semantic Caching)](week-4/03.result-caching.md)
+* [04. 요약 전략과 리뷰 요약 실습](week-4/04.summarization-and-review.md)
 
 #### 학습 포인트
 

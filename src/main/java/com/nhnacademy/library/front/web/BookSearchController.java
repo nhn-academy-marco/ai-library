@@ -75,6 +75,11 @@ public class BookSearchController {
         log.debug("GET /books/{}", id);
         BookViewResponse book = bookSearchService.getBook(id);
         model.addAttribute("book", book);
+        
+        // 리뷰 요약 추가
+        String reviewSummary = bookSearchService.getReviewSummary(id);
+        model.addAttribute("reviewSummary", reviewSummary);
+        
         return "index/book-detail";
     }
 
