@@ -13,6 +13,8 @@ import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
+import org.springframework.test.context.TestPropertySource;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -22,7 +24,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @Slf4j
-@SpringBootTest
+@SpringBootTest(properties = "cache.ttl.minutes=1") // 테스트를 위해 짧은 TTL 설정
 class SemanticCachingTest {
 
     @Autowired
@@ -110,5 +112,59 @@ class SemanticCachingTest {
         // Then: AI 서비스가 추가로 호출되어야 함 (총 2회)
         verify(bookAiService, times(2)).askAboutBooks(anyString());
         log.info("[TEST] Semantic cache miss verified for different keyword.");
+    }
+
+    @Test
+    @DisplayName("캐시 TTL이 만료되면 새로운 AI 응답을 생성해야 한다")
+    void testCacheExpiration() throws InterruptedException {
+        // Given
+        String keyword = "TTL 테스트";
+        float[] vector = {0.5f, 0.5f, 0.5f};
+        BookSearchRequest request = new BookSearchRequest(keyword, null, "rag", null);
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        cacheManager.getCache("bookSearchCache").clear();
+        when(embeddingService.getEmbedding(keyword)).thenReturn(vector);
+        
+        BookSearchResponse mockResponseExp = new BookSearchResponse(1L, "123456", "테스트 도서", null, "저자", "출판사", 
+                BigDecimal.valueOf(10000), LocalDate.now(), null, "테스트 내용입니다.");
+        when(bookRepository.search(any(), any())).thenReturn(new PageImpl<>(List.of(mockResponseExp)));
+        when(bookRepository.vectorSearch(any(), any())).thenReturn(new PageImpl<>(List.of(mockResponseExp)));
+        when(bookAiService.askAboutBooks(anyString())).thenReturn("[{\"id\":1, \"relevance\":100, \"why\":\"테스트\"}]");
+
+        // When 1: 첫 번째 검색 (캐시 생성)
+        bookSearchService.searchBooks(pageable, request);
+        
+        // 캐시 생성 대기
+        BookSearchRequest cacheKey = new BookSearchRequest(keyword, null, "rag", vector);
+        for (int i = 0; i < 50; i++) {
+            if (cacheManager.getCache("bookSearchCache").get(cacheKey) != null) break;
+            Thread.sleep(100);
+        }
+        verify(bookAiService, atLeastOnce()).askAboutBooks(anyString());
+        long firstCallCount = mockingDetails(bookAiService).getInvocations().stream()
+                .filter(inv -> inv.getMethod().getName().equals("askAboutBooks"))
+                .count();
+
+        // 캐시 강제 만료 처리 (createdAt을 과거로 변경)
+        BookSearchService.SearchResult cachedResult = (BookSearchService.SearchResult) cacheManager.getCache("bookSearchCache").get(cacheKey).get();
+        // createdAt을 2분 전으로 설정 (TTL은 1분)
+        BookSearchService.SearchResult expiredResult = new BookSearchService.SearchResult(
+                cachedResult.getBooks(), cachedResult.getAiResponse(), System.currentTimeMillis() - 120000);
+        cacheManager.getCache("bookSearchCache").put(cacheKey, expiredResult);
+
+        // When 2: TTL 만료 후 다시 검색
+        log.info("Searching after cache expiration...");
+        bookSearchService.searchBooks(pageable, request);
+
+        // Then: 캐시가 만료되었으므로 AI 서비스가 다시 호출되어야 함
+        // 비동기 warm-up 대기
+        Thread.sleep(2000); 
+        long secondCallCount = mockingDetails(bookAiService).getInvocations().stream()
+                .filter(inv -> inv.getMethod().getName().equals("askAboutBooks"))
+                .count();
+        
+        assertThat(secondCallCount).isGreaterThan(firstCallCount);
+        log.info("[TEST] Cache expiration verified successfully. (Calls: {} -> {})", firstCallCount, secondCallCount);
     }
 }

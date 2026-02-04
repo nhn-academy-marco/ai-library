@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
@@ -51,6 +52,9 @@ public class BookSearchService {
     private final CacheManager cacheManager;
     private final BookReviewRepository bookReviewRepository;
     private final ReviewSummarizer reviewSummarizer;
+
+    @Value("${cache.ttl.minutes:30}")
+    private int cacheTtlMinutes;
 
     private static final int DEFAULT_BATCH_SIZE = 100;
     private static final int RRF_K = 60;
@@ -165,15 +169,28 @@ public class BookSearchService {
             return null;
         }
 
+        long ttlMillis = (long) cacheTtlMinutes * 60 * 1000;
+        long now = System.currentTimeMillis();
+        
         if (cache.getNativeCache() instanceof Map<?, ?> nativeCache) {
             for (Map.Entry<?, ?> entry : nativeCache.entrySet()) {
                 if (entry.getKey() instanceof BookSearchRequest cachedRequest) {
                     if ("rag".equals(cachedRequest.searchType()) && cachedRequest.vector() != null) {
                         double similarity = calculateCosineSimilarity(request.vector(), cachedRequest.vector());
                         if (similarity >= 0.98) { // 유사도 임계값
+                            SearchResult result = (SearchResult) entry.getValue();
+                            
+                            // [미션] 캐시 유지 정책(TTL) 확인
+                            long age = now - result.getCreatedAt();
+                            if (age > ttlMillis || age < 0) {
+                                log.info("[SEMANTIC_CACHE] Cache expired for keyword: '{}' (Age: {}ms, TTL: {}ms)", 
+                                        cachedRequest.keyword(), age, ttlMillis);
+                                continue; 
+                            }
+
                             log.info("[SEMANTIC_CACHE] Found similar request in cache: '{}' (Similarity: {})", 
                                     cachedRequest.keyword(), similarity);
-                            return (SearchResult) entry.getValue();
+                            return result;
                         }
                     }
                 }
@@ -290,6 +307,23 @@ public class BookSearchService {
     public static class SearchResult {
         private final Page<BookSearchResponse> books;
         private final List<BookAiRecommendationResponse> aiResponse;
+        private final long createdAt;
+
+        public SearchResult(Page<BookSearchResponse> books, List<BookAiRecommendationResponse> aiResponse) {
+            this.books = books;
+            this.aiResponse = aiResponse;
+            this.createdAt = System.currentTimeMillis();
+        }
+
+        @com.fasterxml.jackson.annotation.JsonCreator
+        public SearchResult(
+                @com.fasterxml.jackson.annotation.JsonProperty("books") Page<BookSearchResponse> books,
+                @com.fasterxml.jackson.annotation.JsonProperty("aiResponse") List<BookAiRecommendationResponse> aiResponse,
+                @com.fasterxml.jackson.annotation.JsonProperty("createdAt") long createdAt) {
+            this.books = books;
+            this.aiResponse = aiResponse;
+            this.createdAt = createdAt == 0 ? System.currentTimeMillis() : createdAt;
+        }
     }
 
     private Page<BookSearchResponse> hybridSearch(Pageable pageable, BookSearchRequest request) {
