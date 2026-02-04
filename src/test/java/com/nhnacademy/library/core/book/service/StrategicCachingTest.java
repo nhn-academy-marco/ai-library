@@ -70,8 +70,9 @@ class StrategicCachingTest {
 
         // Then: 비동기 작업이 완료될 때까지 잠시 대기 (최대 5초)
         boolean cached = false;
+        BookSearchRequest expectedCacheRequest = new BookSearchRequest(keyword, null, "rag", new float[]{0.1f, 0.2f});
         for (int i = 0; i < 50; i++) {
-            if (cacheManager.getCache("bookSearchCache").get(ragRequest) != null) {
+            if (cacheManager.getCache("bookSearchCache").get(expectedCacheRequest) != null) {
                 cached = true;
                 break;
             }
