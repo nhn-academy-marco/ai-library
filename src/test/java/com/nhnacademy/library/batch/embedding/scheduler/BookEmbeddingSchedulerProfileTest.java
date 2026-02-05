@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class BookEmbeddingSchedulerProfileTest {
 
-    @SpringBootTest
+    @SpringBootTest(properties = "scheduler.embedding.enabled=false")
     @ActiveProfiles("default") // 기본 프로필 명시
     @Nested
     class DefaultProfileTest {
@@ -27,7 +27,7 @@ class BookEmbeddingSchedulerProfileTest {
         }
     }
 
-    @SpringBootTest
+    @SpringBootTest(properties = "scheduler.embedding.enabled=true")
     @ActiveProfiles("prod")
     @Nested
     class ProdProfileTest {

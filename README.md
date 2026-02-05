@@ -31,11 +31,14 @@
 src/main/java/com/nhnacademy/library
  ├─ batch.init     # 공공 데이터 적재 및 초기화 로직
  ├─ batch.embedding # 도서 임베딩 생성 스케줄러 및 배치
- ├─ core.book      # 도서 관련 핵심 비즈니스 로직, DB 접근, AI 서비스
+ ├─ core.book      # 도서 도메인 및 검색 서비스 (search, embedding, cache 패키지 분리)
+ ├─ core.review    # 리뷰 도메인 및 AI 요약 서비스 (ai, review 패키지 분리)
  ├─ core.config    # 공통 설정 (QueryDSL, AI, DB 등)
- ├─ core.book.util # 텍스트 전처리(TextPreprocessor) 등 유틸리티
+ ├─ core.book.util # 벡터 계산 및 텍스트 전처리 유틸리티
  └─ front.web      # 웹 컨트롤러 및 화면 처리
 ```
+
+상세한 개발 및 리팩터링 규칙은 [`docs/development-guidelines.md`](docs/development-guidelines.md)를 참고하세요.
 
 ## 🚀 주요 기능
 

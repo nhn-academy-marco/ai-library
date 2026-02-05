@@ -1,6 +1,6 @@
 package com.nhnacademy.library.batch.embedding.scheduler;
 
-import com.nhnacademy.library.core.book.service.BookEmbeddingService;
+import com.nhnacademy.library.core.book.service.embedding.BookEmbeddingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

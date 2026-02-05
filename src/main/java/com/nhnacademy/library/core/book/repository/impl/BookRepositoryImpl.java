@@ -1,5 +1,6 @@
 package com.nhnacademy.library.core.book.repository.impl;
 
+import com.nhnacademy.library.core.book.domain.SearchType;
 import com.nhnacademy.library.core.book.domain.QBook;
 import com.nhnacademy.library.core.book.dto.BookSearchRequest;
 import com.nhnacademy.library.core.book.dto.BookSearchResponse;
@@ -33,7 +34,7 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
     @Override
     public Page<BookSearchResponse> search(Pageable pageable, BookSearchRequest request) {
 
-        if ("vector".equals(request.searchType()) && request.vector() != null) {
+        if (request.searchType() == SearchType.VECTOR && request.vector() != null) {
             return vectorSearch(pageable, request);
         }
 
@@ -59,9 +60,10 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                 .fetch();
 
         long totalCount = queryFactory
-                .selectFrom(book)
+                .select(book.count())
+                .from(book)
                 .where(commonWhere(request))
-                .fetchCount();
+                .fetchOne();
 
         return new PageImpl<>(bookSearchResponseList, pageable, totalCount);
     }
@@ -97,9 +99,10 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                 .fetch();
 
         long totalCount = queryFactory
-                .selectFrom(book)
+                .select(book.count())
+                .from(book)
                 .where(Expressions.booleanTemplate("embedding is not null"))
-                .fetchCount();
+                .fetchOne();
 
         return new PageImpl<>(bookSearchResponseList, pageable, totalCount);
     }
@@ -121,27 +124,33 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
 
         if (StringUtils.isNotEmpty(request.keyword())) {
             String keyword = request.keyword();
+            log.info("[BOOK_REPOSITORY] Applying keyword filter: {}", keyword);
 
-            // 1. LIKE 검색 (기존)
-            builder.or(book.title.contains(keyword))
-                    .or(book.authorName.contains(keyword))
-                    .or(book.publisherName.contains(keyword))
-                    .or(book.subtitle.contains(keyword))
-                    .or(book.volumeTitle.contains(keyword));
+            BooleanBuilder keywordBuilder = new BooleanBuilder();
+            // 1. LIKE 검색
+            keywordBuilder.or(book.title.containsIgnoreCase(keyword))
+                    .or(book.authorName.containsIgnoreCase(keyword))
+                    .or(book.publisherName.containsIgnoreCase(keyword))
+                    .or(book.subtitle.containsIgnoreCase(keyword))
+                    .or(book.volumeTitle.containsIgnoreCase(keyword));
 
-            // 2. Full Text Search (PostgreSQL 전용)
-            // book_content 필드에 대해 전문 검색 적용
-            // plainto_tsquery를 사용하여 검색어를 tsquery로 변환하고 @@ 연산자로 매칭 확인
-            // 하이버네이트 6의 SyntaxException을 방지하기 위해 전체를 하나의 SQL 템플릿으로 처리
-            BooleanExpression fts = Expressions.booleanTemplate(
-                    "function('ts_match_korean', {0}, {1}) = true",
-                    book.bookContent,
-                    keyword
-            );
-            builder.or(fts);
+            // 2. Full Text Search (PostgreSQL 전용) - 환경에 따라 실패할 수 있으므로 주의
+            try {
+                BooleanExpression fts = Expressions.booleanTemplate(
+                        "function('ts_match_korean', {0}, {1}) = true",
+                        book.bookContent,
+                        keyword
+                );
+                keywordBuilder.or(fts);
+            } catch (Exception e) {
+                log.warn("[BOOK_REPOSITORY] FTS search failed or not supported: {}", e.getMessage());
+            }
+            
+            builder.and(keywordBuilder);
         }
 
         if (StringUtils.isNotEmpty(request.isbn())) {
+            log.info("[BOOK_REPOSITORY] Applying isbn filter: {}", request.isbn());
             builder.and(book.isbn.eq(request.isbn()));
         }
 

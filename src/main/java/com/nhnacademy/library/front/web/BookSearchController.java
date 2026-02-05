@@ -1,13 +1,14 @@
 package com.nhnacademy.library.front.web;
 import com.nhnacademy.library.core.book.dto.BookSearchRequest;
-import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import com.nhnacademy.library.core.book.dto.BookViewResponse;
-import com.nhnacademy.library.core.book.service.BookSearchService;
+import com.nhnacademy.library.core.book.dto.BookSearchResult;
+
 import java.util.List;
+
+import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.stereotype.Controller;
@@ -51,7 +52,7 @@ public class BookSearchController {
         }
 
         long startTime = System.currentTimeMillis();
-        BookSearchService.SearchResult searchResult = bookSearchService.searchBooks(pageable, bookSearchRequest);
+        BookSearchResult searchResult = bookSearchService.searchBooks(pageable, bookSearchRequest);
         long endTime = System.currentTimeMillis();
 
         model.addAttribute("books", searchResult.getBooks().getContent());
