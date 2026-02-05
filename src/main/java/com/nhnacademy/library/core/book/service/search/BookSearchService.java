@@ -13,7 +13,9 @@ import com.nhnacademy.library.core.book.service.search.strategy.RagSearchStrateg
 import com.nhnacademy.library.core.book.service.search.strategy.SearchStrategy;
 import com.nhnacademy.library.core.book.service.search.strategy.VectorSearchStrategy;
 import com.nhnacademy.library.core.review.domain.BookReview;
+import com.nhnacademy.library.core.review.domain.BookReviewSummary;
 import com.nhnacademy.library.core.review.repository.BookReviewRepository;
+import com.nhnacademy.library.core.review.repository.BookReviewSummaryRepository;
 import com.nhnacademy.library.core.review.service.ReviewSummarizer;
 import lombok.Builder;
 import lombok.Getter;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 도서 검색 서비스
@@ -37,6 +40,7 @@ public class BookSearchService {
     private final BookRepository bookRepository;
     private final EmbeddingService embeddingService;
     private final BookReviewRepository bookReviewRepository;
+    private final BookReviewSummaryRepository bookReviewSummaryRepository;
     private final ReviewSummarizer reviewSummarizer;
     
     // 전략 구현체들
@@ -99,17 +103,36 @@ public class BookSearchService {
     }
 
     /**
-     * 도서 리뷰 요약을 생성합니다.
+     * 도서 리뷰 요약을 조회합니다.
+     * DB에 저장된 요약을 즉시 반환하며, 요약이 없는 경우에만 대체 텍스트를 반환합니다.
+     * (요약 생성은 리뷰 등록 시 이벤트 기반으로 비동기 처리됨)
      *
      * @param bookId 도서 ID
      * @return 요약된 리뷰 텍스트
      */
     public String getReviewSummary(Long bookId) {
-        log.info("Generating review summary for book id: {}", bookId);
-        List<String> reviews = bookReviewRepository.findAllByBookId(bookId).stream()
-                .map(BookReview::getContent)
-                .toList();
+        log.info("Fetching review summary for book id: {}", bookId);
         
-        return reviewSummarizer.summarizeReviews(reviews);
+        return bookReviewSummaryRepository.findById(bookId)
+                .map(summary -> {
+                    if (summary.getReviewSummary() != null) {
+                        return summary.getReviewSummary();
+                    }
+                    return "리뷰가 모이고 있습니다. 곧 AI 요약이 제공될 예정입니다. (현재 " + summary.getReviewCount() + "개)";
+                })
+                .orElse("아직 등록된 리뷰가 없습니다. 첫 번째 리뷰를 남겨보세요!");
+    }
+
+    // 기존 동시성 대응 로직은 더 이상 필요하지 않으므로 제거 가능 (이벤트 핸들러에서 처리)
+    // saveSummaryInNewTransaction 메서드 삭제 가능 여부는 다른 곳에서 사용되는지 확인 후 결정
+
+    /**
+     * 도서 리뷰 요약 정보를 엔티티 형태로 조회합니다.
+     *
+     * @param bookId 도서 ID
+     * @return 리뷰 요약 정보 엔티티
+     */
+    public Optional<BookReviewSummary> getReviewSummaryEntity(Long bookId) {
+        return bookReviewSummaryRepository.findById(bookId);
     }
 }

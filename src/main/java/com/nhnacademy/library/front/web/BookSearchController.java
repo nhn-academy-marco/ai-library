@@ -6,9 +6,12 @@ import com.nhnacademy.library.core.book.dto.BookSearchResult;
 import java.util.List;
 
 import com.nhnacademy.library.core.book.service.search.BookSearchService;
+import com.nhnacademy.library.core.review.dto.ReviewResponse;
+import com.nhnacademy.library.core.review.service.ReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.stereotype.Controller;
@@ -27,6 +30,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 public class BookSearchController {
 
     private final BookSearchService bookSearchService;
+    private final ReviewService reviewService;
 
     /**
      * 메인 검색 페이지를 반환합니다.
@@ -72,14 +76,26 @@ public class BookSearchController {
      * @return book-detail 뷰 이름
      */
     @GetMapping("/books/{id}")
-    public String view(@PathVariable("id") Long id, Model model) {
+    public String view(@PathVariable("id") Long id,
+                        @PageableDefault(size = 5) Pageable pageable,
+                        Model model) {
         log.debug("GET /books/{}", id);
         BookViewResponse book = bookSearchService.getBook(id);
         model.addAttribute("book", book);
         
-        // 리뷰 요약 추가
+        // 리뷰 요약 정보 조회 (캐싱 테이블 우선 참조)
         String reviewSummary = bookSearchService.getReviewSummary(id);
         model.addAttribute("reviewSummary", reviewSummary);
+
+        // 리뷰 통계 정보 추가
+        bookSearchService.getReviewSummaryEntity(id).ifPresent(summary -> 
+            model.addAttribute("bookSummary", summary)
+        );
+
+        // 리뷰 목록 추가 (페이징)
+        Page<ReviewResponse> reviews = reviewService.getReviews(id, pageable);
+        model.addAttribute("reviews", reviews.getContent());
+        model.addAttribute("reviewPage", reviews);
         
         return "index/book-detail";
     }

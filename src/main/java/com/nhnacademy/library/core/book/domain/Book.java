@@ -1,5 +1,6 @@
 package com.nhnacademy.library.core.book.domain;
 
+import com.nhnacademy.library.core.review.domain.BookReviewSummary;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,7 +21,7 @@ import java.time.OffsetDateTime;
 
 @Getter
 @NoArgsConstructor
-@ToString
+@ToString(exclude = "reviewSummary")
 public class Book {
 
     @Id
@@ -36,6 +37,9 @@ public class Book {
     )
     @Column(name = "id")
     private Long id;
+
+    @OneToOne(mappedBy = "book", fetch = FetchType.LAZY)
+    private BookReviewSummary reviewSummary;
 
     @Column(name = "isbn", length = 20, unique = true, nullable = false)
     private String isbn;
