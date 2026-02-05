@@ -1,7 +1,7 @@
 package com.nhnacademy.library.batch.init.event.listener;
 
 import com.nhnacademy.library.batch.init.event.BookParsedEvent;
-import com.nhnacademy.library.batch.init.event.BookParsingComplateEvent;
+import com.nhnacademy.library.batch.init.event.BookParsingCompleteEvent;
 import com.nhnacademy.library.batch.init.parser.BooKParser;
 import com.nhnacademy.library.batch.init.dto.BookRawData;
 import com.nhnacademy.library.batch.init.properties.InitProperties;
@@ -43,7 +43,7 @@ public class BookParsingEventListener {
     }
 
     @EventListener
-    public void onParsingCompleted(BookParsingComplateEvent event){
+    public void onParsingCompleted(BookParsingCompleteEvent event){
         bookbatchService.initializeBooks(buffer, initProperties.getBatchSize());
     }
 

@@ -43,10 +43,10 @@
                         <div class="col-md-2">
                             <label class="form-label">검색 방식</label>
                             <select name="searchType" class="form-select">
-                                <option value="keyword" th:selected="${request.searchType() == 'keyword'}">키워드 검색</option>
-                                <option value="vector" th:selected="${request.searchType() == 'vector'}">vector 검색</option>
-                                <option value="hybrid" th:selected="${request.searchType() == 'hybrid'}">하이브리드 검색</option>
-                                <option value="rag" th:selected="${request.searchType() == 'rag'}">AI 도서 추천 (RAG)</option>
+                                <option value="KEYWORD" th:selected="${request.searchType() == T(com.nhnacademy.library.core.book.domain.SearchType).KEYWORD}">키워드 검색</option>
+                                <option value="VECTOR" th:selected="${request.searchType() == T(com.nhnacademy.library.core.book.domain.SearchType).VECTOR}">vector 검색</option>
+                                <option value="HYBRID" th:selected="${request.searchType() == T(com.nhnacademy.library.core.book.domain.SearchType).HYBRID}">하이브리드 검색</option>
+                                <option value="RAG" th:selected="${request.searchType() == T(com.nhnacademy.library.core.book.domain.SearchType).RAG}">AI 도서 추천 (RAG)</option>
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -257,7 +257,7 @@
     </div>
 
     <!-- 페이징 처리 -->
-    <div th:if="${request.searchType() != 'rag'}" th:replace="~{fragments/pagination :: pagination(${page}, '/', ${request})}"></div>
+    <div th:if="${request.searchType() != T(com.nhnacademy.library.core.book.domain.SearchType).RAG}" th:replace="~{fragments/pagination :: pagination(${page}, '/', ${request})}"></div>
 </div>
 
 </body>

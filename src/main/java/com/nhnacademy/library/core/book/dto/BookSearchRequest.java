@@ -1,5 +1,6 @@
 package com.nhnacademy.library.core.book.dto;
 
+import com.nhnacademy.library.core.book.domain.SearchType;
 import jakarta.validation.constraints.Size;
 import java.util.Arrays;
 import java.util.Objects;
@@ -17,13 +18,21 @@ public record BookSearchRequest(
     @Size(max = 20)
     String isbn,
 
-    String searchType,
-    float[] vector
+    SearchType searchType,
+    float[] vector,
+    Boolean isWarmUp
 ) {
     public BookSearchRequest {
         if (searchType == null) {
-            searchType = "keyword";
+            searchType = SearchType.KEYWORD;
         }
+        if (isWarmUp == null) {
+            isWarmUp = false;
+        }
+    }
+
+    public BookSearchRequest(String keyword, String isbn, SearchType searchType, float[] vector) {
+        this(keyword, isbn, searchType, vector, false);
     }
 
     @Override
@@ -31,7 +40,8 @@ public record BookSearchRequest(
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         BookSearchRequest that = (BookSearchRequest) o;
-        return Objects.equals(keyword, that.keyword) &&
+        return isWarmUp == that.isWarmUp &&
+                Objects.equals(keyword, that.keyword) &&
                 Objects.equals(isbn, that.isbn) &&
                 Objects.equals(searchType, that.searchType) &&
                 Arrays.equals(vector, that.vector);
@@ -39,7 +49,7 @@ public record BookSearchRequest(
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(keyword, isbn, searchType);
+        int result = Objects.hash(keyword, isbn, searchType, isWarmUp);
         result = 31 * result + Arrays.hashCode(vector);
         return result;
     }

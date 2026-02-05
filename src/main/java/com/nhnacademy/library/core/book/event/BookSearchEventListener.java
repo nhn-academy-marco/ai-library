@@ -1,6 +1,6 @@
 package com.nhnacademy.library.core.book.event;
 
-import com.nhnacademy.library.core.book.service.BookSearchCacheService;
+import com.nhnacademy.library.core.book.service.cache.BookSearchCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;

@@ -38,9 +38,14 @@ src/main/java/com/nhnacademy/library
 * **com.nhnacademy.library.core.book**
 
     * 도서 조회 및 상세 정보 처리
-    * 키워드 검색 / 전문 검색(Full Text Search)
-    * 벡터 검색(Vector Search) (예정)
+    * 검색 엔진: Keyword, Vector, Hybrid, RAG (Strategy 패턴 적용)
+    * 벡터 유사도 기반 의미적 캐싱 (Semantic Caching)
     * DB 중심 비즈니스 로직(Business Logic)
+
+* **com.nhnacademy.library.core.review**
+
+    * 도서 리뷰 도메인 및 리포지토리
+    * AI 기반 리뷰 요약 (Map-Reduce 전략)
 
 * **com.nhnacademy.library.batch.init**
 

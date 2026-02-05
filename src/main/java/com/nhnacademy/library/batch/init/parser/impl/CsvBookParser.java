@@ -1,7 +1,7 @@
 package com.nhnacademy.library.batch.init.parser.impl;
 
 import com.nhnacademy.library.batch.init.event.BookParsedEvent;
-import com.nhnacademy.library.batch.init.event.BookParsingComplateEvent;
+import com.nhnacademy.library.batch.init.event.BookParsingCompleteEvent;
 import com.nhnacademy.library.batch.init.parser.BooKParser;
 import com.nhnacademy.library.batch.init.dto.BookRawData;
 import com.nhnacademy.library.batch.init.properties.InitProperties;
@@ -51,10 +51,12 @@ public class CsvBookParser implements BooKParser {
 
         try(
                 Reader reader = new InputStreamReader(getInputStream(initProperties.getBookFile()), StandardCharsets.UTF_8);
-                CSVParser parser = CSVFormat.DEFAULT
-                        .withFirstRecordAsHeader()
-                        .withIgnoreHeaderCase()
-                        .withTrim()
+                CSVParser parser = CSVFormat.Builder.create(CSVFormat.DEFAULT)
+                        .setHeader()
+                        .setSkipHeaderRecord(true)
+                        .setIgnoreHeaderCase(true)
+                        .setTrim(true)
+                        .get()
                         .parse(reader)
         ){
 
@@ -96,7 +98,7 @@ public class CsvBookParser implements BooKParser {
                 log.debug("Parsed book: {}", book);
             }//end for
 
-            applicationEventPublisher.publishEvent(new BookParsingComplateEvent());
+            applicationEventPublisher.publishEvent(new BookParsingCompleteEvent());
 
         } catch (IOException e) {
             log.debug("parse error :{}",e.getMessage(),e);
@@ -119,15 +121,5 @@ public class CsvBookParser implements BooKParser {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    private String removeQuote(String str) {
-        if (StringUtils.isEmpty(str)) {
-            return str;
-        }
-        if ((str.startsWith("\"") && str.endsWith("\"")) || str.equals("\"\"")) {
-            return str.substring(1, str.length() - 1);
-        }
-        return str.trim();
     }
 }
