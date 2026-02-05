@@ -24,12 +24,16 @@ public class BookReview {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    @Column(nullable = false)
+    private Integer rating;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
-    public BookReview(Book book, String content) {
+    public BookReview(Book book, String content, Integer rating) {
         this.book = book;
         this.content = content;
+        this.rating = rating;
         this.createdAt = OffsetDateTime.now();
     }
 }
