@@ -31,6 +31,7 @@ public class SemanticCacheService {
     private int cacheTtlMinutes;
 
     private static final double SIMILARITY_THRESHOLD = 0.98;
+    private static final long MILLIS_PER_MINUTE = 60 * 1000L;
 
     /**
      * 벡터 유사도 기반 캐시 조회
@@ -38,7 +39,7 @@ public class SemanticCacheService {
     public Optional<BookSearchResult> findSimilarResult(BookSearchRequest request) {
         if (request.vector() == null) return Optional.empty();
 
-        long ttlMillis = (long) cacheTtlMinutes * 60 * 1000;
+        long ttlMillis = (long) cacheTtlMinutes * MILLIS_PER_MINUTE;
         long now = System.currentTimeMillis();
 
         Iterable<BookSearchCache> allCached = cacheRepository.findAll();

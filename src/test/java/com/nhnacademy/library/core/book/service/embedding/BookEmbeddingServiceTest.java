@@ -10,7 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,10 +27,10 @@ class BookEmbeddingServiceTest {
     @Autowired
     private BookEmbeddingService bookEmbeddingService;
 
-    @MockBean
+    @MockitoBean
     private BookRepository bookRepository;
 
-    @MockBean
+    @MockitoBean
     private EmbeddingService embeddingService;
 
     @Test

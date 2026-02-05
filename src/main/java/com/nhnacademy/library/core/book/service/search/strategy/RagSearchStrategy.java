@@ -32,6 +32,8 @@ public class RagSearchStrategy implements SearchStrategy {
 
     private static final int DEFAULT_BATCH_SIZE = 100;
     private static final double SCORE_THRESHOLD = 0.02;
+    private static final int MAX_AI_CANDIDATES = 5;
+    private static final int FALLBACK_CANDIDATES = 3;
 
     @Override
     public BookSearchResult search(Pageable pageable, BookSearchRequest request) {
@@ -56,13 +58,13 @@ public class RagSearchStrategy implements SearchStrategy {
         BookSearchResult retrievalResult = hybridSearchStrategy.search(PageRequest.of(0, DEFAULT_BATCH_SIZE), request);
         List<BookSearchResponse> topKBooks = retrievalResult.getBooks().getContent().stream()
                 .filter(b -> b.getRrfScore() != null && b.getRrfScore() >= SCORE_THRESHOLD)
-                .limit(5)
+                .limit(MAX_AI_CANDIDATES)
                 .toList();
 
         // Warm-up 모드에서 임계값을 통과한 후보가 없으면 키워드 상위 결과로 대체하여 AI를 한 번 호출합니다.
         if (request.isWarmUp() && topKBooks.isEmpty()) {
             log.info("No books passed the threshold (>= {}). Using top keyword results as fallback for warm-up.", SCORE_THRESHOLD);
-            topKBooks = retrievalResult.getBooks().getContent().stream().limit(3).toList();
+            topKBooks = retrievalResult.getBooks().getContent().stream().limit(FALLBACK_CANDIDATES).toList();
         }
 
         List<BookAiRecommendationResponse> aiResponse;

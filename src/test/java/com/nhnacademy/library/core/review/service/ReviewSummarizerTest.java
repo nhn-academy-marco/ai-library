@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
 import java.util.stream.IntStream;
@@ -24,7 +24,7 @@ class ReviewSummarizerTest {
     @Autowired
     private ReviewSummarizer reviewSummarizer;
 
-    @MockBean
+    @MockitoBean
     private ChatModel chatModel;
 
     @Test

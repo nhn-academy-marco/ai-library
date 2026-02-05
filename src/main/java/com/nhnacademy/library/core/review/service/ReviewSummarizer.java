@@ -16,6 +16,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ReviewSummarizer {
+    private static final int MAP_CHUNK_SIZE = 10;
 
     private final ChatModel chatModel;
 
@@ -26,9 +27,9 @@ public class ReviewSummarizer {
 
         log.info("Starting review summarization for {} reviews using Map-Reduce.", reviews.size());
 
-        // 1. Map 단계: 리뷰를 10개씩 나누어 부분 요약 생성
+        // 1. Map 단계: 리뷰를 청크 단위로 나누어 부분 요약 생성
         List<String> partialSummaries = new ArrayList<>();
-        List<List<String>> chunks = Lists.partition(reviews, 10);
+        List<List<String>> chunks = Lists.partition(reviews, MAP_CHUNK_SIZE);
 
         for (int i = 0; i < chunks.size(); i++) {
             log.info("Map step: processing chunk {}/{}", i + 1, chunks.size());

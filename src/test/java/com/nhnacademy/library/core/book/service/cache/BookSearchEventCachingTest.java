@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
@@ -33,7 +33,7 @@ class BookSearchEventCachingTest {
     @Autowired
     private ApplicationEventPublisher eventPublisher;
 
-    @SpyBean
+    @MockitoSpyBean
     private ChatModel chatModel;
 
     @Test
