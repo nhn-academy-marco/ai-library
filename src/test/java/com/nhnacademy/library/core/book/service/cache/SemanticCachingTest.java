@@ -14,7 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -40,13 +40,13 @@ class SemanticCachingTest {
     @Autowired
     private org.springframework.context.ApplicationContext applicationContext;
 
-    @MockBean
+    @MockitoBean
     private ChatModel chatModel;
 
-    @MockBean
+    @MockitoBean
     private EmbeddingService embeddingService;
 
-    @MockBean
+    @MockitoBean
     private BookRepository bookRepository;
 
     @Test
