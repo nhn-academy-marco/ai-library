@@ -104,6 +104,35 @@
                 </div>
             </div>
 
+            <!-- 리뷰 요약 테이블 기반 통계 섹션 추가 -->
+            <div th:if="${bookSummary != null}" class="card mt-4">
+                <div class="card-header">
+                    <h3 class="card-title">리뷰 통계</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <div class="h1 mb-0" th:text="${bookSummary.averageRating}">4.50</div>
+                            <div class="text-muted">평균 평점</div>
+                        </div>
+                        <div class="col">
+                            <div th:each="i : ${#numbers.sequence(5, 1)}" class="row align-items-center g-2 mb-1">
+                                <div class="col-auto small" style="width: 30px;" th:text="${i} + '점'">5점</div>
+                                <div class="col">
+                                    <div class="progress progress-sm">
+                                        <div class="progress-bar bg-primary" 
+                                             th:style="'width: ' + (${bookSummary.reviewCount > 0 ? (i == 5 ? bookSummary.rating5Count : (i == 4 ? bookSummary.rating4Count : (i == 3 ? bookSummary.rating3Count : (i == 2 ? bookSummary.rating2Count : bookSummary.rating1Count)))) * 100.0 / bookSummary.reviewCount : 0}) + '%'" 
+                                             role="progressbar"></div>
+                                    </div>
+                                </div>
+                                <div class="col-auto small text-muted" style="width: 30px;" 
+                                     th:text="${i == 5 ? bookSummary.rating5Count : (i == 4 ? bookSummary.rating4Count : (i == 3 ? bookSummary.rating3Count : (i == 2 ? bookSummary.rating2Count : bookSummary.rating1Count)))}">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- AI 리뷰 요약 섹션 추가 -->
             <div class="card mt-4 border-primary">
                 <div class="card-status-top bg-primary"></div>
@@ -133,6 +162,112 @@
                         </svg>
                         이 요약은 실제 독자들의 리뷰를 바탕으로 AI가 생성한 정보입니다.
                     </span>
+                </div>
+            </div>
+
+            <!-- 알림 메시지 -->
+            <div th:if="${successMessage}" class="alert alert-success alert-dismissible mt-4" role="alert">
+                <div class="d-flex">
+                    <div>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M5 12l5 5l10 -10"></path></svg>
+                    </div>
+                    <div th:text="${successMessage}">성공 메시지</div>
+                </div>
+                <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
+            </div>
+            <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible mt-4" role="alert">
+                <div class="d-flex">
+                    <div>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path><path d="M12 9v4"></path><path d="M12 16v.01"></path></svg>
+                    </div>
+                    <div th:text="${errorMessage}">오류 메시지</div>
+                </div>
+                <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
+            </div>
+
+            <!-- 리뷰 등록 폼 -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h3 class="card-title">리뷰 등록</h3>
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/books/{bookId}/reviews(bookId=${book.id})}" method="post">
+                        <div class="mb-3">
+                            <label class="form-label">별점</label>
+                            <div class="form-selectgroup">
+                                <label class="form-selectgroup-item">
+                                    <input type="radio" name="rating" value="1" class="form-selectgroup-input">
+                                    <span class="form-selectgroup-label">1점</span>
+                                </label>
+                                <label class="form-selectgroup-item">
+                                    <input type="radio" name="rating" value="2" class="form-selectgroup-input">
+                                    <span class="form-selectgroup-label">2점</span>
+                                </label>
+                                <label class="form-selectgroup-item">
+                                    <input type="radio" name="rating" value="3" class="form-selectgroup-input" checked>
+                                    <span class="form-selectgroup-label">3점</span>
+                                </label>
+                                <label class="form-selectgroup-item">
+                                    <input type="radio" name="rating" value="4" class="form-selectgroup-input">
+                                    <span class="form-selectgroup-label">4점</span>
+                                </label>
+                                <label class="form-selectgroup-item">
+                                    <input type="radio" name="rating" value="5" class="form-selectgroup-input">
+                                    <span class="form-selectgroup-label">5점</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">리뷰 내용</label>
+                            <textarea name="content" class="form-control" rows="3" placeholder="도서에 대한 솔직한 리뷰를 남겨주세요." required></textarea>
+                        </div>
+                        <div class="form-footer">
+                            <button type="submit" class="btn btn-primary">리뷰 등록</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 리뷰 리스트 섹션 -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h3 class="card-title">독자 리뷰 (<span th:text="${reviewPage.totalElements}">0</span>)</h3>
+                </div>
+                <div class="list-group list-group-flush">
+                    <div th:if="${reviews.isEmpty()}" class="list-group-item text-center py-4 text-muted">
+                        아직 등록된 리뷰가 없습니다. 첫 번째 리뷰를 남겨보세요!
+                    </div>
+                    <div th:each="review : ${reviews}" class="list-group-item py-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div>
+                                <span class="badge bg-yellow-lt" th:text="${review.rating} + '점'">5점</span>
+                                <small class="text-muted ms-2" th:text="${#temporals.format(review.createdAt, 'yyyy-MM-dd HH:mm')}">2021-01-01 00:00</small>
+                            </div>
+                        </div>
+                        <div class="text-body" th:text="${review.content}">리뷰 내용...</div>
+                    </div>
+                </div>
+                <!-- 페이징 -->
+                <div th:if="${reviewPage.totalPages > 1}" class="card-footer d-flex align-items-center">
+                    <p class="m-0 text-muted">Showing <span th:text="${reviewPage.number * reviewPage.size + 1}">1</span> to <span th:text="${(reviewPage.number + 1) * reviewPage.size > reviewPage.totalElements ? reviewPage.totalElements : (reviewPage.number + 1) * reviewPage.size}">5</span> of <span th:text="${reviewPage.totalElements}">10</span> entries</p>
+                    <ul class="pagination m-0 ms-auto">
+                        <li class="page-item" th:classappend="${reviewPage.first} ? 'disabled'">
+                            <a class="page-link" th:href="@{/books/{id}(id=${book.id}, page=${reviewPage.number - 1})}" tabindex="-1" aria-disabled="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M15 12l-9 0"></path><path d="M15 12l-4 4"></path><path d="M15 12l-4 -4"></path></svg>
+                                prev
+                            </a>
+                        </li>
+                        <li th:each="pageNumber : ${#numbers.sequence(0, reviewPage.totalPages - 1)}" 
+                            class="page-item" th:classappend="${pageNumber == reviewPage.number} ? 'active'">
+                            <a class="page-link" th:href="@{/books/{id}(id=${book.id}, page=${pageNumber})}" th:text="${pageNumber + 1}">1</a>
+                        </li>
+                        <li class="page-item" th:classappend="${reviewPage.last} ? 'disabled'">
+                            <a class="page-link" th:href="@{/books/{id}(id=${book.id}, page=${reviewPage.number + 1})}">
+                                next
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M9 12l9 0"></path><path d="M9 12l-4 4"></path><path d="M9 12l-4 -4"></path></svg>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
