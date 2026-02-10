@@ -50,6 +50,12 @@ public class BookReviewSummary {
     @Column(nullable = false)
     private Boolean isSummaryDirty = true;
 
+    @Column(name = "last_summarized_count")
+    private Long lastSummarizedCount = 0L;
+
+    @Column(name = "is_generating")
+    private Boolean isGenerating = false;
+
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
@@ -88,5 +94,20 @@ public class BookReviewSummary {
         this.reviewSummary = summary;
         this.isSummaryDirty = false;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateSummaryWithCount(String summary, long lastSummarizedCount) {
+        this.reviewSummary = summary;
+        this.lastSummarizedCount = lastSummarizedCount;
+        this.isSummaryDirty = false;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setGenerating(boolean generating) {
+        this.isGenerating = generating;
+    }
+
+    public void setSummaryDirty(boolean summaryDirty) {
+        this.isSummaryDirty = summaryDirty;
     }
 }

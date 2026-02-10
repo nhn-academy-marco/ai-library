@@ -61,7 +61,6 @@ class ReviewServiceTest {
         // when(book.getId()).thenReturn(bookId); // 불필요한 스터빙 제거
         BookReview savedReview = mock(BookReview.class);
         when(savedReview.getId()).thenReturn(100L);
-        when(savedReview.getCreatedAt()).thenReturn(OffsetDateTime.now());
         
         when(bookRepository.findById(bookId)).thenReturn(Optional.of(book));
         when(bookReviewRepository.save(any(BookReview.class))).thenReturn(savedReview);

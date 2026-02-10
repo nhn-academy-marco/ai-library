@@ -42,42 +42,5 @@ public class ReviewEventListener {
 
         log.info("Handling ReviewCreatedEvent for book id: {}", event.bookId());
         reviewService.updateReviewSummary(event.bookId());
-
-//        try {
-//            // 1. 리뷰 통계 업데이트 (ReviewService의 updateReviewSummary 로직을 이관)
-//            BookReviewSummary summary = bookReviewSummaryRepository.findById(event.bookId())
-//                    .orElseGet(() -> {
-//                        Book book = bookRepository.findById(event.bookId())
-//                                .orElseThrow(() -> new BookNotFoundException(event.bookId()));
-//                        return new BookReviewSummary(book);
-//                    });
-//
-//            summary.addReview(event.rating());
-//            bookReviewSummaryRepository.saveAndFlush(summary);
-//            log.info("Updated review statistics for book {}.", event.bookId());
-//
-//            // 2. AI 요약 조건 확인 및 생성
-//            // 조건 1: 충분한 리뷰 수 (N개 이상)
-//            // 조건 2: 기존 요약 최신성 (is_summary_dirty == TRUE)
-//            if (summary.getReviewCount() >= MIN_REVIEW_COUNT_FOR_SUMMARY && summary.getIsSummaryDirty()) {
-//                log.info("Conditions met for book {}. Generating LLM review summary.", event.bookId());
-//
-//                List<String> reviews = bookReviewRepository.findAllByBookId(event.bookId()).stream()
-//                        .map(BookReview::getContent)
-//                        .toList();
-//
-//                String newSummary = reviewSummarizer.summarizeReviews(reviews);
-//
-//                summary.updateSummary(newSummary);
-//                bookReviewSummaryRepository.save(summary);
-//
-//                log.info("Successfully updated review summary for book {}.", event.bookId());
-//            } else {
-//                log.info("Conditions not met for book {}. Review count: {}, is_dirty: {}",
-//                        event.bookId(), summary.getReviewCount(), summary.getIsSummaryDirty());
-//            }
-//        } catch (Exception e) {
-//            log.error("Failed to process ReviewCreatedEvent for book {}: {}", event.bookId(), e.getMessage());
-//        }
     }
 }
