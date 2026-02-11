@@ -162,9 +162,10 @@ src/main/java/com/nhnacademy/library
 
 #### 주요 흐름
 
-* MCP 도입
-* AI가 도구를 선택하여 호출
-* 검색 / 보강 / 등록 / Batch 실행
+* [01. MCP 이해: AI가 시스템을 사용하는 방법](week-5/01.understanding-mcp.md)
+* [02. 검색 MCP 서버: AI가 검색 도구를 사용하다](week-5/02.mcp-search-server.md)
+* [03. 외부 API MCP: AI가 외부 시스템과 연동하다](week-5/03.mcp-external-api.md)
+* [04. AI 오케스트레이션: AI가 스스로 판단하고 행동하다](week-5/04.ai-orchestration.md)
 
 #### 학습 포인트
 
