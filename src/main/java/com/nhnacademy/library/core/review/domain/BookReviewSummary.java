@@ -1,5 +1,6 @@
 package com.nhnacademy.library.core.review.domain;
 
+import com.nhnacademy.library.core.book.domain.Book;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -13,12 +14,17 @@ import java.time.LocalDateTime;
 @Table(name = "book_review_summary")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@ToString
+@ToString(exclude = "book")
 public class BookReviewSummary {
 
     @Id
     @Column(name = "book_id")
     private Long bookId;
+
+    @OneToOne
+    @MapsId
+    @JoinColumn(name = "book_id")
+    private Book book;
 
     @Column(nullable = false)
     private Long reviewCount = 0l;
