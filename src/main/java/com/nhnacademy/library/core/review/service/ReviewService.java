@@ -1,6 +1,7 @@
 package com.nhnacademy.library.core.review.service;
 
 import com.nhnacademy.library.core.book.domain.Book;
+import com.nhnacademy.library.core.review.domain.BookReview;
 import com.nhnacademy.library.core.book.exception.BookNotFoundException;
 import com.nhnacademy.library.core.book.repository.BookRepository;
 import com.nhnacademy.library.core.book.service.search.BookSearchService;
@@ -88,8 +89,8 @@ public class ReviewService {
             );
 
         }else{
-            summary = new BookReviewSummary(
-                    bookId,
+            summary = new BookReviewSummary(bookId);
+            summary.updateStat(
                     BookReviewSummaryStatDto.getReviewCount(),
                     BigDecimal.valueOf(BookReviewSummaryStatDto.getAverageRating()),
                     BookReviewSummaryStatDto.getRating1Count(),
@@ -99,11 +100,14 @@ public class ReviewService {
                     BookReviewSummaryStatDto.getRating5Count(),
                     BookReviewSummaryStatDto.getLastReviewedAt().toLocalDateTime()
             );
+            // 새 엔티티는 repository.save() 사용
+            summary = bookReviewSummaryRepository.save(summary);
         }
 
         log.info("update : summary:{}",summary);
 
-        bookReviewSummaryRepository.save(summary);
+        // updateStat을 호출하면 엔티티가 dirty 상태가 되어 트랜잭션 커밋 시 자동으로 flush됨
+        // 명시적인 save 호출 제거 (낙관적 잠금 충돌 방지)
 
         eventPublisher.publishEvent(new ReviewAiSummaryEvent(bookId));
 
