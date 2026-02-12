@@ -13,6 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 리뷰 AI 요약을 생성하는 서비스
+ * 큐 기반 워커에 의해 순차적으로 호출됨
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
