@@ -38,7 +38,8 @@ public class Book {
     @Column(name = "id")
     private Long id;
 
-    @OneToOne(mappedBy = "book", fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id", referencedColumnName = "book_id", insertable = false, updatable = false)
     private BookReviewSummary reviewSummary;
 
     @Column(name = "isbn", length = 20, unique = true, nullable = false)
