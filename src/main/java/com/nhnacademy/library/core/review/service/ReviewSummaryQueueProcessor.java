@@ -2,13 +2,11 @@ package com.nhnacademy.library.core.review.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 /**
- * 리뷰 요약 큐를 처리하는 워커
+ * 리뷰 요약 큐를 처리하는 RabbitMQ Consumer
  */
 @Slf4j
 @Component
@@ -18,45 +16,15 @@ public class ReviewSummaryQueueProcessor {
     private final ReviewSummaryQueueService queueService;
     private final ReviewAiSummaryService reviewAiSummaryService;
 
-    private static final long POLL_TIMEOUT_MS = 1000; // 1초
-    private volatile boolean running = true;
-
     /**
-     * 애플리케이션 시작 시 큐 처리 워커 스레드 시작
+     * RabbitMQ 메시지를 수신하여 처리
+     * concurrency: 3-5 (최소 3개, 최대 5개의 동시 Consumer 스레드)
      */
-    @EventListener(ApplicationReadyEvent.class)
-    @Async("summaryQueueExecutor")
-    public void start() {
-        log.info("Review summary queue processor started");
-        processQueue();
-    }
-
-    /**
-     * 큐에서 작업을 가져와 처리
-     */
-    private void processQueue() {
-        while (running) {
-            try {
-                ReviewSummaryTask task = queueService.dequeue(POLL_TIMEOUT_MS);
-                if (task != null) {
-                    processTask(task);
-                }
-            } catch (InterruptedException e) {
-                log.warn("Queue processor interrupted: {}", e.getMessage());
-                Thread.currentThread().interrupt();
-                break;
-            } catch (Exception e) {
-                log.error("Error processing queue: {}", e.getMessage(), e);
-                // 계속 진행 (단일 작업 실패가 전체 처리를 멈추지 않도록)
-            }
-        }
-        log.info("Review summary queue processor stopped");
-    }
-
-    /**
-     * 개별 작업 처리
-     */
-    private void processTask(ReviewSummaryTask task) {
+    @RabbitListener(
+            queues = "${rabbitmq.queue.review-summary}",
+            concurrency = "3-5"
+    )
+    public void processTask(ReviewSummaryTask task) {
         long startTime = System.currentTimeMillis();
         log.info("Processing summary task for book {} (queue wait: {}ms)",
                 task.getBookId(), startTime - task.getEnqueueTime());
@@ -64,18 +32,15 @@ public class ReviewSummaryQueueProcessor {
         try {
             reviewAiSummaryService.generateSummary(task.getBookId());
             long duration = System.currentTimeMillis() - startTime;
-            log.info("Completed summary task for book {} in {}ms. Remaining queue size: {}",
-                    task.getBookId(), duration, queueService.getQueueSize());
+            log.info("Completed summary task for book {} in {}ms",
+                    task.getBookId(), duration);
         } catch (Exception e) {
             log.error("Failed to process summary task for book {}: {}",
                     task.getBookId(), e.getMessage(), e);
+            throw e; // RabbitMQ 재시도 또는 DLQ로 이동
+        } finally {
+            // 중복 추적 Map에서 제거
+            queueService.removePending(task.getBookId());
         }
-    }
-
-    /**
-     * 워커 중지 (테스트 또는 종료 시 사용)
-     */
-    public void stop() {
-        running = false;
     }
 }

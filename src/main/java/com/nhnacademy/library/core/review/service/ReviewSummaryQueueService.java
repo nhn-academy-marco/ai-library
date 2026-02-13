@@ -1,30 +1,37 @@
 package com.nhnacademy.library.core.review.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 /**
- * 리뷰 요약 작업 큐를 관리하는 서비스
+ * 리뷰 요약 작업 큐를 관리하는 서비스 (RabbitMQ 기반)
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class ReviewSummaryQueueService {
 
-    private final BlockingQueue<ReviewSummaryTask> queue = new LinkedBlockingQueue<>();
+    private final RabbitTemplate rabbitTemplate;
+
+    private static final String EXCHANGE = "nhnacademy-library-exchange";
+    private static final String ROUTING_KEY = "review.summary";
 
     // 같은 책에 대한 중복 요청 방지 (bookId -> enqueueTime)
     private final Map<Long, Long> pendingBooks = new ConcurrentHashMap<>();
 
     private static final long DEDUP_WINDOW_MS = 5000; // 5초 내 중복 요청 무시
 
+    @Value("${rabbitmq.queue.review-summary}")
+    private String queueName;
+
     /**
-     * 큐에 작업 추가 (중복 요청 필터링)
+     * RabbitMQ에 작업 발행 (중복 요청 필터링)
      *
      * @param bookId 도서 ID
      * @return 큐에 실제로 추가되었으면 true, 중복으로 무시되면 false
@@ -39,33 +46,16 @@ public class ReviewSummaryQueueService {
             return false;
         }
 
-        boolean offered = queue.offer(new ReviewSummaryTask(bookId));
-        if (offered) {
+        try {
+            ReviewSummaryTask task = new ReviewSummaryTask(bookId);
+            rabbitTemplate.convertAndSend(EXCHANGE, ROUTING_KEY, task);
             pendingBooks.put(bookId, now);
-            log.debug("Enqueued summary task for book {}. Queue size: {}", bookId, queue.size());
+            log.debug("Published summary task for book {} to RabbitMQ queue: {}", bookId, queueName);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to publish summary task for book {}: {}", bookId, e.getMessage(), e);
+            return false;
         }
-        return offered;
-    }
-
-    /**
-     * 큐에서 작업을 꺼냄 (대기 가능)
-     *
-     * @param timeout 대기 시간 (millisecond)
-     * @return 작업, 없으면 null
-     */
-    public ReviewSummaryTask dequeue(long timeout) throws InterruptedException {
-        ReviewSummaryTask task = queue.poll(timeout, TimeUnit.MILLISECONDS);
-        if (task != null) {
-            pendingBooks.remove(task.getBookId());
-        }
-        return task;
-    }
-
-    /**
-     * 큐 크기 반환
-     */
-    public int getQueueSize() {
-        return queue.size();
     }
 
     /**
@@ -73,5 +63,12 @@ public class ReviewSummaryQueueService {
      */
     public boolean isPending(Long bookId) {
         return pendingBooks.containsKey(bookId);
+    }
+
+    /**
+     * 중복 요청 추적 Map에서 제외 (소비자가 호출)
+     */
+    public void removePending(Long bookId) {
+        pendingBooks.remove(bookId);
     }
 }
