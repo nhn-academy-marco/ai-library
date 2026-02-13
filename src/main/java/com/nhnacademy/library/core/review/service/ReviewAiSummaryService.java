@@ -88,7 +88,7 @@ public class ReviewAiSummaryService {
 
                 // last_summarized_count 이후의 새 리뷰만 조회
                 List<BookReview> newReviews = bookReviewRepository
-                        .findByBookIdAndIdGreaterThanOrderByIdAsc(
+                        .findNewReviewsAfterId(
                                 bookId,
                                 lastSummarizedCount
                         );
