@@ -66,7 +66,7 @@ public class HybridSearchStrategy implements SearchStrategy {
         }, taskExecutor);
 
         // 두 검색이 완료되면 RRF로 결과 병합
-        CompletableFuture<List<BookSearchResponse>> fusedResultsFuture = keywordSearchFuture.thenCombine(
+        CompletableFuture<List<BookSearchResponse>> fusedResultsFuture = keywordSearchFuture.thenCombineAsync(
                 vectorSearchFuture,
                 (keywordResults, vectorResults) -> {
                     long fusionStartTime = System.currentTimeMillis();
