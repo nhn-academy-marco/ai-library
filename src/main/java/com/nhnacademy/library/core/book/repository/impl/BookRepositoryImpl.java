@@ -70,6 +70,11 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
 
     @Override
     public Page<BookSearchResponse> vectorSearch(Pageable pageable, BookSearchRequest request) {
+        if (request.vector() == null) {
+            log.warn("[VECTOR_SEARCH] Vector is null, returning empty result");
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
         String vectorString = arrayToVectorString(request.vector());
 
         NumberTemplate<Double> similarityTemplate = Expressions.numberTemplate(Double.class, "function('vector_cosine_similarity', {0})", vectorString);
@@ -108,6 +113,10 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
     }
 
     private String arrayToVectorString(float[] vector) {
+        if (vector == null) {
+            throw new IllegalArgumentException("Vector cannot be null");
+        }
+
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < vector.length; i++) {
             sb.append(vector[i]);
