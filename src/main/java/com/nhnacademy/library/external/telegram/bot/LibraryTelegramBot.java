@@ -140,13 +140,20 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
      * @param result 검색 결과 (AI 추천 사유 포함)
      */
     private void sendSearchResult(Long chatId, String keyword, BookSearchResult result) {
-        // 헤더 메시지
+        // 추천 도서 목록 확인
+        List<BookSearchResponse> books = result.getBooks().getContent();
+        if (books.isEmpty()) {
+            sendSimpleMessage(chatId, "❌ 검색 결과가 없습니다.");
+            return;
+        }
+
+        // 헤더 메시지 (한 번에 구성)
         StringBuilder header = new StringBuilder();
-        header.append("📚 **\"").append(keyword).append("\"** 검색 결과\n\n");
+        header.append("📚 \"").append(escapeMarkdown(keyword)).append("\" 검색 결과\n\n");
 
         // AI 추천 사유가 있으면 표시
         if (result.getAiResponse() != null && !result.getAiResponse().isEmpty()) {
-            header.append("🤖 **AI 추천 사유**\n");
+            header.append("🤖 AI 추천 사유\n");
             String aiReason = result.getAiResponse().get(0).getWhy();
             if (aiReason == null || aiReason.isBlank()) {
                 aiReason = "-";
@@ -156,17 +163,9 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
             header.append("💬 ").append(aiReason).append("\n\n");
         }
 
-        sendSimpleMessage(chatId, header.toString());
-
-        // 추천 도서 목록 (AI 추천이 있으면 최대 3개, 없으면 검색 결과 5개)
-        List<BookSearchResponse> books = result.getBooks().getContent();
-        if (books.isEmpty()) {
-            sendSimpleMessage(chatId, "❌ 검색 결과가 없습니다.");
-            return;
-        }
-
         int displayCount = books.size();
-        header.append("**검색된 도서 (").append(displayCount).append("개)**\n");
+        header.append("검색된 도서 (").append(displayCount).append("개)\n\n");
+
         sendSimpleMessage(chatId, header.toString());
 
         for (int i = 0; i < books.size(); i++) {
@@ -186,7 +185,7 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
         StringBuilder bookInfo = new StringBuilder();
 
         // 순번과 제목
-        bookInfo.append(index).append(". **").append(book.getTitle()).append("**\n");
+        bookInfo.append(index).append(". ").append(book.getTitle()).append("\n");
         bookInfo.append("📖 ").append(book.getAuthorName()).append("\n");
 
         // 출판사
@@ -203,7 +202,7 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
         }
 
         // 도서 상세 링크
-        bookInfo.append("🔗 [상세 보기](http://localhost:8080/books/").append(book.getId()).append(")\n");
+        bookInfo.append("🔗 상세 보기: http://localhost:8080/books/").append(book.getId()).append("\n");
 
         // 이미지가 있으면 이미지 전송, 아니면 텍스트만 전송
         if (book.getImageUrl() != null && !book.getImageUrl().isBlank()) {
@@ -212,8 +211,8 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
             sendSimpleMessage(chatId, bookInfo.toString());
         }
 
-        // 구분선
-        sendSimpleMessage(chatId, "\n");
+        // 구분선 (빈 줄)
+        sendSimpleMessage(chatId, " ");
     }
 
     /**
@@ -229,13 +228,12 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
                 .chatId(chatId)
                 .photo(new InputFile(imageUrl))
                 .caption(caption)
-                .parseMode("Markdown")
                 .build();
 
             this.execute(photo);
             log.debug("[Telegram] Sent book image to chatId {}", chatId);
         } catch (TelegramApiException e) {
-            log.error("[Telegram] Failed to send image to chatId {}, sending text instead", chatId, e);
+            log.error("[Telegram] Failed to send image to chatId {}, sending text instead: {}", chatId, e.getMessage());
             // 이미지 전송 실패 시 텍스트로 대체
             sendSimpleMessage(chatId, caption);
         }
@@ -252,21 +250,20 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
 
                 이 Bot은 AI 기반 하이브리드 검색을 제공합니다.
 
-                **사용법:**
+                사용법:
                 • 도서 제목이나 키워드를 입력하면 자동 검색됩니다
-                • `/search 키워드` Command로도 검색 가능합니다
-                • 자연어 검색도 지원합니다 (예: "해리포터 비슷한 책")
+                • /search 키워드 Command로도 검색 가능합니다
+                • 자연어 검색도 지원합니다 (예: 해리포터 비슷한 책)
 
-                **도움이 필요하시면** `/help`를 입력하세요
+                도움이 필요하시면 /help를 입력하세요
                 """)
-            .parseMode("Markdown")
             .build();
 
         try {
             this.execute(message);
             log.debug("[Telegram] Welcome message sent to chatId {}", chatId);
         } catch (TelegramApiException e) {
-            log.error("[Telegram] Failed to send welcome message to chatId {}", chatId, e);
+            log.error("[Telegram] Failed to send welcome message to chatId {}: {}", chatId, e.getMessage());
         }
     }
 
@@ -277,41 +274,40 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
         SendMessage message = SendMessage.builder()
             .chatId(chatId)
             .text("""
-                📖 **도움말**
+                📖 도움말
 
-                **Command:**
+                Command:
                 /start - Bot 시작
                 /search <키워드> - 도서 검색
                 /help - 도움말
 
-                **검색 예시:**
+                검색 예시:
                 • 해리포터
                 • 마법사의 돌
                 • 주식 투자 방법
                 • AI 딥러닝 입문
 
-                **자연어 검색 예시:**
-                • "해리포터와 비슷한 판타지 책"
-                • "주식 초보자가 읽기 좋은 책"
-                • "AI로 세상을 바꾸는 책"
+                자연어 검색 예시:
+                • 해리포터와 비슷한 판타지 책
+                • 주식 초보자가 읽기 좋은 책
+                • AI로 세상을 바꾸는 책
 
-                **검색 기능:**
+                검색 기능:
                 • AI 기반 하이브리드 검색 지원
                 • 캐싱된 추천 도서가 있으면 함께 표시
                 • 상위 5개 결과를 빠르게 반환
 
-                **팁:**
+                팁:
                 • 검색어는 구체적일수록 좋습니다
                 • 자연어로 질문하면 더 정확한 결과를 얻을 수 있습니다
                 """)
-            .parseMode("Markdown")
             .build();
 
         try {
             this.execute(message);
             log.debug("[Telegram] Help message sent to chatId {}", chatId);
         } catch (TelegramApiException e) {
-            log.error("[Telegram] Failed to send help message to chatId {}", chatId, e);
+            log.error("[Telegram] Failed to send help message to chatId {}: {}", chatId, e.getMessage());
         }
     }
 
@@ -335,6 +331,11 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
      * 간단 메시지 전송
      */
     private void sendSimpleMessage(Long chatId, String text) {
+        if (text == null || text.isBlank()) {
+            log.warn("[Telegram] Skipping empty message to chatId {}", chatId);
+            return;
+        }
+
         SendMessage message = SendMessage.builder()
             .chatId(chatId)
             .text(text)
@@ -343,7 +344,36 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
         try {
             this.execute(message);
         } catch (TelegramApiException e) {
-            log.error("[Telegram] Failed to send message to chatId {}", chatId, e);
+            log.error("[Telegram] Failed to send message to chatId {}: {}", chatId, e.getMessage());
         }
+    }
+
+    /**
+     * Markdown 특수문자 이스케이프 처리
+     * Telegram API 오류를 방지하기 위해 특수문자를 제거합니다
+     */
+    private String escapeMarkdown(String text) {
+        if (text == null) {
+            return "";
+        }
+        // Markdown 특수문자 제거
+        return text.replace("*", "")
+                   .replace("_", "")
+                   .replace("[", "")
+                   .replace("]", "")
+                   .replace("(", "")
+                   .replace(")", "")
+                   .replace("~", "")
+                   .replace("`", "")
+                   .replace(">", "")
+                   .replace("#", "")
+                   .replace("+", "")
+                   .replace("-", "")
+                   .replace("=", "")
+                   .replace("|", "")
+                   .replace("{", "")
+                   .replace("}", "")
+                   .replace(".", "")
+                   .replace("!", "");
     }
 }
