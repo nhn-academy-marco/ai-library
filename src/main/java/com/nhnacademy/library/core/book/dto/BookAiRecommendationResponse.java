@@ -12,7 +12,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class BookAiRecommendationResponse {
     private Long id;
-    private int relevance;
+    private Integer relevance;
     private String why;
     private Double similarity;
     private Double rrfScore;

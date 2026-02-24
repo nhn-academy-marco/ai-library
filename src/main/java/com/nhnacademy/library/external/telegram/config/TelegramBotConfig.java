@@ -5,6 +5,7 @@ import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import com.nhnacademy.library.external.telegram.bot.LibraryTelegramBot;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,9 +21,12 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
  *
  * <p>Long Polling 방식으로 Telegram 서버에서 메시지를 수신합니다.
  * 애플리케이션 시작 시 Bot을 등록하고, 종료 시 정리합니다.
+ *
+ * <p>telegram.bot.enabled=true일 때만 활성화됩니다.
  */
 @Slf4j
 @Configuration
+@ConditionalOnProperty(name = "telegram.bot.enabled", havingValue = "true", matchIfMissing = false)
 public class TelegramBotConfig {
 
     private final TelegramBotProperties properties;
