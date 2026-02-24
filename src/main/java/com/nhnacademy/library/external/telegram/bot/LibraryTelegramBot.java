@@ -13,7 +13,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.telegram.telegrambots.bots.DefaultBotOptions;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -105,27 +107,24 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
     /**
      * 도서 검색 처리
      *
-     * <p>하이브리드 검색을 수행하고, 캐싱된 추천 도서가 있으면 함께 반환합니다.
+     * <p>RAG 검색을 수행하여 AI 추천 사유와 함께 도서를 추천합니다.
+     * 캐싱된 추천 도서가 있으면 먼저 보여주고, 검색 결과를 표시합니다.
+     * 이미지가 있으면 이미지를 함께 전송합니다.
      */
     private void handleSearch(Update update, String keyword) {
         Long chatId = update.getMessage().getChatId();
 
         try {
-            // 1. 하이브리드 검색 실행
+            // 1. RAG 검색 실행 (캐시 확인, LLM 추천 사유 생성 포함)
             Pageable pageable = PageRequest.of(0, 5);
-            BookSearchRequest request = new BookSearchRequest(keyword, null, SearchType.HYBRID, null, false);
+            BookSearchRequest request = new BookSearchRequest(keyword, null, SearchType.RAG, null, false);
             BookSearchResult result = bookSearchService.searchBooks(pageable, request);
 
-            // 2. 캐싱된 추천 도서 확인
-            BookSearchRequest ragRequest = new BookSearchRequest(keyword, null, SearchType.RAG, request.vector(), false);
-            boolean hasCache = semanticCacheService.findSimilarResult(ragRequest).isPresent();
+            // 2. 응답 전송 (이미지, 점수, AI 추천 사유 포함)
+            sendSearchResult(chatId, keyword, result);
 
-            // 3. 응답 메시지 생성
-            String response = formatSearchResult(keyword, result, hasCache);
-            sendSimpleMessage(chatId, response);
-
-            log.info("[Telegram] Search completed for keyword: {}, hasCache: {}, resultCount: {}",
-                    keyword, hasCache, result.getBooks().getTotalElements());
+            log.info("[Telegram] RAG Search completed for keyword: {}, hasAIResponse: {}, resultCount: {}",
+                    keyword, result.getAiResponse() != null, result.getBooks().getTotalElements());
 
         } catch (Exception e) {
             log.error("[Telegram] Search failed for keyword: {}", keyword, e);
@@ -134,45 +133,110 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
     }
 
     /**
-     * 검색 결과 포맷팅
+     * 검색 결과 전송
      *
+     * @param chatId Telegram Chat ID
      * @param keyword 검색어
-     * @param result 검색 결과
-     * @param hasCache 된 추천 도서 존재 여부
-     * @return 포맷팅된 메시지
+     * @param result 검색 결과 (AI 추천 사유 포함)
      */
-    private String formatSearchResult(String keyword, BookSearchResult result, boolean hasCache) {
-        StringBuilder message = new StringBuilder();
-        List<BookSearchResponse> books = result.getBooks().getContent();
+    private void sendSearchResult(Long chatId, String keyword, BookSearchResult result) {
+        // 헤더 메시지
+        StringBuilder header = new StringBuilder();
+        header.append("📚 **\"").append(keyword).append("\"** 검색 결과\n\n");
 
-        // 헤더
-        message.append("📚 **\"").append(keyword).append("\"** 검색 결과\n\n");
-
-        // 캐싱된 추천 도서 안내
-        if (hasCache) {
-            message.append("✨ **AI 추천 도서** (캐시)\n");
-            message.append("💡 비슷한 검색어에 대한 추천 도서가 있습니다.\n\n");
-        }
-
-        // 검색 결과 (상위 5개)
-        if (books.isEmpty()) {
-            message.append("❌ 검색 결과가 없습니다.");
-        } else {
-            message.append("**검색된 도서 (상위 ").append(books.size()).append("개)**\n\n");
-
-            for (int i = 0; i < books.size(); i++) {
-                BookSearchResponse book = books.get(i);
-                message.append(i + 1).append(". **").append(book.getTitle()).append("**\n");
-                message.append("   📖 ").append(book.getAuthorName()).append("\n");
-
-                if (book.getPublisherName() != null) {
-                    message.append("   🏢 ").append(book.getPublisherName());
-                }
-                message.append("\n\n");
+        // AI 추천 사유가 있으면 표시
+        if (result.getAiResponse() != null && !result.getAiResponse().isEmpty()) {
+            header.append("🤖 **AI 추천 사유**\n");
+            String aiReason = result.getAiResponse().get(0).getWhy();
+            if (aiReason != null && aiReason.length() > 300) {
+                aiReason = aiReason.substring(0, 300) + "...";
             }
+            header.append("💬 ").append(aiReason).append("\n\n");
         }
 
-        return message.toString();
+        sendSimpleMessage(chatId, header.toString());
+
+        // 추천 도서 목록 (AI 추천이 있으면 최대 3개, 없으면 검색 결과 5개)
+        List<BookSearchResponse> books = result.getBooks().getContent();
+        if (books.isEmpty()) {
+            sendSimpleMessage(chatId, "❌ 검색 결과가 없습니다.");
+            return;
+        }
+
+        int displayCount = books.size();
+        header.append("**검색된 도서 (").append(displayCount).append("개)**\n");
+        sendSimpleMessage(chatId, header.toString());
+
+        for (int i = 0; i < books.size(); i++) {
+            BookSearchResponse book = books.get(i);
+            sendBookWithScore(chatId, i + 1, book);
+        }
+    }
+
+    /**
+     * 도서 정보와 점수 전송
+     *
+     * @param chatId Telegram Chat ID
+     * @param index 순번
+     * @param book 도서 정보
+     */
+    private void sendBookWithScore(Long chatId, int index, BookSearchResponse book) {
+        StringBuilder bookInfo = new StringBuilder();
+
+        // 순번과 제목
+        bookInfo.append(index).append(". **").append(book.getTitle()).append("**\n");
+        bookInfo.append("📖 ").append(book.getAuthorName()).append("\n");
+
+        // 출판사
+        if (book.getPublisherName() != null) {
+            bookInfo.append("🏢 ").append(book.getPublisherName()).append("\n");
+        }
+
+        // 검색 점수 정보
+        if (book.getSimilarity() != null && book.getSimilarity() > 0) {
+            bookInfo.append(String.format("🎯 유사도: %.2f%%\n", book.getSimilarity() * 100));
+        }
+        if (book.getRrfScore() != null && book.getRrfScore() > 0) {
+            bookInfo.append(String.format("📊 RRF 점수: %.2f\n", book.getRrfScore()));
+        }
+
+        // 도서 상세 링크
+        bookInfo.append("🔗 [상세 보기](http://localhost:8080/books/").append(book.getId()).append(")\n");
+
+        // 이미지가 있으면 이미지 전송, 아니면 텍스트만 전송
+        if (book.getImageUrl() != null && !book.getImageUrl().isBlank()) {
+            sendBookImage(chatId, book.getImageUrl(), bookInfo.toString());
+        } else {
+            sendSimpleMessage(chatId, bookInfo.toString());
+        }
+
+        // 구분선
+        sendSimpleMessage(chatId, "\n");
+    }
+
+    /**
+     * 도서 이미지 전송
+     *
+     * @param chatId Telegram Chat ID
+     * @param imageUrl 이미지 URL
+     * @param caption 이미지 캡션 (도서 정보)
+     */
+    private void sendBookImage(Long chatId, String imageUrl, String caption) {
+        try {
+            SendPhoto photo = SendPhoto.builder()
+                .chatId(chatId)
+                .photo(new InputFile(imageUrl))
+                .caption(caption)
+                .parseMode("Markdown")
+                .build();
+
+            this.execute(photo);
+            log.debug("[Telegram] Sent book image to chatId {}", chatId);
+        } catch (TelegramApiException e) {
+            log.error("[Telegram] Failed to send image to chatId {}, sending text instead", chatId, e);
+            // 이미지 전송 실패 시 텍스트로 대체
+            sendSimpleMessage(chatId, caption);
+        }
     }
 
     /**
