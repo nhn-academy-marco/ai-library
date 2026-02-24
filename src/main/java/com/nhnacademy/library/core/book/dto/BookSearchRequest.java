@@ -24,7 +24,7 @@ public record BookSearchRequest(
 ) {
     public BookSearchRequest {
         if (searchType == null) {
-            searchType = SearchType.KEYWORD;
+            searchType = SearchType.RAG;
         }
         if (isWarmUp == null) {
             isWarmUp = false;
