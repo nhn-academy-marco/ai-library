@@ -34,6 +34,8 @@ public class TelegramBotConfig {
 
     public TelegramBotConfig(TelegramBotProperties properties) {
         this.properties = properties;
+        log.info("[Telegram] TelegramBotConfig initialized with bot: @{}, enabled: {}",
+                properties.getUsername(), properties.isEnabled());
     }
 
     /**
@@ -42,6 +44,7 @@ public class TelegramBotConfig {
     @Bean
     public LibraryTelegramBot libraryTelegramBot(BookSearchService bookSearchService,
                                                    SemanticCacheService semanticCacheService) {
+        log.info("[Telegram] Creating LibraryTelegramBot bean");
         // DefaultBotOptions 생성 (필요시 추가 설정 가능)
         DefaultBotOptions options = new DefaultBotOptions();
         // 예: options.setMaxThreads(5);
@@ -57,14 +60,22 @@ public class TelegramBotConfig {
      */
     @EventListener(ApplicationReadyEvent.class)
     public void startBot(ApplicationReadyEvent event) {
-        LibraryTelegramBot bot = event.getApplicationContext().getBean(LibraryTelegramBot.class);
+        log.info("[Telegram] ApplicationReadyEvent received, starting bot registration");
         try {
+            LibraryTelegramBot bot = event.getApplicationContext().getBean(LibraryTelegramBot.class);
+            log.info("[Telegram] Bot bean retrieved: @{}", bot.getBotUsername());
+
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
+            log.info("[Telegram] Registering bot with Telegram API...");
+
             botSession = botsApi.registerBot(bot);
-            log.info("[Telegram] Bot registered successfully: @{}", properties.getUsername());
-            log.info("[Telegram] Long Polling thread started in background");
+            log.info("[Telegram] ✅ Bot registered successfully: @{}", properties.getUsername());
+            log.info("[Telegram] ✅ Long Polling thread started in background");
+            log.info("[Telegram] Bot is now ready to receive messages");
         } catch (TelegramApiException e) {
-            log.error("[Telegram] Failed to register bot", e);
+            log.error("[Telegram] ❌ Failed to register bot: {}", e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("[Telegram] ❌ Unexpected error during bot registration: {}", e.getMessage(), e);
         }
     }
 

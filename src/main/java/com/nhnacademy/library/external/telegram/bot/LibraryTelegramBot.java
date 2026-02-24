@@ -46,19 +46,28 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        if (update.hasMessage() && update.getMessage().hasText()) {
-            String messageText = update.getMessage().getText();
-            Long chatId = update.getMessage().getChatId();
+        log.debug("[Telegram] onUpdateReceived called");
+        try {
+            if (update.hasMessage() && update.getMessage().hasText()) {
+                String messageText = update.getMessage().getText();
+                Long chatId = update.getMessage().getChatId();
 
-            log.info("[Telegram] Received message from chatId {}: {}", chatId, messageText);
+                log.info("[Telegram] Received message from chatId {}: {}", chatId, messageText);
 
-            // Command 분기 처리
-            if (messageText.startsWith("/")) {
-                handleCommand(update, messageText);
+                // Command 분기 처리
+                if (messageText.startsWith("/")) {
+                    log.debug("[Telegram] Handling command: {}", messageText);
+                    handleCommand(update, messageText);
+                } else {
+                    log.debug("[Telegram] Handling search for keyword: {}", messageText);
+                    // 일반 텍스트도 검색으로 처리
+                    handleSearch(update, messageText);
+                }
             } else {
-                // 일반 텍스트도 검색으로 처리
-                handleSearch(update, messageText);
+                log.debug("[Telegram] Received update without message/text: {}", update);
             }
+        } catch (Exception e) {
+            log.error("[Telegram] Error in onUpdateReceived: {}", e.getMessage(), e);
         }
     }
 
@@ -113,21 +122,27 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
      */
     private void handleSearch(Update update, String keyword) {
         Long chatId = update.getMessage().getChatId();
+        log.info("[Telegram] Starting RAG search for keyword: {}, chatId: {}", keyword, chatId);
 
         try {
             // 1. RAG 검색 실행 (캐시 확인, LLM 추천 사유 생성 포함)
+            log.debug("[Telegram] Creating search request for keyword: {}", keyword);
             Pageable pageable = PageRequest.of(0, 5);
             BookSearchRequest request = new BookSearchRequest(keyword, null, SearchType.RAG, null, false);
+
+            log.debug("[Telegram] Calling bookSearchService.searchBooks()");
             BookSearchResult result = bookSearchService.searchBooks(pageable, request);
+            log.debug("[Telegram] Search completed, preparing response");
 
             // 2. 응답 전송 (이미지, 점수, AI 추천 사유 포함)
+            log.debug("[Telegram] Sending search result to chatId: {}", chatId);
             sendSearchResult(chatId, keyword, result);
 
             log.info("[Telegram] RAG Search completed for keyword: {}, hasAIResponse: {}, resultCount: {}",
                     keyword, result.getAiResponse() != null, result.getBooks().getTotalElements());
 
         } catch (Exception e) {
-            log.error("[Telegram] Search failed for keyword: {}", keyword, e);
+            log.error("[Telegram] Search failed for keyword: {}, chatId: {}, error: {}", keyword, chatId, e.getMessage(), e);
             sendSimpleMessage(chatId, "검색 중 오류가 발생했습니다. 다시 시도해주세요.");
         }
     }
