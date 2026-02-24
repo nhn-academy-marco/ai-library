@@ -202,7 +202,7 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
         }
 
         // 도서 상세 링크
-        bookInfo.append("🔗 상세 보기: http://localhost:8080/books/").append(book.getId()).append("\n");
+        bookInfo.append("🔗 상세 보기: https://library.java21.net/books/").append(book.getId()).append("\n");
 
         // 이미지가 있으면 이미지 전송, 아니면 텍스트만 전송
         if (book.getImageUrl() != null && !book.getImageUrl().isBlank()) {
