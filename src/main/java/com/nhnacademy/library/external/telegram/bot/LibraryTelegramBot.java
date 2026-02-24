@@ -148,7 +148,9 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
         if (result.getAiResponse() != null && !result.getAiResponse().isEmpty()) {
             header.append("🤖 **AI 추천 사유**\n");
             String aiReason = result.getAiResponse().get(0).getWhy();
-            if (aiReason != null && aiReason.length() > 300) {
+            if (aiReason == null || aiReason.isBlank()) {
+                aiReason = "-";
+            } else if (aiReason.length() > 300) {
                 aiReason = aiReason.substring(0, 300) + "...";
             }
             header.append("💬 ").append(aiReason).append("\n\n");

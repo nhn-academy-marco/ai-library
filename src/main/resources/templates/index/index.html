@@ -146,7 +146,7 @@
                                     </div>
                                     <div class="text-primary mb-1" style="font-weight: 500;">
                                         <span class="badge bg-primary-lt me-1">추천사유</span>
-                                        <span th:text="${rec.why != null && !rec.why.isEmpty() ? rec.why : '추천 사유를 생성할 수 없습니다.'}">추천 사유</span>
+                                        <span th:text="${rec.why != null && !rec.why.isEmpty() ? rec.why : '-'}">추천 사유</span>
                                     </div>
                                     <div class="small text-muted">
                                         <span class="me-2">출판사: <span th:id="'rec-publisher-' + ${rec.id}">-</span></span>
