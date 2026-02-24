@@ -7,12 +7,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BookEmbeddingSchedulerProfileTest {
 
-    @SpringBootTest(properties = "scheduler.embedding.enabled=false")
+    @SpringBootTest(properties = {
+        "scheduler.embedding.enabled=false",
+        "spring.ai.selected-model=ollama",
+        "rabbitmq.queue.review-summary=nhnacademy-library-review"
+    })
     @ActiveProfiles("default") // 기본 프로필 명시
     @Nested
     class DefaultProfileTest {
@@ -27,7 +32,11 @@ class BookEmbeddingSchedulerProfileTest {
         }
     }
 
-    @SpringBootTest(properties = "scheduler.embedding.enabled=true")
+    @SpringBootTest(properties = {
+        "scheduler.embedding.enabled=true",
+        "spring.ai.selected-model=ollama",
+        "rabbitmq.queue.review-summary=nhnacademy-library-review"
+    })
     @ActiveProfiles("prod")
     @Nested
     class ProdProfileTest {

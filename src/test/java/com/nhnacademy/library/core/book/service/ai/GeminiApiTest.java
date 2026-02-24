@@ -12,11 +12,16 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
 @SpringBootTest
+@TestPropertySource(properties = {
+    "spring.ai.selected-model=gemini",
+    "rabbitmq.queue.review-summary=nhnacademy-library-review"
+})
 class GeminiApiTest {
 
     @Autowired
