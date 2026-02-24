@@ -163,6 +163,9 @@
 * Controller: `@WebMvcTest`
 * Repository: `@DataJpaTest`
 * 특정 계층의 동작만 검증합니다.
+* 외부 API 테스트는 단위테스트로 진행한다. 
+  * 별도로 통합테스트가 필요한 API는 해당 API만 별도의 테스트 클레스로 분리해서 테스트 코드를 작성한다.
+
 
 ---
 

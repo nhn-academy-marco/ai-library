@@ -38,7 +38,7 @@ src/main/java/com/nhnacademy/library
  └─ front.web      # 웹 컨트롤러 및 화면 처리
 ```
 
-상세한 개발 및 리팩터링 규칙은 [`docs/development-guidelines.md`](docs/development-guidelines.md)를 참고하세요.
+상세한 개발 및 테스트 가이드라인은 [`.junie/guidelines.md`](.junie/guidelines.md)를 참고하세요.
 
 ## 🚀 주요 기능
 

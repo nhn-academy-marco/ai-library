@@ -13,7 +13,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
 @SpringBootTest
-@TestPropertySource(properties = "spring.ai.selected-model=ollama")
+@TestPropertySource(properties = {
+    "spring.ai.selected-model=ollama",
+    "rabbitmq.queue.review-summary=nhnacademy-library-review"
+})
 class OllamaApiTest {
 
     @Autowired

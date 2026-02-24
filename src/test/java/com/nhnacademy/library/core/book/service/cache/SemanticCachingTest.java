@@ -28,7 +28,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @Slf4j
-@SpringBootTest(properties = "cache.ttl.minutes=1") // 테스트를 위해 짧은 TTL 설정
+@SpringBootTest(properties = {
+    "cache.ttl.minutes=1",
+    "spring.ai.selected-model=ollama",
+    "rabbitmq.queue.review-summary=nhnacademy-library-review"
+}) // 테스트를 위해 짧은 TTL 설정
 class SemanticCachingTest {
 
     @Autowired
