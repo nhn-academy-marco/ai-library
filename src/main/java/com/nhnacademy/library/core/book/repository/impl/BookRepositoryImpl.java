@@ -4,16 +4,14 @@ import com.nhnacademy.library.core.book.domain.SearchType;
 import com.nhnacademy.library.core.book.domain.QBook;
 import com.nhnacademy.library.core.book.dto.BookSearchRequest;
 import com.nhnacademy.library.core.book.dto.BookSearchResponse;
-import com.nhnacademy.library.core.book.dto.QBookSearchResponse;
 import com.nhnacademy.library.core.book.repository.BookRepositoryCustom;
 import com.nhnacademy.library.core.review.domain.QBookReviewSummary;
+import com.nhnacademy.library.core.review.domain.BookReviewSummary;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.dsl.NumberTemplate;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
-import com.querydsl.core.types.dsl.CaseBuilder;
-import com.querydsl.core.types.dsl.StringExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +21,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -42,28 +41,12 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
             return vectorSearch(pageable, request);
         }
 
-        // Null-safe expressions for review fields (LEFT JOIN may return null)
-        var avgRatingExpr = new CaseBuilder()
-                .when(bookReviewSummary.bookId.isNull())
-                .then((BigDecimal) null)
-                .otherwise(bookReviewSummary.averageRating);
-
-        var reviewCountExpr = new CaseBuilder()
-                .when(bookReviewSummary.bookId.isNull())
-                .then((Long) null)
-                .otherwise(bookReviewSummary.reviewCount);
-
-        var reviewSummaryExpr = new CaseBuilder()
-                .when(bookReviewSummary.bookId.isNull())
-                .then((String) null)
-                .otherwise(bookReviewSummary.reviewSummary);
-
+        // 1. Book 조회
         List<BookSearchResponse> bookSearchResponseList = queryFactory
                 .from(book)
-                .leftJoin(bookReviewSummary)
-                .on(book.id.eq(bookReviewSummary.bookId))
                 .select(
-                        new QBookSearchResponse(
+                        Projections.constructor(
+                                BookSearchResponse.class,
                                 book.id,
                                 book.isbn,
                                 book.title,
@@ -75,16 +58,38 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                                 book.imageUrl,
                                 book.bookContent,
                                 null,  // similarity
-                                null,  // rrfScore
-                                avgRatingExpr,
-                                reviewCountExpr,
-                                reviewSummaryExpr
+                                null   // rrfScore
                         )
                 )
                 .where(commonWhere(request))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
+
+        // 2. 리뷰 정보 조회 (N+1 문제 방지 - IN 절 사용)
+        if (!bookSearchResponseList.isEmpty()) {
+            List<Long> bookIds = bookSearchResponseList.stream()
+                    .map(BookSearchResponse::getId)
+                    .collect(Collectors.toList());
+
+            List<BookReviewSummary> summaries = queryFactory
+                    .selectFrom(bookReviewSummary)
+                    .where(bookReviewSummary.bookId.in(bookIds))
+                    .fetch();
+
+            Map<Long, BookReviewSummary> reviewMap = summaries.stream()
+                    .collect(Collectors.toMap(BookReviewSummary::getBookId, s -> s));
+
+            // 3. 리뷰 정보 조합
+            bookSearchResponseList.forEach(response -> {
+                BookReviewSummary summary = reviewMap.get(response.getId());
+                if (summary != null) {
+                    response.setAverageRating(summary.getAverageRating());
+                    response.setReviewCount(summary.getReviewCount());
+                    response.setReviewSummary(summary.getReviewSummary());
+                }
+            });
+        }
 
         long totalCount = queryFactory
                 .select(book.count())
@@ -106,26 +111,9 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
 
         NumberTemplate<Double> similarityTemplate = Expressions.numberTemplate(Double.class, "function('vector_cosine_similarity', {0})", vectorString);
 
-        // Null-safe expressions for review fields (LEFT JOIN may return null)
-        var avgRatingExpr = new CaseBuilder()
-                .when(bookReviewSummary.bookId.isNull())
-                .then((BigDecimal) null)
-                .otherwise(bookReviewSummary.averageRating);
-
-        var reviewCountExpr = new CaseBuilder()
-                .when(bookReviewSummary.bookId.isNull())
-                .then((Long) null)
-                .otherwise(bookReviewSummary.reviewCount);
-
-        var reviewSummaryExpr = new CaseBuilder()
-                .when(bookReviewSummary.bookId.isNull())
-                .then((String) null)
-                .otherwise(bookReviewSummary.reviewSummary);
-
+        // 1. Book 조회
         List<BookSearchResponse> bookSearchResponseList = queryFactory
                 .from(book)
-                .leftJoin(bookReviewSummary)
-                .on(book.id.eq(bookReviewSummary.bookId))
                 .select(
                         Projections.constructor(
                                 BookSearchResponse.class,
@@ -140,10 +128,7 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                                 book.imageUrl,
                                 book.bookContent,
                                 similarityTemplate,
-                                null,  // rrfScore
-                                avgRatingExpr,
-                                reviewCountExpr,
-                                reviewSummaryExpr
+                                null   // rrfScore
                         )
                 )
                 .where(Expressions.booleanTemplate("embedding is not null"))
@@ -151,6 +136,31 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
+
+        // 2. 리뷰 정보 조회 (N+1 문제 방지 - IN 절 사용)
+        if (!bookSearchResponseList.isEmpty()) {
+            List<Long> bookIds = bookSearchResponseList.stream()
+                    .map(BookSearchResponse::getId)
+                    .collect(Collectors.toList());
+
+            List<BookReviewSummary> summaries = queryFactory
+                    .selectFrom(bookReviewSummary)
+                    .where(bookReviewSummary.bookId.in(bookIds))
+                    .fetch();
+
+            Map<Long, BookReviewSummary> reviewMap = summaries.stream()
+                    .collect(Collectors.toMap(BookReviewSummary::getBookId, s -> s));
+
+            // 3. 리뷰 정보 조합
+            bookSearchResponseList.forEach(response -> {
+                BookReviewSummary summary = reviewMap.get(response.getId());
+                if (summary != null) {
+                    response.setAverageRating(summary.getAverageRating());
+                    response.setReviewCount(summary.getReviewCount());
+                    response.setReviewSummary(summary.getReviewSummary());
+                }
+            });
+        }
 
         long totalCount = queryFactory
                 .select(book.count())
@@ -203,7 +213,7 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
             } catch (Exception e) {
                 log.warn("[BOOK_REPOSITORY] FTS search failed or not supported: {}", e.getMessage());
             }
-            
+
             builder.and(keywordBuilder);
         }
 
