@@ -12,6 +12,8 @@ import com.querydsl.core.types.dsl.NumberTemplate;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.StringExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +23,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
-
+import java.math.BigDecimal;
 import java.util.List;
 
 @Slf4j
@@ -39,6 +41,22 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
         if (request.searchType() == SearchType.VECTOR && request.vector() != null) {
             return vectorSearch(pageable, request);
         }
+
+        // Null-safe expressions for review fields (LEFT JOIN may return null)
+        var avgRatingExpr = new CaseBuilder()
+                .when(bookReviewSummary.bookId.isNull())
+                .then((BigDecimal) null)
+                .otherwise(bookReviewSummary.averageRating);
+
+        var reviewCountExpr = new CaseBuilder()
+                .when(bookReviewSummary.bookId.isNull())
+                .then((Long) null)
+                .otherwise(bookReviewSummary.reviewCount);
+
+        var reviewSummaryExpr = new CaseBuilder()
+                .when(bookReviewSummary.bookId.isNull())
+                .then((String) null)
+                .otherwise(bookReviewSummary.reviewSummary);
 
         List<BookSearchResponse> bookSearchResponseList = queryFactory
                 .from(book)
@@ -58,9 +76,9 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                                 book.bookContent,
                                 null,  // similarity
                                 null,  // rrfScore
-                                bookReviewSummary.averageRating,
-                                bookReviewSummary.reviewCount,
-                                bookReviewSummary.reviewSummary
+                                avgRatingExpr,
+                                reviewCountExpr,
+                                reviewSummaryExpr
                         )
                 )
                 .where(commonWhere(request))
@@ -88,6 +106,22 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
 
         NumberTemplate<Double> similarityTemplate = Expressions.numberTemplate(Double.class, "function('vector_cosine_similarity', {0})", vectorString);
 
+        // Null-safe expressions for review fields (LEFT JOIN may return null)
+        var avgRatingExpr = new CaseBuilder()
+                .when(bookReviewSummary.bookId.isNull())
+                .then((BigDecimal) null)
+                .otherwise(bookReviewSummary.averageRating);
+
+        var reviewCountExpr = new CaseBuilder()
+                .when(bookReviewSummary.bookId.isNull())
+                .then((Long) null)
+                .otherwise(bookReviewSummary.reviewCount);
+
+        var reviewSummaryExpr = new CaseBuilder()
+                .when(bookReviewSummary.bookId.isNull())
+                .then((String) null)
+                .otherwise(bookReviewSummary.reviewSummary);
+
         List<BookSearchResponse> bookSearchResponseList = queryFactory
                 .from(book)
                 .leftJoin(bookReviewSummary)
@@ -107,9 +141,9 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                                 book.bookContent,
                                 similarityTemplate,
                                 null,  // rrfScore
-                                bookReviewSummary.averageRating,
-                                bookReviewSummary.reviewCount,
-                                bookReviewSummary.reviewSummary
+                                avgRatingExpr,
+                                reviewCountExpr,
+                                reviewSummaryExpr
                         )
                 )
                 .where(Expressions.booleanTemplate("embedding is not null"))
