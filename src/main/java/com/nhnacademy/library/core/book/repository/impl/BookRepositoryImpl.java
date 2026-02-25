@@ -41,7 +41,7 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
             return vectorSearch(pageable, request);
         }
 
-        // 1. Book 조회
+        // 1. Book 조회 (BookSearchResponse.from() 사용)
         List<BookSearchResponse> bookSearchResponseList = queryFactory
                 .from(book)
                 .select(
@@ -56,9 +56,7 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                                 book.price,
                                 book.editionPublishDate,
                                 book.imageUrl,
-                                book.bookContent,
-                                null,  // similarity
-                                null   // rrfScore
+                                book.bookContent
                         )
                 )
                 .where(commonWhere(request))
@@ -111,7 +109,7 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
 
         NumberTemplate<Double> similarityTemplate = Expressions.numberTemplate(Double.class, "function('vector_cosine_similarity', {0})", vectorString);
 
-        // 1. Book 조회
+        // 1. Book 벡터 검색
         List<BookSearchResponse> bookSearchResponseList = queryFactory
                 .from(book)
                 .select(
@@ -127,8 +125,7 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                                 book.editionPublishDate,
                                 book.imageUrl,
                                 book.bookContent,
-                                similarityTemplate,
-                                null   // rrfScore
+                                similarityTemplate
                         )
                 )
                 .where(Expressions.booleanTemplate("embedding is not null"))
