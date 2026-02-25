@@ -7,6 +7,8 @@ import com.nhnacademy.library.core.book.dto.BookSearchResult;
 import com.nhnacademy.library.core.book.service.cache.SemanticCacheService;
 import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import com.nhnacademy.library.external.telegram.config.TelegramBotProperties;
+import com.nhnacademy.library.external.telegram.handler.CallbackQueryHandler;
+import com.nhnacademy.library.external.telegram.keyboard.TelegramKeyboardFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -18,6 +20,7 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 
 import java.util.List;
 
@@ -34,20 +37,34 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
     private final TelegramBotProperties properties;
     private final BookSearchService bookSearchService;
     private final SemanticCacheService semanticCacheService;
+    private final CallbackQueryHandler callbackQueryHandler;
+    private final TelegramKeyboardFactory keyboardFactory;
 
     public LibraryTelegramBot(TelegramBotProperties properties, DefaultBotOptions options,
                               BookSearchService bookSearchService,
-                              SemanticCacheService semanticCacheService) {
+                              SemanticCacheService semanticCacheService,
+                              CallbackQueryHandler callbackQueryHandler,
+                              TelegramKeyboardFactory keyboardFactory) {
         super(options);
         this.properties = properties;
         this.bookSearchService = bookSearchService;
         this.semanticCacheService = semanticCacheService;
+        this.callbackQueryHandler = callbackQueryHandler;
+        this.keyboardFactory = keyboardFactory;
     }
 
     @Override
     public void onUpdateReceived(Update update) {
         log.debug("[Telegram] onUpdateReceived called");
         try {
+            // Callback Query 처리를 최우선으로 수행
+            if (update.hasCallbackQuery()) {
+                log.info("[Telegram] Received callback query");
+                callbackQueryHandler.handleCallback(update);
+                return;
+            }
+
+            // 일반 메시지 처리
             if (update.hasMessage() && update.getMessage().hasText()) {
                 String messageText = update.getMessage().getText();
                 Long chatId = update.getMessage().getChatId();
@@ -185,7 +202,7 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
 
         for (int i = 0; i < books.size(); i++) {
             BookSearchResponse book = books.get(i);
-            sendBookWithScore(chatId, i + 1, book);
+            sendBookWithScore(chatId, keyword, i + 1, book);
         }
     }
 
@@ -193,10 +210,11 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
      * 도서 정보와 점수 전송
      *
      * @param chatId Telegram Chat ID
+     * @param keyword 검색어
      * @param index 순번
      * @param book 도서 정보
      */
-    private void sendBookWithScore(Long chatId, int index, BookSearchResponse book) {
+    private void sendBookWithScore(Long chatId, String keyword, int index, BookSearchResponse book) {
         StringBuilder bookInfo = new StringBuilder();
 
         // 순번과 제목
@@ -221,9 +239,66 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
 
         // 이미지가 있으면 이미지 전송, 아니면 텍스트만 전송
         if (book.getImageUrl() != null && !book.getImageUrl().isBlank()) {
-            sendBookImage(chatId, book.getImageUrl(), bookInfo.toString());
+            sendBookImageWithFeedback(chatId, book.getImageUrl(), bookInfo.toString(),
+                keyword, book.getId());
         } else {
-            sendSimpleMessage(chatId, bookInfo.toString());
+            sendBookTextWithFeedback(chatId, bookInfo.toString(),
+                keyword, book.getId());
+        }
+
+        // 구분선 (빈 줄)
+        sendSimpleMessage(chatId, " ");
+    }
+
+    /**
+     * 도서 텍스트와 피드백 키보드 전송
+     *
+     * @param chatId Telegram Chat ID
+     * @param text   도서 정보 텍스트
+     * @param query  검색어
+     * @param bookId 도서 ID
+     */
+    private void sendBookTextWithFeedback(Long chatId, String text, String query, Long bookId) {
+        SendMessage message = SendMessage.builder()
+                .chatId(chatId)
+                .text(text)
+                .replyMarkup(keyboardFactory.createFeedbackKeyboard(query, bookId))
+                .build();
+
+        try {
+            this.execute(message);
+            log.debug("[Telegram] Sent book text with feedback keyboard to chatId {}", chatId);
+        } catch (TelegramApiException e) {
+            log.error("[Telegram] Failed to send message to chatId {}: {}", chatId, e.getMessage());
+            // 키보드가 있는 전송이 실패하면 일반 텍스트로 재시도
+            sendSimpleMessage(chatId, text);
+        }
+    }
+
+    /**
+     * 도서 이미지와 피드백 키보드 전송
+     *
+     * @param chatId  Telegram Chat ID
+     * @param imageUrl 이미지 URL
+     * @param caption 이미지 캡션 (도서 정보)
+     * @param query   검색어
+     * @param bookId  도서 ID
+     */
+    private void sendBookImageWithFeedback(Long chatId, String imageUrl, String caption, String query, Long bookId) {
+        try {
+            SendPhoto photo = SendPhoto.builder()
+                    .chatId(chatId)
+                    .photo(new InputFile(imageUrl))
+                    .caption(caption)
+                    .replyMarkup(keyboardFactory.createFeedbackKeyboard(query, bookId))
+                    .build();
+
+            this.execute(photo);
+            log.debug("[Telegram] Sent book image with feedback keyboard to chatId {}", chatId);
+        } catch (TelegramApiException e) {
+            log.error("[Telegram] Failed to send image to chatId {}, sending text instead: {}", chatId, e.getMessage());
+            // 이미지 전송 실패 시 텍스트로 대체
+            sendBookTextWithFeedback(chatId, caption, query, bookId);
         }
 
         // 구분선 (빈 줄)
