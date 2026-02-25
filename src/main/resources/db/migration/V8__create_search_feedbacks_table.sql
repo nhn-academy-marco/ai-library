@@ -3,6 +3,12 @@
 -- ============================================
 -- 목적: Telegram Bot을 통해 수집된 사용자 피드백 저장
 -- 활용: 검색어별 피드백 분석, 검색 결과 품질 개선
+--
+-- PostgreSQL 인덱스 문법 주의사항:
+-- - MySQL과 달리 PostgreSQL은 CREATE TABLE 내부에서 INDEX 정의를 지원하지 않음
+-- - 반드시 별도의 CREATE INDEX 문으로 인덱스를 생성해야 함
+--   (잘못된 예: CREATE TABLE t (... INDEX idx (col));)
+--   (올바른 예: CREATE TABLE t (...); CREATE INDEX idx ON t(col);)
 -- ============================================
 
 -- 테이블 생성
