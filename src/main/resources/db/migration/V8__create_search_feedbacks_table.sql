@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS search_feedbacks (
     query VARCHAR(500) NOT NULL,
     book_id BIGINT NOT NULL,
     type VARCHAR(20) NOT NULL CHECK (type IN ('GOOD', 'BAD')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 인덱스 생성 (조회 성능 최적화)
@@ -28,7 +28,7 @@ COMMENT ON COLUMN search_feedbacks.chat_id IS 'Telegram 사용자 ID';
 COMMENT ON COLUMN search_feedbacks.query IS '검색어 (예: 해리포터)';
 COMMENT ON COLUMN search_feedbacks.book_id IS '피드백 대상 도서 ID';
 COMMENT ON COLUMN search_feedbacks.type IS '피드백 타입: GOOD(좋았음), BAD(별로였음)';
-COMMENT ON COLUMN search_feedbacks.created_at IS '피드백 생성 시간';
+COMMENT ON COLUMN search_feedbacks.created_at IS '피드백 생성 시간 (Java: OffsetDateTime)';
 
 -- ============================================
 -- 검증 쿼리 예시
