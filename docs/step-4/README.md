@@ -52,9 +52,9 @@ AI 서비스의 3대 문제(느림, 비싼, 품질 vs 비용 딜레마)을 해�
 | 문서 | 주제 | 설명 | 구현 상태 |
 |------|------|------|----------|
 | **04** | [리뷰 요약 시스템](./04.review-summarization.md) | RabbitMQ로 리뷰 수집, AI가 요약 생성 | ✅ 완전 구현 |
-| **05** | [리뷰 RAG 연동](./05.review-rag-integration.md) | 리뷰 정보를 RAG 검색에 반영 | ⚠️ 미구현 (도전 과제) |
+| **05** | [리뷰 RAG 연동](./05.review-rag-integration.md) | 리뷰 정보를 RAG 검색에 반영 | ✅ 완전 구현 |
 
-**학습 순서 추천:** 04 → (선택) 05
+**학습 순서 추천:** 04 → 05
 
 **04 문서에서 배우는 내용:**
 - RabbitMQ 메시지 큐 시스템
@@ -62,10 +62,10 @@ AI 서비스의 3대 문제(느림, 비싼, 품질 vs 비용 딜레마)을 해�
 - Dirty Flag 패턴으로 효율적 요약
 - Map-Reduce vs Incremental 요약 전략
 
-**05 문서 특징:**
-- 구현되지 않은 도전 과제
-- 학생들이 직접 구현해볼 수 있는 확장 아이디어
-- 리뷰 정보를 DTO에 추가, LLM 프롬프트 수정 등
+**05 문서에서 배우는 내용:**
+- 리뷰 정보를 DTO에 추가하여 검색 결과에 포함
+- N+1 문제를 방지하는 LEFT JOIN 조회
+- LLM 프롬프트에 리뷰 정보를 반영하여 추천 품질 향상
 
 ---
 
@@ -120,7 +120,7 @@ Step 4에 오기 전에:
 
 ## 실제 프로젝트 구현 상태
 
-### ✅ 완전 구현 (01~04)
+### ✅ 완전 구현 (01~05)
 
 | 기술 | 구현 위치 | 핵심 설정 |
 |------|----------|----------|
@@ -139,15 +139,12 @@ src/main/java/.../SemanticCacheService.java
 
 # 리뷰 요약
 src/main/java/.../BookReviewSummary.java
+
+# 리뷰 RAG 연동
+src/main/java/.../BookSearchResponse.java
+src/main/java/.../BookRepositoryImpl.java
+src/main/java/.../AiRecommendationService.java
 ```
-
-### ⚠️ 미구현 (05)
-
-- 리뷰 정보(평점, 요약)를 RAG 검색 결과에 반영
-- `BookSearchResponse`에 평점 필드 추가
-- `AiRecommendationService` 프롬프트 수정
-
-→ **학생들을 위한 도전 과제로 제공**
 
 ---
 
@@ -196,8 +193,9 @@ src/main/java/.../BookReviewSummary.java
 - [ ] 04: @Async 비동기 처리를 이해한다
 - [ ] 04: Dirty Flag 패턴을 안다
 - [ ] 04: Map-Reduce와 Incremental 요약의 차이를 안다
-- [ ] 05: 리뷰 정보를 DTO에 추가할 수 있다 (도전)
-- [ ] 05: LLM 프롬프트를 수정하여 리뷰를 반영할 수 있다 (도전)
+- [ ] 05: 리뷰 정보를 DTO에 추가할 수 있다
+- [ ] 05: LLM 프롬프트를 수정하여 리뷰를 반영할 수 있다
+- [ ] 05: N+1 문제를 방지하는 LEFT JOIN을 이해한다
 
 ---
 
@@ -210,12 +208,13 @@ src/main/java/.../BookReviewSummary.java
 - Part 2는 선택적인 응용 확장
 - Part 1을 완료한 후 Part 2를 학습해도 늦지 않음
 
-### Q2: 05 문서는 왜 구현되지 않았나요?
+### Q2: 리뷰 RAG 연동은 어떻게 구현되어 있나요?
 
-**A:** 학생들을 위한 도전 과제로 의도적으로 남겨두었습니다.
-- 01~04까지 학습한 후 스스로 구현해볼 수 있는 확선 아이디어
-- 리뷰 정보를 RAG에 반영하는 것은 좋은 프로젝트 주제
-- 구현하면 추가로 10~20% 품질 향상 기대
+**A:** 05문서에 설명된 모든 기능이 완전 구현되어 있습니다.
+- BookSearchResponse에 평점/리뷰 수/리뷰 요약 필드 추가
+- Repository에서 LEFT JOIN으로 N+1 문제 방지
+- AiRecommendationService 프롬프트에 리뷰 정보 반영
+- 리뷰 정보를 통해 추가로 10~20% 추천 품질 향상 기대
 
 ### Q3: Redis가 없으면 캐싱을 학습할 수 없나요?
 
