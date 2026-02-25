@@ -6,6 +6,7 @@ import com.nhnacademy.library.core.book.dto.BookSearchRequest;
 import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import com.nhnacademy.library.core.book.dto.QBookSearchResponse;
 import com.nhnacademy.library.core.book.repository.BookRepositoryCustom;
+import com.nhnacademy.library.core.review.domain.QBookReviewSummary;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.dsl.NumberTemplate;
 import com.querydsl.core.types.Projections;
@@ -30,6 +31,7 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
     QBook book = QBook.book;
+    QBookReviewSummary bookReviewSummary = QBookReviewSummary.bookReviewSummary;
 
     @Override
     public Page<BookSearchResponse> search(Pageable pageable, BookSearchRequest request) {
@@ -40,6 +42,8 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
 
         List<BookSearchResponse> bookSearchResponseList = queryFactory
                 .from(book)
+                .leftJoin(bookReviewSummary)
+                .on(book.id.eq(bookReviewSummary.bookId))
                 .select(
                         new QBookSearchResponse(
                                 book.id,
@@ -51,7 +55,12 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                                 book.price,
                                 book.editionPublishDate,
                                 book.imageUrl,
-                                book.bookContent
+                                book.bookContent,
+                                null,  // similarity
+                                null,  // rrfScore
+                                bookReviewSummary.averageRating,
+                                bookReviewSummary.reviewCount,
+                                bookReviewSummary.reviewSummary
                         )
                 )
                 .where(commonWhere(request))
@@ -81,6 +90,8 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
 
         List<BookSearchResponse> bookSearchResponseList = queryFactory
                 .from(book)
+                .leftJoin(bookReviewSummary)
+                .on(book.id.eq(bookReviewSummary.bookId))
                 .select(
                         Projections.constructor(
                                 BookSearchResponse.class,
@@ -94,7 +105,11 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                                 book.editionPublishDate,
                                 book.imageUrl,
                                 book.bookContent,
-                                similarityTemplate
+                                similarityTemplate,
+                                null,  // rrfScore
+                                bookReviewSummary.averageRating,
+                                bookReviewSummary.reviewCount,
+                                bookReviewSummary.reviewSummary
                         )
                 )
                 .where(Expressions.booleanTemplate("embedding is not null"))

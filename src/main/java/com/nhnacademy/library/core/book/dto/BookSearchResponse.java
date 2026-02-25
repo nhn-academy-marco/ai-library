@@ -28,6 +28,11 @@ public class BookSearchResponse {
     private Double similarity;
     private Double rrfScore;
 
+    // 리뷰 정보 (05.review-rag-integration.md)
+    private BigDecimal averageRating;
+    private Long reviewCount;
+    private String reviewSummary;
+
     @QueryProjection // 빌드 시 QBookSearchResponse를 생성하게 함
     public BookSearchResponse(Long id, String isbn, String title, String volumeTitle,
                               String authorName, String publisherName, BigDecimal price,
@@ -59,6 +64,22 @@ public class BookSearchResponse {
         this.rrfScore = rrfScore;
     }
 
+    /**
+     * 리뷰 정보를 포함하는 생성자 (05.review-rag-integration.md)
+     * QueryDSL @QueryProjection에서 LEFT JOIN으로 리뷰 정보를 가져올 때 사용
+     */
+    @QueryProjection
+    public BookSearchResponse(Long id, String isbn, String title, String volumeTitle,
+                              String authorName, String publisherName, BigDecimal price,
+                              LocalDate editionPublishDate, String imageUrl, String bookContent,
+                              Double similarity, Double rrfScore,
+                              BigDecimal averageRating, Long reviewCount, String reviewSummary) {
+        this(id, isbn, title, volumeTitle, authorName, publisherName, price, editionPublishDate, imageUrl, bookContent, similarity, rrfScore);
+        this.averageRating = averageRating;
+        this.reviewCount = reviewCount;
+        this.reviewSummary = reviewSummary;
+    }
+
     // 기존 Entity 변환 로직 유지
     public static BookSearchResponse from(Book book) {
         return new BookSearchResponse(
@@ -73,5 +94,19 @@ public class BookSearchResponse {
                 book.getImageUrl(),
                 book.getBookContent()
         );
+    }
+
+    // 리뷰 정보 Setter (05.review-rag-integration.md)
+
+    public void setAverageRating(BigDecimal averageRating) {
+        this.averageRating = averageRating;
+    }
+
+    public void setReviewCount(Long reviewCount) {
+        this.reviewCount = reviewCount;
+    }
+
+    public void setReviewSummary(String reviewSummary) {
+        this.reviewSummary = reviewSummary;
     }
 }
