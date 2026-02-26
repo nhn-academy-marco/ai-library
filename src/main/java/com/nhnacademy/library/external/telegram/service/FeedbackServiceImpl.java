@@ -73,4 +73,22 @@ public class FeedbackServiceImpl implements FeedbackService {
 
         return searchFeedbackRepository.findByCreatedAtBetween(startDate, endDate);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasExistingFeedback(Long chatId, String query, Long bookId) {
+        log.debug("Checking for existing feedback: chatId={}, query={}, bookId={}",
+                  chatId, query, bookId);
+
+        return searchFeedbackRepository
+            .findByChatIdAndQueryAndBookId(chatId, query, bookId)
+            .isPresent();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SearchFeedback> getAllFeedback() {
+        log.debug("Fetching all feedback for CSV export");
+        return searchFeedbackRepository.findAll();
+    }
 }
