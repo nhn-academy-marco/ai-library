@@ -4,7 +4,6 @@ import com.nhnacademy.library.external.telegram.bot.LibraryTelegramBot;
 import com.nhnacademy.library.external.telegram.dto.FeedbackRequest;
 import com.nhnacademy.library.external.telegram.dto.FeedbackType;
 import com.nhnacademy.library.external.telegram.service.FeedbackService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
@@ -23,12 +22,16 @@ import java.nio.charset.StandardCharsets;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class CallbackQueryHandler {
 
     private final FeedbackService feedbackService;
-    @Lazy
     private final LibraryTelegramBot libraryTelegramBot;
+
+    public CallbackQueryHandler(FeedbackService feedbackService,
+                                 @Lazy LibraryTelegramBot libraryTelegramBot) {
+        this.feedbackService = feedbackService;
+        this.libraryTelegramBot = libraryTelegramBot;
+    }
 
     /**
      * Callback Query를 처리합니다.
