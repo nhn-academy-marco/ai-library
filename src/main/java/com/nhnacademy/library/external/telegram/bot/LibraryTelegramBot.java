@@ -7,8 +7,10 @@ import com.nhnacademy.library.core.book.dto.BookSearchResult;
 import com.nhnacademy.library.core.book.service.cache.SemanticCacheService;
 import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import com.nhnacademy.library.external.telegram.config.TelegramBotProperties;
+import com.nhnacademy.library.external.telegram.dto.FeedbackStats;
 import com.nhnacademy.library.external.telegram.handler.CallbackQueryHandler;
 import com.nhnacademy.library.external.telegram.keyboard.TelegramKeyboardFactory;
+import com.nhnacademy.library.external.telegram.service.FeedbackService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -39,18 +41,21 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
     private final SemanticCacheService semanticCacheService;
     private final CallbackQueryHandler callbackQueryHandler;
     private final TelegramKeyboardFactory keyboardFactory;
+    private final FeedbackService feedbackService;
 
     public LibraryTelegramBot(TelegramBotProperties properties, DefaultBotOptions options,
                               BookSearchService bookSearchService,
                               SemanticCacheService semanticCacheService,
                               CallbackQueryHandler callbackQueryHandler,
-                              TelegramKeyboardFactory keyboardFactory) {
+                              TelegramKeyboardFactory keyboardFactory,
+                              FeedbackService feedbackService) {
         super(options);
         this.properties = properties;
         this.bookSearchService = bookSearchService;
         this.semanticCacheService = semanticCacheService;
         this.callbackQueryHandler = callbackQueryHandler;
         this.keyboardFactory = keyboardFactory;
+        this.feedbackService = feedbackService;
     }
 
     @Override
@@ -115,6 +120,17 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
             return;
         }
 
+        // /stats <query> 형식 처리
+        if (command.startsWith("/stats ")) {
+            String query = command.substring("/stats ".length()).trim();
+            if (!query.isEmpty()) {
+                handleFeedbackStats(update, query);
+            } else {
+                sendSimpleMessage(chatId, "검색어를 입력해주세요.\n예: /stats 해리포터");
+            }
+            return;
+        }
+
         switch (command) {
             case "/start":
                 sendWelcomeMessage(chatId);
@@ -122,6 +138,11 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
 
             case "/help":
                 sendHelpMessage(chatId);
+                break;
+
+            case "/stats":
+            case "/mystats":
+                handleUserStats(update);
                 break;
 
             default:
@@ -390,6 +411,10 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
                 팁:
                 • 검색어는 구체적일수록 좋습니다
                 • 자연어로 질문하면 더 정확한 결과를 얻을 수 있습니다
+
+                피드백:
+                • /stats <검색어> - 검색어별 피드백 통계 확인
+                • /mystats - 내 피드백 내역 확인
                 """)
             .build();
 
@@ -435,6 +460,78 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
             this.execute(message);
         } catch (TelegramApiException e) {
             log.error("[Telegram] Failed to send message to chatId {}: {}", chatId, e.getMessage());
+        }
+    }
+
+    /**
+     * 검색어별 피드백 통계 처리
+     *
+     * @param update Telegram Update 객체
+     * @param query  검색어
+     */
+    private void handleFeedbackStats(Update update, String query) {
+        Long chatId = update.getMessage().getChatId();
+        log.info("[Telegram] Getting feedback stats for query: {}, chatId: {}", query, chatId);
+
+        try {
+            FeedbackStats stats = feedbackService.getQueryFeedbackStats(query);
+
+            StringBuilder message = new StringBuilder();
+            message.append("📊 \"").append(escapeMarkdown(query)).append("\" 피드백 통계\n\n");
+            message.append("👍 좋았음: ").append(stats.goodCount()).append("건\n");
+            message.append("👎 별로였음: ").append(stats.badCount()).append("건\n");
+            message.append("📈 전체: ").append(stats.totalCount()).append("건\n");
+            message.append("💯 긍정 비율: ").append(String.format("%.1f%%", stats.goodRatio() * 100)).append("\n");
+            message.append("⭐ 피드백 점수: ").append(String.format("%.3f", stats.feedbackScore())).append("\n");
+
+            sendSimpleMessage(chatId, message.toString());
+
+        } catch (Exception e) {
+            log.error("[Telegram] Failed to get feedback stats for query: {}, chatId: {}", query, chatId, e);
+            sendSimpleMessage(chatId, "피드백 통계 조회 중 오류가 발생했습니다.");
+        }
+    }
+
+    /**
+     * 사용자별 피드백 내역 처리
+     *
+     * @param update Telegram Update 객체
+     */
+    private void handleUserStats(Update update) {
+        Long chatId = update.getMessage().getChatId();
+        log.info("[Telegram] Getting user feedback history for chatId: {}", chatId);
+
+        try {
+            var feedbacks = feedbackService.getUserFeedback(chatId);
+
+            if (feedbacks.isEmpty()) {
+                sendSimpleMessage(chatId, "📊 아직 피드백 내역이 없습니다.\n\n검색 후 도서 하단의 👍👎 버튼으로 피드백을 남겨주세요!");
+                return;
+            }
+
+            StringBuilder message = new StringBuilder();
+            message.append("📊 내 피드백 내역 (").append(feedbacks.size()).append("건)\n\n");
+
+            // 최근 10개만 표시
+            int displayCount = Math.min(feedbacks.size(), 10);
+            for (int i = 0; i < displayCount; i++) {
+                var feedback = feedbacks.get(i);
+                String emoji = feedback.getType().name().equals("GOOD") ? "👍" : "👎";
+                message.append(emoji)
+                       .append(" ")
+                       .append(escapeMarkdown(feedback.getQuery()))
+                       .append("\n");
+            }
+
+            if (feedbacks.size() > 10) {
+                message.append("\n... 외 ").append(feedbacks.size() - 10).append("건");
+            }
+
+            sendSimpleMessage(chatId, message.toString());
+
+        } catch (Exception e) {
+            log.error("[Telegram] Failed to get user feedback history for chatId: {}", chatId, e);
+            sendSimpleMessage(chatId, "피드백 내역 조회 중 오류가 발생했습니다.");
         }
     }
 

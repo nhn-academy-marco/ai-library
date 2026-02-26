@@ -5,6 +5,7 @@ import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import com.nhnacademy.library.external.telegram.config.TelegramBotProperties;
 import com.nhnacademy.library.external.telegram.handler.CallbackQueryHandler;
 import com.nhnacademy.library.external.telegram.keyboard.TelegramKeyboardFactory;
+import com.nhnacademy.library.external.telegram.service.FeedbackService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,8 @@ class LibraryTelegramBotTest {
     private CallbackQueryHandler callbackQueryHandler;
     @Mock
     private TelegramKeyboardFactory keyboardFactory;
+    @Mock
+    private FeedbackService feedbackService;
 
     private LibraryTelegramBot bot;
 
@@ -45,7 +48,7 @@ class LibraryTelegramBotTest {
 
         DefaultBotOptions options = new DefaultBotOptions();
         bot = new LibraryTelegramBot(properties, options, bookSearchService, semanticCacheService,
-                                      callbackQueryHandler, keyboardFactory);
+                                      callbackQueryHandler, keyboardFactory, feedbackService);
     }
 
     @Test
