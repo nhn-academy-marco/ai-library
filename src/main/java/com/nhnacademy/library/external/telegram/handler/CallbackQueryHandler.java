@@ -52,10 +52,21 @@ public class CallbackQueryHandler {
             // 1. Callback 데이터 파싱
             FeedbackRequest request = parseCallbackData(callbackData);
 
-            // 2. 피드백 저장 (chatId를 함께 저장)
-            feedbackService.recordFeedback(chatId, request);
+            // 2. 메시지 캡션에서 검색어 추출 (메시지 형식: "📚 \"검색어\" 검색 결과")
+            String query = extractQueryFromMessage(callbackQuery.getMessage().getText());
 
-            // 3. Callback Query 응답 (로딩 애니메이션 중지)
+            // 3. 검색어가 추출되지 않으면 빈 문자열 사용
+            if (query == null || query.isBlank()) {
+                query = "";
+            }
+
+            // 4. FeedbackRequest에 검색어 포함하여 재생성
+            FeedbackRequest requestWithQuery = new FeedbackRequest(query, request.bookId(), request.type());
+
+            // 5. 피드백 저장 (chatId를 함께 저장)
+            feedbackService.recordFeedback(chatId, requestWithQuery);
+
+            // 6. Callback Query 응답 (로딩 애니메이션 중지)
             AnswerCallbackQuery answerCallback = AnswerCallbackQuery.builder()
                     .callbackQueryId(callbackQueryId)
                     .text("✅ 피드백이 저장되었습니다!")
@@ -64,7 +75,7 @@ public class CallbackQueryHandler {
             libraryTelegramBot.execute(answerCallback);
 
             log.info("Feedback recorded successfully: chatId={}, query={}, bookId={}, type={}",
-                    chatId, request.query(), request.bookId(), request.type());
+                    chatId, query, requestWithQuery.bookId(), requestWithQuery.type());
 
         } catch (IllegalArgumentException e) {
             log.error("Invalid callback data: chatId={}, data={}", chatId, callbackData, e);
@@ -75,6 +86,32 @@ public class CallbackQueryHandler {
             log.error("Failed to process callback: chatId={}, data={}", chatId, callbackData, e);
             answerCallbackWithError(callbackQueryId, "피드백 처리 중 오류가 발생했습니다.");
         }
+    }
+
+    /**
+     * 메시지 캡션에서 검색어를 추출합니다.
+     *
+     * @param messageText 메시지 텍스트
+     * @return 추출된 검색어
+     */
+    private String extractQueryFromMessage(String messageText) {
+        if (messageText == null || messageText.isBlank()) {
+            return null;
+        }
+
+        // "📚 "검색어" 검색 결과" 형식에서 검색어 추출
+        // 예: "📚 "해리포터" 검색 결과" → "해리포터"
+        int startIndex = messageText.indexOf("\"");
+        if (startIndex == -1) {
+            return null;
+        }
+
+        int endIndex = messageText.indexOf("\"", startIndex + 1);
+        if (endIndex == -1) {
+            return null;
+        }
+
+        return messageText.substring(startIndex + 1, endIndex);
     }
 
     /**
