@@ -25,7 +25,15 @@ import java.time.OffsetDateTime;
 public class SearchFeedback {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(
+        strategy = GenerationType.SEQUENCE,
+        generator = "search_feedbacks_generator"
+    )
+    @SequenceGenerator(
+        name = "search_feedbacks_generator",
+        sequenceName = "search_feedbacks_sequence",
+        allocationSize = 1
+    )
     private Long id;
 
     @Column(name = "chat_id", nullable = false)
