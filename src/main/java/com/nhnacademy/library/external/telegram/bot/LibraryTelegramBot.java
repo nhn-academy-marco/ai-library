@@ -163,7 +163,10 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
         log.info("[Telegram] Starting RAG search for keyword: {}, chatId: {}", keyword, chatId);
 
         try {
-            // 1. RAG 검색 실행 (캐시 확인, LLM 추천 사유 생성 포함)
+            // 1. 최근 검색어 저장 (피드백용)
+            callbackQueryHandler.setRecentQuery(chatId, keyword);
+
+            // 2. RAG 검색 실행 (캐시 확인, LLM 추천 사유 생성 포함)
             log.debug("[Telegram] Creating search request for keyword: {}", keyword);
             Pageable pageable = PageRequest.of(0, 5);
             BookSearchRequest request = new BookSearchRequest(keyword, null, SearchType.RAG, null, false);
@@ -172,7 +175,7 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
             BookSearchResult result = bookSearchService.searchBooks(pageable, request);
             log.debug("[Telegram] Search completed, preparing response");
 
-            // 2. 응답 전송 (이미지, 점수, AI 추천 사유 포함)
+            // 3. 응답 전송 (이미지, 점수, AI 추천 사유 포함)
             log.debug("[Telegram] Sending search result to chatId: {}", chatId);
             sendSearchResult(chatId, keyword, result);
 

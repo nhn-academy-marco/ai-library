@@ -12,6 +12,9 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Telegram Callback Query 처리 Handler
  *
@@ -24,10 +27,34 @@ public class CallbackQueryHandler {
     private final FeedbackService feedbackService;
     private final LibraryTelegramBot libraryTelegramBot;
 
+    // 채팅별 최근 검색어 저장 (콜백 데이터에 검색어를 포함할 수 없을 때 사용)
+    private final Map<Long, String> recentQueries = new ConcurrentHashMap<>();
+
     public CallbackQueryHandler(FeedbackService feedbackService,
                                  @Lazy LibraryTelegramBot libraryTelegramBot) {
         this.feedbackService = feedbackService;
         this.libraryTelegramBot = libraryTelegramBot;
+    }
+
+    /**
+     * 최근 검색어를 저장합니다.
+     *
+     * @param chatId Telegram 사용자 ID
+     * @param query  검색어
+     */
+    public void setRecentQuery(Long chatId, String query) {
+        recentQueries.put(chatId, query);
+        log.debug("[Telegram] Stored recent query for chatId: {}", chatId, query);
+    }
+
+    /**
+     * 최근 검색어를 가져옵니다.
+     *
+     * @param chatId Telegram 사용자 ID
+     * @return 최근 검색어 (없으면 null)
+     */
+    public String getRecentQuery(Long chatId) {
+        return recentQueries.get(chatId);
     }
 
     /**
@@ -52,21 +79,20 @@ public class CallbackQueryHandler {
             // 1. Callback 데이터 파싱
             FeedbackRequest request = parseCallbackData(callbackData);
 
-            // 2. 메시지 캡션에서 검색어 추출 (메시지 형식: "📚 \"검색어\" 검색 결과")
-            String query = extractQueryFromMessage(callbackQuery.getMessage().getText());
-
-            // 3. 검색어가 추출되지 않으면 빈 문자열 사용
+            // 2. 저장된 최근 검색어 가져오기
+            String query = recentQueries.get(chatId);
             if (query == null || query.isBlank()) {
+                log.warn("[Telegram] No recent query found for chatId: {}, using empty string", chatId);
                 query = "";
             }
 
-            // 4. FeedbackRequest에 검색어 포함하여 재생성
+            // 3. FeedbackRequest에 검색어 포함하여 재생성
             FeedbackRequest requestWithQuery = new FeedbackRequest(query, request.bookId(), request.type());
 
-            // 5. 피드백 저장 (chatId를 함께 저장)
+            // 4. 피드백 저장 (chatId를 함께 저장)
             feedbackService.recordFeedback(chatId, requestWithQuery);
 
-            // 6. Callback Query 응답 (로딩 애니메이션 중지)
+            // 5. Callback Query 응답 (로딩 애니메이션 중지)
             AnswerCallbackQuery answerCallback = AnswerCallbackQuery.builder()
                     .callbackQueryId(callbackQueryId)
                     .text("✅ 피드백이 저장되었습니다!")
@@ -86,32 +112,6 @@ public class CallbackQueryHandler {
             log.error("Failed to process callback: chatId={}, data={}", chatId, callbackData, e);
             answerCallbackWithError(callbackQueryId, "피드백 처리 중 오류가 발생했습니다.");
         }
-    }
-
-    /**
-     * 메시지 캡션에서 검색어를 추출합니다.
-     *
-     * @param messageText 메시지 텍스트
-     * @return 추출된 검색어
-     */
-    private String extractQueryFromMessage(String messageText) {
-        if (messageText == null || messageText.isBlank()) {
-            return null;
-        }
-
-        // "📚 "검색어" 검색 결과" 형식에서 검색어 추출
-        // 예: "📚 "해리포터" 검색 결과" → "해리포터"
-        int startIndex = messageText.indexOf("\"");
-        if (startIndex == -1) {
-            return null;
-        }
-
-        int endIndex = messageText.indexOf("\"", startIndex + 1);
-        if (endIndex == -1) {
-            return null;
-        }
-
-        return messageText.substring(startIndex + 1, endIndex);
     }
 
     /**
