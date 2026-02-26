@@ -5,6 +5,7 @@ import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import com.nhnacademy.library.external.telegram.bot.LibraryTelegramBot;
 import com.nhnacademy.library.external.telegram.handler.CallbackQueryHandler;
 import com.nhnacademy.library.external.telegram.keyboard.TelegramKeyboardFactory;
+import com.nhnacademy.library.external.telegram.service.FeedbackService;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -47,14 +48,15 @@ public class TelegramBotConfig {
     public LibraryTelegramBot libraryTelegramBot(BookSearchService bookSearchService,
                                                    SemanticCacheService semanticCacheService,
                                                    CallbackQueryHandler callbackQueryHandler,
-                                                   TelegramKeyboardFactory keyboardFactory) {
+                                                   TelegramKeyboardFactory keyboardFactory,
+                                                   FeedbackService feedbackService) {
         log.info("[Telegram] Creating LibraryTelegramBot bean");
         // DefaultBotOptions 생성 (필요시 추가 설정 가능)
         DefaultBotOptions options = new DefaultBotOptions();
         // 예: options.setMaxThreads(5);
 
         return new LibraryTelegramBot(properties, options, bookSearchService, semanticCacheService,
-                                      callbackQueryHandler, keyboardFactory);
+                                      callbackQueryHandler, keyboardFactory, feedbackService);
     }
 
     /**
