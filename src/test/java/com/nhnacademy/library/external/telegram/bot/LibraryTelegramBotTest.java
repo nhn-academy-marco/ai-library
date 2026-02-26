@@ -3,6 +3,8 @@ package com.nhnacademy.library.external.telegram.bot;
 import com.nhnacademy.library.core.book.service.cache.SemanticCacheService;
 import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import com.nhnacademy.library.external.telegram.config.TelegramBotProperties;
+import com.nhnacademy.library.external.telegram.handler.CallbackQueryHandler;
+import com.nhnacademy.library.external.telegram.keyboard.TelegramKeyboardFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +31,10 @@ class LibraryTelegramBotTest {
     private BookSearchService bookSearchService;
     @Mock
     private SemanticCacheService semanticCacheService;
+    @Mock
+    private CallbackQueryHandler callbackQueryHandler;
+    @Mock
+    private TelegramKeyboardFactory keyboardFactory;
 
     private LibraryTelegramBot bot;
 
@@ -38,7 +44,8 @@ class LibraryTelegramBotTest {
         lenient().when(properties.getUsername()).thenReturn("test_bot");
 
         DefaultBotOptions options = new DefaultBotOptions();
-        bot = new LibraryTelegramBot(properties, options, bookSearchService, semanticCacheService);
+        bot = new LibraryTelegramBot(properties, options, bookSearchService, semanticCacheService,
+                                      callbackQueryHandler, keyboardFactory);
     }
 
     @Test
