@@ -89,10 +89,25 @@ public class CallbackQueryHandler {
             // 3. FeedbackRequest에 검색어 포함하여 재생성
             FeedbackRequest requestWithQuery = new FeedbackRequest(query, request.bookId(), request.type());
 
-            // 4. 피드백 저장 (chatId를 함께 저장)
+            // 4. 중복 피드백 체크
+            if (feedbackService.hasExistingFeedback(chatId, query, requestWithQuery.bookId())) {
+                log.info("Duplicate feedback detected: chatId={}, query={}, bookId={}",
+                         chatId, query, requestWithQuery.bookId());
+
+                // 이미 피드백이 있음을 알림
+                AnswerCallbackQuery answerCallback = AnswerCallbackQuery.builder()
+                        .callbackQueryId(callbackQueryId)
+                        .text("⚠️ 이미 피드백을 남기셨습니다.")
+                        .showAlert(false)
+                        .build();
+                libraryTelegramBot.execute(answerCallback);
+                return;
+            }
+
+            // 5. 피드백 저장 (chatId를 함께 저장)
             feedbackService.recordFeedback(chatId, requestWithQuery);
 
-            // 5. Callback Query 응답 (로딩 애니메이션 중지)
+            // 6. Callback Query 응답 (로딩 애니메이션 중지)
             AnswerCallbackQuery answerCallback = AnswerCallbackQuery.builder()
                     .callbackQueryId(callbackQueryId)
                     .text("✅ 피드백이 저장되었습니다!")

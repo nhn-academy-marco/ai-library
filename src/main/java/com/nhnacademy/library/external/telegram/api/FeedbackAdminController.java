@@ -3,11 +3,16 @@ package com.nhnacademy.library.external.telegram.api;
 import com.nhnacademy.library.external.telegram.dto.FeedbackStats;
 import com.nhnacademy.library.external.telegram.entity.SearchFeedback;
 import com.nhnacademy.library.external.telegram.service.FeedbackService;
+import com.nhnacademy.library.external.telegram.util.CsvExportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -30,6 +35,7 @@ import java.util.List;
 public class FeedbackAdminController {
 
     private final FeedbackService feedbackService;
+    private final CsvExportService csvExportService;
 
     /**
      * 도서별 피드백 통계를 조회합니다.
@@ -86,5 +92,32 @@ public class FeedbackAdminController {
         log.info("[Admin API] Getting feedback for user chatId: {}", chatId);
         List<SearchFeedback> feedbacks = feedbackService.getUserFeedback(chatId);
         return ResponseEntity.ok(feedbacks);
+    }
+
+    /**
+     * 전체 피드백 데이터를 CSV 파일로 내보냅니다.
+     *
+     * @return CSV 파일
+     */
+    @GetMapping(value = "/export/csv", produces = "text/csv; charset=UTF-8")
+    public ResponseEntity<String> exportFeedbacksAsCsv() {
+        log.info("[Admin API] Exporting all feedback as CSV");
+
+        List<SearchFeedback> feedbacks = feedbackService.getAllFeedback();
+        String csv = csvExportService.generateCsv(feedbacks);
+
+        // 한국어 파일명을 위한 URL 인코딩
+        String filename = "feedbacks_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv";
+        String encodedFilename = new String(filename.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.charset.StandardCharsets.ISO_8859_1);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
+        headers.setContentDispositionFormData("attachment", encodedFilename);
+        headers.add("Access-Control-Expose-Headers", "Content-Disposition");
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body("\uFEFF" + csv); // UTF-8 BOM 추가 (엑셀에서 한글 깨짐 방지)
     }
 }

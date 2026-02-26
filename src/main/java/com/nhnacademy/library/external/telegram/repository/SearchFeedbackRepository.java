@@ -51,6 +51,30 @@ public interface SearchFeedbackRepository extends JpaRepository<SearchFeedback, 
                                                    @Param("bookId") Long bookId);
 
     /**
+     * 특정 검색어와 도서 조합에 대한 피드백이 있는지 확인합니다 (중복 체크용).
+     *
+     * @param query  검색어
+     * @param bookId 도서 ID
+     * @return 해당 조합의 피드백 목록
+     */
+    @Query("SELECT sf FROM SearchFeedback sf WHERE sf.query = :query AND sf.bookId = :bookId")
+    List<SearchFeedback> findByQueryAndBookId(@Param("query") String query,
+                                              @Param("bookId") Long bookId);
+
+    /**
+     * 특정 사용자가 특정 검색어와 도서 조합에 대해 이미 피드백을 남겼는지 확인합니다.
+     *
+     * @param chatId Telegram 사용자 ID
+     * @param query  검색어
+     * @param bookId 도서 ID
+     * @return 피드백 존재 여부
+     */
+    @Query("SELECT sf FROM SearchFeedback sf WHERE sf.chatId = :chatId AND sf.query = :query AND sf.bookId = :bookId")
+    Optional<SearchFeedback> findByChatIdAndQueryAndBookId(@Param("chatId") Long chatId,
+                                                           @Param("query") String query,
+                                                           @Param("bookId") Long bookId);
+
+    /**
      * 특정 기간 내의 피드백 목록을 조회합니다.
      *
      * @param startDate 시작일

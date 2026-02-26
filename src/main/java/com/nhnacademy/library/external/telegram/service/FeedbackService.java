@@ -52,4 +52,21 @@ public interface FeedbackService {
      * @return 최근 N일간의 피드백 목록
      */
     List<SearchFeedback> getRecentFeedback(int days);
+
+    /**
+     * 특정 사용자가 해당 검색어와 도서 조합에 대해 이미 피드백을 남겼는지 확인합니다.
+     *
+     * @param chatId Telegram 사용자 ID
+     * @param query  검색어
+     * @param bookId 도서 ID
+     * @return 중복 피드백 존재 여부
+     */
+    boolean hasExistingFeedback(Long chatId, String query, Long bookId);
+
+    /**
+     * 전체 피드백 목록을 조회합니다 (CSV 내보내기용).
+     *
+     * @return 전체 피드백 목록
+     */
+    List<SearchFeedback> getAllFeedback();
 }
