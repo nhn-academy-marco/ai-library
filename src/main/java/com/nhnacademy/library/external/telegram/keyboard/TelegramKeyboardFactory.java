@@ -21,21 +21,24 @@ public class TelegramKeyboardFactory {
     /**
      * 피드백 Inline Keyboard를 생성합니다.
      *
-     * @param query  검색어
+     * Telegram Bot API 제한: callback_data 최대 64 bytes
+     * 따라서 검색어는 포함하지 않고 bookId와 type만 포함합니다.
+     *
+     * @param query  검색어 (로그용으로만 사용, callback_data에는 포함 안 함)
      * @param bookId 도서 ID
      * @return Inline Keyboard Markup
      */
     public InlineKeyboardMarkup createFeedbackKeyboard(String query, Long bookId) {
         log.info("[Telegram] Creating feedback keyboard for query: {}, bookId: {}", query, bookId);
 
-        // 검색어 URL 인코딩
-        String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
+        // 콜백 데이터 생성: fb:{bookId}:{type}
+        // Telegram 제한: callback_data 최대 64 bytes
+        // 검색어는 길어서 포함하지 않음
+        String goodCallback = String.format("fb:%d:GOOD", bookId);
+        String badCallback = String.format("fb:%d:BAD", bookId);
 
-        // 콜백 데이터 생성: feedback:{query}:{bookId}:{type}
-        String goodCallback = String.format("feedback:%s:%d:GOOD", encodedQuery, bookId);
-        String badCallback = String.format("feedback:%s:%d:BAD", encodedQuery, bookId);
-
-        log.debug("[Telegram] Callback data - GOOD: {}, BAD: {}", goodCallback, badCallback);
+        log.debug("[Telegram] Callback data - GOOD: {}, BAD: {} (length: {} bytes)",
+                goodCallback, badCallback, goodCallback.length());
 
         // 버튼 생성
         InlineKeyboardButton goodButton = InlineKeyboardButton.builder()

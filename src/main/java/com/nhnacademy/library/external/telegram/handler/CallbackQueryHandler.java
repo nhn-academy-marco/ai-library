@@ -12,9 +12,6 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
-
 /**
  * Telegram Callback Query 처리 Handler
  *
@@ -102,7 +99,8 @@ public class CallbackQueryHandler {
     /**
      * Callback 데이터를 파싱합니다.
      *
-     * <p>데이터 포맷: feedback:{query}:{bookId}:{type}
+     * <p>데이터 포맷: fb:{bookId}:{type}
+     * <p>Telegram API 제한으로 인해 검색어는 포함하지 않습니다 (callback_data 최대 64 bytes)
      *
      * @param callbackData Callback 데이터
      * @return 피드백 요청
@@ -110,18 +108,16 @@ public class CallbackQueryHandler {
      */
     private FeedbackRequest parseCallbackData(String callbackData) {
         try {
-            // URL 디코딩
-            String decodedData = URLDecoder.decode(callbackData, StandardCharsets.UTF_8);
-
             // 콜론(:)으로 분리
-            String[] parts = decodedData.split(":");
-            if (parts.length != 4 || !parts[0].equals("feedback")) {
+            String[] parts = callbackData.split(":");
+            if (parts.length != 3 || !parts[0].equals("fb")) {
                 throw new IllegalArgumentException("Invalid callback data format: " + callbackData);
             }
 
-            String query = parts[1];
-            Long bookId = Long.parseLong(parts[2]);
-            FeedbackType type = FeedbackType.valueOf(parts[3]);
+            // 검색어는 포함하지 않음 (Telegram API 제한: callback_data 최대 64 bytes)
+            String query = ""; // 빈 문자열로 저장
+            Long bookId = Long.parseLong(parts[1]);
+            FeedbackType type = FeedbackType.valueOf(parts[2]);
 
             return new FeedbackRequest(query, bookId, type);
 
