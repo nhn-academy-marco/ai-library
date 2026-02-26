@@ -280,6 +280,9 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
      * @param bookId 도서 ID
      */
     private void sendBookTextWithFeedback(Long chatId, String text, String query, Long bookId) {
+        log.info("[Telegram] Sending book text with feedback keyboard to chatId: {}, query: {}, bookId: {}",
+                chatId, query, bookId);
+
         SendMessage message = SendMessage.builder()
                 .chatId(chatId)
                 .text(text)
@@ -288,9 +291,9 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
 
         try {
             this.execute(message);
-            log.debug("[Telegram] Sent book text with feedback keyboard to chatId {}", chatId);
+            log.info("[Telegram] ✅ Successfully sent book text with feedback keyboard to chatId {}", chatId);
         } catch (TelegramApiException e) {
-            log.error("[Telegram] Failed to send message to chatId {}: {}", chatId, e.getMessage());
+            log.error("[Telegram] Failed to send message to chatId {}: {}", chatId, e.getMessage(), e);
             // 키보드가 있는 전송이 실패하면 일반 텍스트로 재시도
             sendSimpleMessage(chatId, text);
         }
@@ -306,6 +309,9 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
      * @param bookId  도서 ID
      */
     private void sendBookImageWithFeedback(Long chatId, String imageUrl, String caption, String query, Long bookId) {
+        log.info("[Telegram] Sending book image with feedback keyboard to chatId: {}, query: {}, bookId: {}",
+                chatId, query, bookId);
+
         try {
             SendPhoto photo = SendPhoto.builder()
                     .chatId(chatId)
@@ -315,9 +321,9 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
                     .build();
 
             this.execute(photo);
-            log.debug("[Telegram] Sent book image with feedback keyboard to chatId {}", chatId);
+            log.info("[Telegram] ✅ Successfully sent book image with feedback keyboard to chatId {}", chatId);
         } catch (TelegramApiException e) {
-            log.error("[Telegram] Failed to send image to chatId {}, sending text instead: {}", chatId, e.getMessage());
+            log.error("[Telegram] Failed to send image to chatId {}, sending text instead: {}", chatId, e.getMessage(), e);
             // 이미지 전송 실패 시 텍스트로 대체
             sendBookTextWithFeedback(chatId, caption, query, bookId);
         }
