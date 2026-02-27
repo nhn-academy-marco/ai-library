@@ -2,11 +2,13 @@ package com.nhnacademy.library.core.book.service.search;
 
 import com.nhnacademy.library.core.book.domain.SearchType;
 import com.nhnacademy.library.core.book.dto.BookSearchRequest;
+import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import com.nhnacademy.library.core.book.dto.BookSearchResult;
 import com.nhnacademy.library.core.book.dto.BookViewResponse;
 import com.nhnacademy.library.core.book.exception.BookNotFoundException;
 import com.nhnacademy.library.core.book.repository.BookRepository;
 import com.nhnacademy.library.core.book.service.embedding.EmbeddingService;
+import com.nhnacademy.library.core.book.service.personalization.PersonalizationService;
 import com.nhnacademy.library.core.book.service.search.strategy.HybridSearchStrategy;
 import com.nhnacademy.library.core.book.service.search.strategy.KeywordSearchStrategy;
 import com.nhnacademy.library.core.book.service.search.strategy.RagSearchStrategy;
@@ -21,6 +23,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +45,8 @@ public class BookSearchService {
     private final BookReviewRepository bookReviewRepository;
     private final BookReviewSummaryRepository bookReviewSummaryRepository;
     private final ReviewSummarizer reviewSummarizer;
-    
+    private final PersonalizationService personalizationService;
+
     // 전략 구현체들
     private final KeywordSearchStrategy keywordSearchStrategy;
     private final VectorSearchStrategy vectorSearchStrategy;
@@ -61,9 +65,44 @@ public class BookSearchService {
         log.info("Searching books with request: {}, pageable: {}", request, pageable);
 
         request = ensureEmbedding(request);
-        
+
         SearchStrategy strategy = selectStrategy(request.searchType());
         return strategy.search(pageable, request);
+    }
+
+    /**
+     * 조건에 맞는 도서를 검색하여 개인화된 순위로 반환합니다.
+     *
+     * <p>사용자의 피드백 데이터를 기반으로 선호도를 학습하고,
+     * 검색 결과에 개인화된 순위를 적용합니다.</p>
+     *
+     * @param pageable 페이징 정보
+     * @param request  검색 조건
+     * @param chatId   사용자 chatId (개인화용)
+     * @return 페이징된 도서 검색 결과 (개인화된 순위)
+     */
+    @Transactional(readOnly = true)
+    public BookSearchResult searchBooks(Pageable pageable, BookSearchRequest request, Long chatId) {
+        log.info("Searching books with personalization for chatId: {}", chatId);
+
+        // 1. 기존 검색 실행
+        BookSearchResult result = searchBooks(pageable, request);
+
+        // 2. 개인화 적용
+        List<BookSearchResponse> personalizedBooks = personalizationService.personalizedSearch(
+            result.getBooks().getContent(),
+            chatId
+        );
+
+        // 3. 결과 재구성
+        return new BookSearchResult(
+            new PageImpl<>(
+                personalizedBooks,
+                pageable,
+                result.getBooks().getTotalElements()
+            ),
+            result.getAiResponse()
+        );
     }
 
     private SearchStrategy selectStrategy(SearchType searchType) {

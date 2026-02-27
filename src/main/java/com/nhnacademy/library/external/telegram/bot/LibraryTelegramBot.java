@@ -171,8 +171,8 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
             Pageable pageable = PageRequest.of(0, 5);
             BookSearchRequest request = new BookSearchRequest(keyword, null, SearchType.RAG, null, false);
 
-            log.debug("[Telegram] Calling bookSearchService.searchBooks()");
-            BookSearchResult result = bookSearchService.searchBooks(pageable, request);
+            log.debug("[Telegram] Calling bookSearchService.searchBooks() with personalization");
+            BookSearchResult result = bookSearchService.searchBooks(pageable, request, chatId);
             log.debug("[Telegram] Search completed, preparing response");
 
             // 3. 응답 전송 (이미지, 점수, AI 추천 사유 포함)
