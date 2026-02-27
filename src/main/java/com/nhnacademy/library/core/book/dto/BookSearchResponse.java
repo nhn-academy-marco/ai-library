@@ -109,4 +109,26 @@ public class BookSearchResponse {
     public void setReviewSummary(String reviewSummary) {
         this.reviewSummary = reviewSummary;
     }
+
+    // 개인화 관련 Setter (Step 6)
+
+    /**
+     * 코사인 유사도를 설정합니다.
+     * <p>개인화 계산 시 사용됩니다.</p>
+     *
+     * @param similarity 코사인 유사도
+     */
+    public void setSimilarity(Double similarity) {
+        this.similarity = similarity;
+    }
+
+    /**
+     * RRF 점수를 설정합니다.
+     * <p>개인화 계산 시 사용됩니다.</p>
+     *
+     * @param rrfScore RRF 점수
+     */
+    public void setRrfScore(Double rrfScore) {
+        this.rrfScore = rrfScore;
+    }
 }
