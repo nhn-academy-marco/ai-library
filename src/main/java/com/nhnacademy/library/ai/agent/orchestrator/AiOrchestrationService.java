@@ -88,13 +88,15 @@ public class AiOrchestrationService {
     private List<AgentType> selectAgents(String userMessage) {
         List<AgentType> selectedAgents = new ArrayList<>();
 
-        // 키워드 기반 Agent 선택 (간단 규칙 기반)
+        // 키워드 기반 Agent 선택 (도서관정보나루 API 문서 용어 기반)
         String message = userMessage.toLowerCase();
 
-        // 대출 가능 키워드 (확장: "빌리", "대여" 포함)
+        // 대출 가능 키워드 (libSrchByBook API 관련)
+        // "소장", "소장하고", "소장한" → 대출 가능 확인 의도
         if (message.contains("대출") || message.contains("빌리") ||
             message.contains("빌려") || message.contains("대여") ||
-            message.contains("가능") || message.contains("loan")) {
+            message.contains("가능") || message.contains("loan") ||
+            message.contains("소장") || message.contains("장서")) {
             selectedAgents.add(AgentType.LOAN);
         }
 
@@ -104,47 +106,56 @@ public class AiOrchestrationService {
             selectedAgents.add(AgentType.REVIEW);
         }
 
-        // 도서관 검색 키워드
+        // 도서관 검색 키워드 (libSrch API 관련)
         if (message.contains("도서관") || message.contains("library") ||
             message.contains("근처") || message.contains("주변") ||
-            containsRegion(message)) {
+            message.contains("libname") || containsRegion(message)) {
             selectedAgents.add(AgentType.LIBRARY);
         }
 
-        // 기본: 도서 검색 (확장: "도서", "book" 포함)
+        // 기본: 도서 검색 (srchBooks API 관련)
+        // "키워드", "저자명", "출판사" 등 검색 관련 용어 포함
         if (selectedAgents.isEmpty() ||
             message.contains("책") || message.contains("도서") ||
             message.contains("book") || message.contains("검색") ||
-            message.contains("찾")) {
+            message.contains("찾") || message.contains("keyword") ||
+            message.contains("isbn") || message.contains("저자") ||
+            message.contains("출판사")) {
             selectedAgents.add(0, AgentType.BOOK); // 항상 먼저 실행
         }
 
-        // 도서 상세 정보 키워드
+        // 도서 상세 정보 키워드 (srchDtlList, keywordList, usageAnalysisList API 관련)
         if (message.contains("상세") || message.contains("detail") ||
             message.contains("정보") || message.contains("키워드") ||
-            message.contains("keyword")) {
+            message.contains("keyword") || message.contains("서지") ||
+            message.contains("이용") || message.contains("분석") ||
+            message.contains("사용")) {
             selectedAgents.add(AgentType.BOOK_DETAIL);
         }
 
-        // 추천 키워드 (단, "도서관 추천" 제외 - LIBRARY + LOAN로 처리)
+        // 추천 키워드 (recommandList, loanItemSrch API 관련)
+        // 단, "도서관 추천"은 LIBRARY + LOAN로 처리
         boolean hasLibraryContext = message.contains("도서관") || message.contains("library") || containsRegion(message);
         if ((message.contains("추천") || message.contains("recommend") ||
              message.contains("인기") || message.contains("best") ||
-             message.contains("마니아") || message.contains("다독")) && !hasLibraryContext) {
+             message.contains("마니아") || message.contains("다독") ||
+             message.contains("bestseller")) && !hasLibraryContext) {
             selectedAgents.add(AgentType.RECOMMENDATION);
         }
 
-        // 트렌드 키워드
+        // 트렌드 키워드 (hotTrend, monthlyKeywords, readQt API 관련)
         if (message.contains("급상승") || message.contains("hot") ||
-            message.contains("트렌드") || message.contains("trend") ||
-            message.contains("월간") || message.contains("독서량") ||
-            message.contains("독서율")) {
+            message.contains("핫") || message.contains("트렌드") ||
+            message.contains("trend") || message.contains("월간") ||
+            message.contains("month") || message.contains("독서량") ||
+            message.contains("독서율") || message.contains("reading")) {
             selectedAgents.add(AgentType.TREND);
         }
 
-        // 도서관 통합정보 키워드
+        // 도서관 통합정보 키워드 (extends/loanItemSrchByLib, usageTrend, bookExist API 관련)
         if (message.contains("연령") || message.contains("age") ||
-            message.contains("소장") || message.contains("exist")) {
+            message.contains("소장여부") || message.contains("exist") ||
+            message.contains("추이") || message.contains("통합")) {
             selectedAgents.add(AgentType.LIBRARY_EXTENDED);
         }
 
