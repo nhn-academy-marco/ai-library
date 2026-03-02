@@ -72,12 +72,11 @@ public class LoanAgent implements Agent {
                 return String.format("ISBN %s 도서는 대출 가능한 도서관이 없습니다.", isbn);
             }
 
-            // 4. 결과 포맷팅 (상위 5개)
+            // 4. 결과 포맷팅 (전체 표시)
             StringBuilder response = new StringBuilder();
             response.append(String.format("ISBN %s 대출 가능 도서관 (%d개):\n\n", isbn, loanItems.size()));
 
-            int displayCount = Math.min(5, loanItems.size());
-            for (int i = 0; i < displayCount; i++) {
+            for (int i = 0; i < loanItems.size(); i++) {
                 LoanItemInfo item = loanItems.get(i);
                 boolean loanAvailable = "Y".equalsIgnoreCase(item.loanAvailable());
                 String status = loanAvailable ? "✅ 대출 가능" : "❌ 대출 불가";

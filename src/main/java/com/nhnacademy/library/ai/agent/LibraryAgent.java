@@ -68,28 +68,21 @@ public class LibraryAgent implements Agent {
                 return String.format("'%s' 지역의 도서관을 찾을 수 없습니다.", region);
             }
 
-            // 3. 결과 포맷팅 (상위 5개, 간결하게)
+            // 3. 결과 포맷팅 (전체 표시)
             StringBuilder response = new StringBuilder();
             response.append(String.format("'%s' 지역 도서관 %d개:\n\n", region, libraries.size()));
 
-            // 텔레그램 메시지 제한 방지를 위해 상위 5개만 표시
-            int displayCount = Math.min(5, libraries.size());
-            for (int i = 0; i < displayCount; i++) {
+            // 전체 도서관 표시
+            for (int i = 0; i < libraries.size(); i++) {
                 LibraryInfo lib = libraries.get(i);
                 response.append(String.format("%d. %s", i + 1, lib.libName()));
 
-                // 주소는 첫 20자만 표시
+                // 주소 전체 표시
                 if (lib.address() != null && !lib.address().isBlank()) {
-                    String shortAddress = lib.address().length() > 30 ?
-                        lib.address().substring(0, 30) + "..." : lib.address();
-                    response.append(String.format("\n   📍 %s", shortAddress));
+                    response.append(String.format("\n   📍 %s", lib.address()));
                 }
 
                 response.append("\n");
-            }
-
-            if (libraries.size() > 5) {
-                response.append(String.format("\n... 외 %d개 도서관", libraries.size() - 5));
             }
 
             log.info("[{}] 도서관 검색 완료: region={}, regionCode={}, count={}", getName(), region, regionCode, libraries.size());

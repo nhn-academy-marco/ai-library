@@ -83,12 +83,11 @@ public class TrendAgent implements Agent {
             return "대출 급상승 도서 정보를 찾을 수 없습니다.";
         }
 
-        // 결과 포맷팅
+        // 결과 포맷팅 (전체 표시)
         StringBuilder response = new StringBuilder();
         response.append("📈 대출 급상승 도서\n\n");
 
-        int displayCount = Math.min(5, hotTrendBooks.size());
-        for (int i = 0; i < displayCount; i++) {
+        for (int i = 0; i < hotTrendBooks.size(); i++) {
             HotTrendBookInfo book = hotTrendBooks.get(i);
             response.append(String.format("%d. %s (현재 순위: %d)\n",
                     i + 1, book.bookName(), book.currentRank()));

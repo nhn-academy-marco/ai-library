@@ -95,12 +95,11 @@ public class RecommendationAgent implements Agent {
             return "인기 대출도서 정보를 찾을 수 없습니다.";
         }
 
-        // 결과 포맷팅
+        // 결과 포맷팅 (전체 표시)
         StringBuilder response = new StringBuilder();
         response.append("🔥 인기 대출도서\n\n");
 
-        int displayCount = Math.min(5, popularBooks.size());
-        for (int i = 0; i < displayCount; i++) {
+        for (int i = 0; i < popularBooks.size(); i++) {
             PopularBookInfo book = popularBooks.get(i);
             response.append(String.format("%d. %s\n", i + 1, book.bookName()));
             response.append(String.format("   저자: %s\n", book.authors()));
@@ -153,14 +152,13 @@ public class RecommendationAgent implements Agent {
     }
 
     /**
-     * 추천도서 목록 포맷팅
+     * 추천도서 목록 포맷팅 (전체 표시)
      */
     private String formatRecommendations(String title, List<RecommendedBookInfo> recommendations) {
         StringBuilder response = new StringBuilder();
         response.append(String.format("📚 %s\n\n", title));
 
-        int displayCount = Math.min(5, recommendations.size());
-        for (int i = 0; i < displayCount; i++) {
+        for (int i = 0; i < recommendations.size(); i++) {
             RecommendedBookInfo book = recommendations.get(i);
             response.append(String.format("%d. %s\n", i + 1, book.bookName()));
             response.append(String.format("   저자: %s\n", book.authors()));

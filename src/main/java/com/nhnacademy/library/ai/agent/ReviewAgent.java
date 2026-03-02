@@ -78,11 +78,12 @@ public class ReviewAgent implements Agent {
 
             if (!reviews.getContent().isEmpty()) {
                 response.append("주요 리뷰:\n");
-                for (int i = 0; i < Math.min(3, reviews.getContent().size()); i++) {
+                for (int i = 0; i < reviews.getContent().size(); i++) {
                     ReviewResponse review = reviews.getContent().get(i);
-                    response.append(String.format("- %s (평점: %d)\n",
-                        review.content().length() > 50 ? review.content().substring(0, 50) + "..." : review.content(),
-                        review.rating()));
+                    String content = review.content();
+                    // 리뷰 내용이 너무 길면 100자로 제한
+                    String displayContent = content.length() > 100 ? content.substring(0, 100) + "..." : content;
+                    response.append(String.format("%d. %s (평점: %d)\n", i + 1, displayContent, review.rating()));
                 }
             }
 
