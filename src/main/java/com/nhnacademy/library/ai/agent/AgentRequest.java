@@ -66,6 +66,14 @@ public record AgentRequest(
     }
 
     /**
+     * params와 sharedResults 포함 생성자 (Agent 간 정보 공유 + 추가 파라미터)
+     */
+    public static AgentRequest withParamsAndSharedResults(AgentType agentType, String userMessage, String query,
+                                                           Object params, Map<AgentType, String> sharedResults) {
+        return new AgentRequest(agentType, userMessage, query, params, sharedResults);
+    }
+
+    /**
      * 파라미터를 반환합니다.
      */
     public Object params() {

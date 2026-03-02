@@ -1,6 +1,7 @@
 package com.nhnacademy.library.ai.agent.orchestrator;
 
 import com.nhnacademy.library.ai.agent.*;
+import com.nhnacademy.library.external.opennaru.util.RegionCodeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -244,6 +245,19 @@ public class AiOrchestrationService {
     private AgentRequest createAgentRequest(String userMessage, AgentType agentType, Map<AgentType, String> previousResults) {
         // TODO: LLM을 사용하여 검색어/파라미터 추출 (현재는 단순 구현)
         String query = extractQuery(userMessage, agentType, previousResults);
+        Object params = null;
+
+        // LOAN Agent: LibraryAgent 결과에서 지역 코드 추출하여 params 전달
+        if (agentType == AgentType.LOAN && previousResults.containsKey(AgentType.LIBRARY)) {
+            String libraryQuery = extractRegionName(userMessage);
+            String regionCode = RegionCodeMapper.convert(libraryQuery);
+            if (regionCode != null) {
+                params = regionCode;
+                log.info("[MainAgent] LibraryAgent 지역 코드를 LoanAgent에 전달: region={}, code={}", libraryQuery, regionCode);
+                return AgentRequest.withParamsAndSharedResults(agentType, userMessage, query, params, previousResults);
+            }
+        }
+
         return AgentRequest.withSharedResults(agentType, userMessage, query, previousResults);
     }
 
