@@ -1,5 +1,6 @@
 package com.nhnacademy.library.external.telegram.bot;
 
+import com.nhnacademy.library.ai.service.AiLibraryAssistantService;
 import com.nhnacademy.library.core.book.domain.SearchType;
 import com.nhnacademy.library.core.book.dto.BookSearchRequest;
 import com.nhnacademy.library.core.book.dto.BookSearchResponse;
@@ -22,7 +23,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 
 import java.util.List;
 
@@ -31,6 +31,7 @@ import java.util.List;
  *
  * <p>Telegram에서 들어오는 메시지를 수신하고 처리합니다.
  * 하이브리드 검색을 지원하며, 캐싱된 추천 도서가 있으면 함께 반환합니다.
+ * Step 7부터는 AI Agent 기능이 추가되어 복잡한 요청을 처리합니다.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -42,13 +43,15 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
     private final CallbackQueryHandler callbackQueryHandler;
     private final TelegramKeyboardFactory keyboardFactory;
     private final FeedbackService feedbackService;
+    private final AiLibraryAssistantService aiLibraryAssistantService; // Step 7 추가
 
     public LibraryTelegramBot(TelegramBotProperties properties, DefaultBotOptions options,
                               BookSearchService bookSearchService,
                               SemanticCacheService semanticCacheService,
                               CallbackQueryHandler callbackQueryHandler,
                               TelegramKeyboardFactory keyboardFactory,
-                              FeedbackService feedbackService) {
+                              FeedbackService feedbackService,
+                              AiLibraryAssistantService aiLibraryAssistantService) { // Step 7 추가
         super(options);
         this.properties = properties;
         this.bookSearchService = bookSearchService;
@@ -56,6 +59,7 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
         this.callbackQueryHandler = callbackQueryHandler;
         this.keyboardFactory = keyboardFactory;
         this.feedbackService = feedbackService;
+        this.aiLibraryAssistantService = aiLibraryAssistantService; // Step 7 추가
     }
 
     @Override
@@ -82,8 +86,8 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
                     handleCommand(update, messageText);
                 } else {
                     log.debug("[Telegram] Handling search for keyword: {}", messageText);
-                    // 일반 텍스트도 검색으로 처리
-                    handleSearch(update, messageText);
+                    // 일반 텍스트는 AI Agent에게 위임 (Step 7)
+                    handleAiAgentSearch(update, messageText);
                 }
             } else {
                 log.debug("[Telegram] Received update without message/text: {}", update);
@@ -152,7 +156,39 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
     }
 
     /**
-     * 도서 검색 처리
+     * AI Agent 검색 처리 (Step 7)
+     * <p>
+     * AI Agent가 복잡한 요청을 처리하고 필요에 따라 Function을 호출합니다.
+     * 도서 검색, 리뷰 조회, 대출 가능 확인 등을 자동으로 수행합니다.
+     * </p>
+     *
+     * @param update  Telegram Update 객체
+     * @param keyword 검색어 또는 자연어 질문
+     */
+    private void handleAiAgentSearch(Update update, String keyword) {
+        Long chatId = update.getMessage().getChatId();
+        log.info("[Telegram] AI Agent search for: {}, chatId: {}", keyword, chatId);
+
+        try {
+            // 1. 최근 검색어 저장 (피드백용)
+            callbackQueryHandler.setRecentQuery(chatId, keyword);
+
+            // 2. AI Agent 호출
+            String aiResponse = aiLibraryAssistantService.ask(keyword);
+
+            // 3. Telegram으로 응답 전송
+            sendSimpleMessage(chatId, aiResponse);
+
+            log.info("[Telegram] AI Agent search completed for: {}, chatId: {}", keyword, chatId);
+
+        } catch (Exception e) {
+            log.error("[Telegram] AI Agent search failed for: {}, chatId: {}", keyword, chatId, e);
+            sendSimpleMessage(chatId, "검색 중 오류가 발생했습니다. 다시 시도해주세요.");
+        }
+    }
+
+    /**
+     * 도서 검색 처리 (기존 RAG 검색)
      *
      * <p>RAG 검색을 수행하여 AI 추천 사유와 함께 도서를 추천합니다.
      * 캐싱된 추천 도서가 있으면 먼저 보여주고, 검색 결과를 표시합니다.
@@ -375,6 +411,10 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
                 • /search 키워드 Command로도 검색 가능합니다
                 • 자연어 검색도 지원합니다 (예: 해리포터 비슷한 책)
 
+                Step 7 새로운 기능:
+                • AI Agent가 복잡한 요청을 처리합니다
+                • 도서 검색, 리뷰 조회, 대출 가능 확인을 한 번에!
+
                 도움이 필요하시면 /help를 입력하세요
                 """)
             .build();
@@ -411,6 +451,11 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
                 • 해리포터와 비슷한 판타지 책
                 • 주식 초보자가 읽기 좋은 책
                 • AI로 세상을 바꾸는 책
+
+                Step 7 AI Agent 기능:
+                • "자바의 정석 책 정보랑 리뷰도 알려줘"
+                • "내 주변에서 빌릴 수 있는 자바 책 알려줘"
+                • "이 책 어디서 빌릴 수 있어?"
 
                 검색 기능:
                 • AI 기반 하이브리드 검색 지원
