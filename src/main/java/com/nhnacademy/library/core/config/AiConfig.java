@@ -4,9 +4,14 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.web.client.ClientHttpRequestFactories;
+import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
 
 /**
  * AI 설정
@@ -30,6 +35,23 @@ public class AiConfig {
     @ConditionalOnProperty(name = "spring.ai.selected-model", havingValue = "ollama")
     public ChatModel selectedOllamaChatModel(@Qualifier("ollamaChatModel") ChatModel ollamaChatModel) {
         return ollamaChatModel;
+    }
+
+    /**
+     * Ollama RestClient.Builder 커스텀 빈
+     * <p>
+     * Ollama 서버 응답이 느릴 경우 타임아웃을 늘립니다.
+     * </p>
+     */
+    @Bean
+    @ConditionalOnProperty(name = "spring.ai.selected-model", havingValue = "ollama")
+    public RestClient.Builder ollamaRestClientBuilder() {
+        return RestClient.builder()
+            .requestFactory(ClientHttpRequestFactories.get(
+                ClientHttpRequestFactorySettings.DEFAULTS
+                    .withConnectTimeout(Duration.ofSeconds(30))
+                    .withReadTimeout(Duration.ofMinutes(5))  // 5분 타임아웃
+            ));
     }
 
     /**
