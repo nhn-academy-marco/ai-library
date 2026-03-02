@@ -76,7 +76,7 @@ public class AiLibraryAssistantService {
 
         // ChatClient 생성 (Function Tool 등록)
         ChatClient chatClient = ChatClient.builder(chatModel)
-            .defaultTools(bookSearchTool, reviewTool, loanCheckTool)
+            .defaultToolCallbacks(bookSearchTool, reviewTool, loanCheckTool)
             .build();
 
         String response = chatClient.prompt()
