@@ -359,8 +359,27 @@ public class AiOrchestrationService {
             return entry.getValue();
         }
 
-        // 복수 Agent 결과는 LLM로 종합
+        // 복수 Agent 결과는 LLM로 종합 (결과 길이 제한)
         try {
+            // 전체 결과 길이 확인 - 너무 길면 fallback 사용
+            int totalLength = agentResults.values().stream()
+                .mapToInt(String::length)
+                .sum();
+
+            // 전체 결과가 2000자를 넘으면 직접 합치기 사용 (LLM 타임아웃 방지)
+            if (totalLength > 2000) {
+                log.warn("[MainAgent] 결과가 너무 김({}자), fallback 사용", totalLength);
+                return fallbackSynthesize(agentResults);
+            }
+
+            // 각 Agent 결과를 500자로 제한
+            Map<AgentType, String> truncatedResults = new EnumMap<>(AgentType.class);
+            agentResults.forEach((agentType, result) -> {
+                String truncated = result.length() > 500 ?
+                    result.substring(0, 500) + "\n...(중략)" : result;
+                truncatedResults.put(agentType, truncated);
+            });
+
             ChatClient chatClient = ChatClient.builder(chatModel).build();
 
             String systemPrompt = """
@@ -376,21 +395,21 @@ public class AiOrchestrationService {
                 4. 사용자에게 도움이 되는 방향으로 답변
 
                 **예시 응답:**
-                "강남구 근처 도서관에서 빌릴 수 있는 자바 책 3권을 찾았습니다! 📚
+                "광주 지역 도서관에서 토비의 스프링을 찾았습니다! 📚
 
-                **강남구 도서관:**
-                - 강남도서관: 2권 대출 가능
-                - 역삼도서관: 1권 대출 가능
+                **도서 검색 결과:**
+                - 토비의 스프링 (ISBN: 9788960777331)
+                - 토비의 스프링 3.1 (ISBN: 9788996673142)
 
-                **찾은 도서:**
-                1. 토비의 스프링 (강남도서관 대출 가능)
-                2. 자바의 정석 (역삼도서관 대출 가능)
+                **광주 도서관 (28개):**
+                - 계림꿈나무도서관
+                - 광산구립신가도서관
                 ..."
                 """;
 
             // Agent 결과를 프롬프트에 포함
             StringBuilder agentResultsText = new StringBuilder("**Agent 실행 결과:**\n\n");
-            agentResults.forEach((agentType, result) -> {
+            truncatedResults.forEach((agentType, result) -> {
                 agentResultsText.append(String.format("[%s 결과]\n%s\n\n",
                     agentType.getDisplayName(), result));
             });
@@ -404,6 +423,7 @@ public class AiOrchestrationService {
                 %s
                 """, systemPrompt, userMessage, agentResultsText);
 
+            log.info("[MainAgent] LLM 호출 시작: 결과 길이={}", totalLength);
             String response = chatClient.prompt()
                 .user(fullPrompt)
                 .call()
@@ -424,11 +444,15 @@ public class AiOrchestrationService {
      */
     private String fallbackSynthesize(Map<AgentType, String> agentResults) {
         StringBuilder response = new StringBuilder();
-        response.append("📚 검색 결과\n\n");
+        response.append("📚 도서관 검색 결과\n\n");
 
         agentResults.forEach((agentType, result) -> {
+            // 각 결과를 800자로 제한 (텔레그램 메시지 제한 방지)
+            String truncated = result.length() > 800 ?
+                result.substring(0, 800) + "\n...(중략)" : result;
+
             response.append(String.format("**%s**\n%s\n\n",
-                agentType.getDisplayName(), result));
+                agentType.getDisplayName(), truncated));
         });
 
         return response.toString();
