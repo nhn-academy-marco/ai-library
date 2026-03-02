@@ -2,11 +2,14 @@ package com.nhnacademy.library.ai.agent;
 
 import com.nhnacademy.library.external.opennaru.dto.LibraryInfo;
 import com.nhnacademy.library.external.opennaru.client.LibraryInfoNaruApiClient;
+import com.nhnacademy.library.external.opennaru.util.RegionCodeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 도서관 검색 Agent
@@ -50,8 +53,15 @@ public class LibraryAgent implements Agent {
                 return "지역명을 입력해주세요.";
             }
 
+            // 1.5 지역명 → 지역 코드 변환
+            String regionCode = RegionCodeMapper.convert(region);
+            if (regionCode == null) {
+                log.warn("[{}] 지역명 → 코드 변환 실패: region={}", getName(), region);
+                return String.format("'%s' 지역을 찾을 수 없습니다. 지역명을 확인해 주세요.", region);
+            }
+
             // 2. 도서관 검색
-            List<LibraryInfo> libraries = libraryInfoNaruApiClient.searchLibrariesByRegion(region);
+            List<LibraryInfo> libraries = libraryInfoNaruApiClient.searchLibrariesByRegion(regionCode);
 
             if (libraries.isEmpty()) {
                 log.info("[{}] 도서관 검색 결과 없음: region={}", getName(), region);
@@ -79,7 +89,7 @@ public class LibraryAgent implements Agent {
                 response.append("\n");
             }
 
-            log.info("[{}] 도서관 검색 완료: region={}, count={}", getName(), region, libraries.size());
+            log.info("[{}] 도서관 검색 완료: region={}, regionCode={}, count={}", getName(), region, regionCode, libraries.size());
             return response.toString();
 
         } catch (Exception e) {
