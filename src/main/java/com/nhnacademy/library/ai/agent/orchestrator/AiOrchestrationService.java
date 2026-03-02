@@ -91,11 +91,11 @@ public class AiOrchestrationService {
         // 키워드 기반 Agent 선택 (간단 규칙 기반)
         String message = userMessage.toLowerCase();
 
-        // 도서관 검색 키워드
-        if (message.contains("도서관") || message.contains("library") ||
-            message.contains("근처") || message.contains("주변") ||
-            containsRegion(message)) {
-            selectedAgents.add(AgentType.LIBRARY);
+        // 대출 가능 키워드 (확장: "빌리", "대여" 포함)
+        if (message.contains("대출") || message.contains("빌리") ||
+            message.contains("빌려") || message.contains("대여") ||
+            message.contains("가능") || message.contains("loan")) {
+            selectedAgents.add(AgentType.LOAN);
         }
 
         // 리뷰 키워드
@@ -104,15 +104,18 @@ public class AiOrchestrationService {
             selectedAgents.add(AgentType.REVIEW);
         }
 
-        // 대출 가능 키워드
-        if (message.contains("대출") || message.contains("빌려") ||
-            message.contains("가능") || message.contains("loan")) {
-            selectedAgents.add(AgentType.LOAN);
+        // 도서관 검색 키워드
+        if (message.contains("도서관") || message.contains("library") ||
+            message.contains("근처") || message.contains("주변") ||
+            containsRegion(message)) {
+            selectedAgents.add(AgentType.LIBRARY);
         }
 
-        // 기본: 도서 검색
-        if (selectedAgents.isEmpty() || message.contains("책") ||
-            message.contains("검색") || message.contains("찾")) {
+        // 기본: 도서 검색 (확장: "도서", "book" 포함)
+        if (selectedAgents.isEmpty() ||
+            message.contains("책") || message.contains("도서") ||
+            message.contains("book") || message.contains("검색") ||
+            message.contains("찾")) {
             selectedAgents.add(0, AgentType.BOOK); // 항상 먼저 실행
         }
 
@@ -123,10 +126,11 @@ public class AiOrchestrationService {
             selectedAgents.add(AgentType.BOOK_DETAIL);
         }
 
-        // 추천 키워드
-        if (message.contains("추천") || message.contains("recommend") ||
-            message.contains("인기") || message.contains("best") ||
-            message.contains("마니아") || message.contains("다독")) {
+        // 추천 키워드 (단, "도서관 추천" 제외 - LIBRARY + LOAN로 처리)
+        boolean hasLibraryContext = message.contains("도서관") || message.contains("library") || containsRegion(message);
+        if ((message.contains("추천") || message.contains("recommend") ||
+             message.contains("인기") || message.contains("best") ||
+             message.contains("마니아") || message.contains("다독")) && !hasLibraryContext) {
             selectedAgents.add(AgentType.RECOMMENDATION);
         }
 
