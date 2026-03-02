@@ -7,6 +7,7 @@ import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.util.concurrent.TimeUnit;
 
@@ -23,9 +24,11 @@ public class CacheConfig {
     /**
      * 메인 CacheManager
      *
-     * <p>대부분의 캐시는 ConcurrentMapCacheManager를 사용합니다.</p>
+     * <p>대부분의 캐시는 ConcurrentMapCacheManager를 사용합니다.
+     * Redis가 설정된 경우에도 이 CacheManager를 우선 사용합니다.</p>
      */
     @Bean
+    @Primary
     public CacheManager cacheManager() {
         return new ConcurrentMapCacheManager(
             "bookSearchCache",
