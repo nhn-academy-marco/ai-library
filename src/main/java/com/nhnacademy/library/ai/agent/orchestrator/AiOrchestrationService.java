@@ -442,7 +442,7 @@ public class AiOrchestrationService {
         // BOOK + LOAN 조합: 도서별 대출 가능 통합 표시
         if (agentResults.containsKey(AgentType.BOOK) && agentResults.containsKey(AgentType.LOAN)) {
             log.info("[MainAgent] BOOK + LOAN 조합이므로 통합 표시 사용");
-            return synthesizeBookWithLoan(agentResults.get(AgentType.BOOK), agentResults.get(AgentType.LOAN));
+            return synthesizeBookWithLoan(userMessage, agentResults);
         }
 
         // 복수 Agent 결과는 nginx 타임아웃 방지를 위해 바로 fallback 사용
@@ -565,17 +565,21 @@ public class AiOrchestrationService {
     /**
      * BOOK + LOAN 조합: 도서별 대출 가능 정보 통합
      */
-    private String synthesizeBookWithLoan(String bookAgentResult, String loanAgentResult) {
+    private String synthesizeBookWithLoan(String userMessage, Map<AgentType, String> agentResults) {
         log.info("[MainAgent] 도서별 대출 가능 통합 시작");
 
         try {
+            String bookAgentResult = agentResults.get(AgentType.BOOK);
+            String loanAgentResult = agentResults.get(AgentType.LOAN);
+
             // 1. BookAgent 결과에서 도서 정보 파싱
             List<BookData> books = parseBookAgentResult(bookAgentResult);
             log.info("[MainAgent] 파싱된 도서: {}권", books.size());
 
-            // 2. 지역 코드 추출 (사용자 메시지에서)
-            String regionCode = extractRegionCodeFromContext();
+            // 2. 지역 코드 추출 (LIBRARY Agent 결과 또는 사용자 메시지에서)
+            String regionCode = extractRegionCodeFromResults(userMessage, agentResults);
             String regionName = regionCode != null ? extractRegionNameFromCode(regionCode) : null;
+            log.info("[MainAgent] 추출된 지역 코드: {}, 지역명: {}", regionCode, regionName);
 
             // 3. 각 도서별 대출 가능 확인
             for (BookData book : books) {
@@ -609,10 +613,7 @@ public class AiOrchestrationService {
 
         } catch (Exception e) {
             log.error("[MainAgent] 도서별 대출 가능 통합 실패, 기본 fallback 사용", e);
-            return fallbackSynthesize(Map.of(
-                AgentType.BOOK, bookAgentResult,
-                AgentType.LOAN, loanAgentResult
-            ));
+            return fallbackSynthesize(agentResults);
         }
     }
 
@@ -717,10 +718,32 @@ public class AiOrchestrationService {
     }
 
     /**
-     * 컨텍스트에서 지역 코드 추출 (미구현)
+     * 결과에서 지역 코드 추출
+     * 1. LIBRARY Agent 결과가 있으면 지역 코드 추출
+     * 2. 없으면 사용자 메시지에서 지역명 추출하여 코드 변환
      */
-    private String extractRegionCodeFromContext() {
-        // TODO: LIBRARY Agent 결과에서 지역 코드 추출 로직 추가
+    private String extractRegionCodeFromResults(String userMessage, Map<AgentType, String> agentResults) {
+        // 방법 1: LIBRARY Agent 결과에서 지역 코드 추출 (로그에서)
+        if (agentResults.containsKey(AgentType.LIBRARY)) {
+            String libraryResult = agentResults.get(AgentType.LIBRARY);
+            // LibraryAgent 로그 형식: "[LibraryAgent] 도서관 검색 완료: region=..., regionCode=24"
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("regionCode=(\\d+)");
+            java.util.regex.Matcher matcher = pattern.matcher(libraryResult);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        }
+
+        // 방법 2: 사용자 메시지에서 지역명 추출하여 코드 변환
+        String regionName = extractRegionName(userMessage);
+        if (regionName != null && !regionName.equals(userMessage)) {
+            String regionCode = RegionCodeMapper.convert(regionName);
+            if (regionCode != null) {
+                log.info("[MainAgent] 사용자 메시지에서 지역 코드 추출: regionName={}, regionCode={}", regionName, regionCode);
+                return regionCode;
+            }
+        }
+
         return null;
     }
 
