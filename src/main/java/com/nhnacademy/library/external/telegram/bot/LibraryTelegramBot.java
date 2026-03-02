@@ -124,6 +124,17 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
             return;
         }
 
+        // /aiagent <message> 형식 처리 (Step 7)
+        if (command.startsWith("/aiagent ")) {
+            String message = command.substring("/aiagent ".length()).trim();
+            if (!message.isEmpty()) {
+                handleAiAgentSearch(update, message);
+            } else {
+                sendSimpleMessage(chatId, "메시지를 입력해주세요.\n예: /aiagent 자바 책 추천해줘");
+            }
+            return;
+        }
+
         // /stats <query> 형식 처리
         if (command.startsWith("/stats ")) {
             String query = command.substring("/stats ".length()).trim();
@@ -409,11 +420,13 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
                 사용법:
                 • 도서 제목이나 키워드를 입력하면 자동 검색됩니다
                 • /search 키워드 Command로도 검색 가능합니다
+                • /aiagent 메시지 - AI Agent가 복잡한 요청을 처리합니다
                 • 자연어 검색도 지원합니다 (예: 해리포터 비슷한 책)
 
                 Step 7 새로운 기능:
-                • AI Agent가 복잡한 요청을 처리합니다
-                • 도서 검색, 리뷰 조회, 대출 가능 확인을 한 번에!
+                • AI Agent가 도서 검색, 리뷰 조회, 대출 가능 확인을 한 번에!
+                • /aiagent 자바 책 추천해줘
+                • /aiagent 클린 코드 리뷰랑 대출 가능한 곳 알려줘
 
                 도움이 필요하시면 /help를 입력하세요
                 """)
@@ -438,7 +451,8 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
 
                 Command:
                 /start - Bot 시작
-                /search <키워드> - 도서 검색
+                /search <키워드> - 도서 RAG 검색
+                /aiagent <메시지> - AI Agent (Function Calling)
                 /help - 도움말
 
                 검색 예시:
@@ -447,15 +461,21 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
                 • 주식 투자 방법
                 • AI 딥러닝 입문
 
-                자연어 검색 예시:
+                AI Agent 예시 (/aiagent 명령어):
+                • /aiagent 자바 책 추천해줘
+                • /aiagent 자바의 정석 책 정보랑 리뷰도 알려줘
+                • /aiagent 클린 코드 어디서 빌릴 수 있어?
+                • /aiagent 스프링 부트 책 리뷰랑 대출 가능한 도서관 알려줘
+
+                자연어 검색 (명령어 없이 텍스트만 입력):
+                • 자바 책 추천해줘
                 • 해리포터와 비슷한 판타지 책
                 • 주식 초보자가 읽기 좋은 책
                 • AI로 세상을 바꾸는 책
 
                 Step 7 AI Agent 기능:
-                • "자바의 정석 책 정보랑 리뷰도 알려줘"
-                • "내 주변에서 빌릴 수 있는 자바 책 알려줘"
-                • "이 책 어디서 빌릴 수 있어?"
+                • 도서 검색, 리뷰 조회, 대출 가능 확인을 한 번에!
+                • AI가 필요한 Function을 자동으로 호출합니다
 
                 검색 기능:
                 • AI 기반 하이브리드 검색 지원
