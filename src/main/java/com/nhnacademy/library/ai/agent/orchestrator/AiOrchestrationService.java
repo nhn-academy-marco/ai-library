@@ -28,7 +28,7 @@ import java.util.Map;
 @Slf4j
 public class AiOrchestrationService {
 
-    private final ChatModel chatModel;
+    private final ChatClient chatClient;  // ChatModel → ChatClient로 변경 (타임아웃 설정 적용)
     private final BookAgent bookAgent;
     private final ReviewAgent reviewAgent;
     private final LoanAgent loanAgent;
@@ -444,7 +444,7 @@ public class AiOrchestrationService {
                 truncatedResults.put(agentType, truncated);
             });
 
-            ChatClient chatClient = ChatClient.builder(chatModel).build();
+            // 주입받은 ChatClient 사용 (커스텀 타임아웃 설정 적용됨)
 
             String systemPrompt = """
                 당신은 도서관 도우미 AI 오케스트레이터입니다.
@@ -529,8 +529,7 @@ public class AiOrchestrationService {
      * @return 일반 대화 응답
      */
     private String handleGeneralChat(String userMessage) {
-        ChatClient chatClient = ChatClient.builder(chatModel).build();
-
+        // 주입받은 ChatClient 사용 (커스텀 타임아웃 설정 적용됨)
         return chatClient.prompt()
             .system("당신은 도서관 도우미 AI입니다. 반드시 한국어로만 답변하세요. 중국어나 다른 언어를 사용하지 마세요.")
             .user(userMessage)
