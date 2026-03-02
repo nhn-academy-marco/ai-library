@@ -531,12 +531,9 @@ public class AiOrchestrationService {
         response.append("📚 도서관 검색 결과\n\n");
 
         agentResults.forEach((agentType, result) -> {
-            // 각 결과를 800자로 제한 (텔레그램 메시지 제한 방지)
-            String truncated = result.length() > 800 ?
-                result.substring(0, 800) + "\n...(중략)" : result;
-
+            // 전체 결과 반환 (길이 제한 없음)
             response.append(String.format("**%s**\n%s\n\n",
-                agentType.getDisplayName(), truncated));
+                agentType.getDisplayName(), result));
         });
 
         return response.toString();

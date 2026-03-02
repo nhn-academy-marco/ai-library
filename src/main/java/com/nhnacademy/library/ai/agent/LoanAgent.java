@@ -55,12 +55,15 @@ public class LoanAgent implements Agent {
 
             // 2. 지역 파라미터 추출 (선택 사항)
             String region = extractRegion(request);
+            log.info("[{}] 지역 코드 파라미터: region={}, params={}", getName(), region, request.params());
 
             // 3. 도서관정보나루 API 호출
             List<LoanItemInfo> loanItems;
             if (region != null) {
+                log.info("[{}] 지역 코드로 대출 가능 조회: isbn={}, region={}", getName(), isbn, region);
                 loanItems = libraryInfoNaruApiClient.searchLoanItemsByIsbn(isbn, region);
             } else {
+                log.info("[{}] 전체 대출 가능 조회: isbn={}", getName(), isbn);
                 loanItems = libraryInfoNaruApiClient.searchLoanItemsByIsbn(isbn);
             }
 
