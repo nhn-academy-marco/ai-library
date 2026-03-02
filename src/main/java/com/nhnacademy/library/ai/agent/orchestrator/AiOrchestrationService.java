@@ -114,14 +114,20 @@ public class AiOrchestrationService {
         }
 
         // 기본: 도서 검색 (srchBooks API 관련)
-        // "키워드", "저자명", "출판사" 등 검색 관련 용어 포함
+        // "리스트", "목록" 요청은 제외 (도서관 목록만 원하는 경우)
+        boolean isListRequest = message.contains("리스트") || message.contains("목록") ||
+                               message.contains("list") || message.contains("목록");
+
         if (selectedAgents.isEmpty() ||
             message.contains("책") || message.contains("도서") ||
             message.contains("book") || message.contains("검색") ||
             message.contains("찾") || message.contains("keyword") ||
             message.contains("isbn") || message.contains("저자") ||
             message.contains("출판사")) {
-            selectedAgents.add(0, AgentType.BOOK); // 항상 먼저 실행
+            // 단, "도서관 리스트/목록" 요청이고 다른 Agent가 있으면 BOOK 제외
+            if (!isListRequest || selectedAgents.isEmpty()) {
+                selectedAgents.add(0, AgentType.BOOK); // 항상 먼저 실행
+            }
         }
 
         // 도서 상세 정보 키워드 (srchDtlList, keywordList, usageAnalysisList API 관련)
@@ -346,57 +352,86 @@ public class AiOrchestrationService {
     private String synthesizeResults(String userMessage, Map<AgentType, String> agentResults) {
         log.info("[MainAgent] 결과 종합 시작: results={}", agentResults.size());
 
-        // LLM을 사용하여 결과 종합
-        ChatClient chatClient = ChatClient.builder(chatModel).build();
+        // 단일 Agent 결과는 LLM 없이 직접 반환 (성능 최적화)
+        if (agentResults.size() == 1) {
+            Map.Entry<AgentType, String> entry = agentResults.entrySet().iterator().next();
+            log.info("[MainAgent] 단일 Agent 결과이므로 직접 반환: agentType={}", entry.getKey());
+            return entry.getValue();
+        }
 
-        String systemPrompt = """
-            당신은 도서관 도우미 AI 오케스트레이터입니다.
-            여러 전문 Agent들의 실행 결과를 종합하여 사용자에게 친절한 답변을 제공하세요.
+        // 복수 Agent 결과는 LLM로 종합
+        try {
+            ChatClient chatClient = ChatClient.builder(chatModel).build();
 
-            **중요: 반드시 한국어로 답변하세요. 중국어나 다른 언어를 사용하지 마세요.**
+            String systemPrompt = """
+                당신은 도서관 도우미 AI 오케스트레이터입니다.
+                여러 전문 Agent들의 실행 결과를 종합하여 사용자에게 친절한 답변을 제공하세요.
 
-            **종합 방법:**
-            1. 각 Agent의 결과를 확인
-            2. 중요한 정보를 추출
-            3. 자연스러운 한국어로 정리
-            4. 사용자에게 도움이 되는 방향으로 답변
+                **중요: 반드시 한국어로 답변하세요. 중국어나 다른 언어를 사용하지 마세요.**
 
-            **예시 응답:**
-            "강남구 근처 도서관에서 빌릴 수 있는 자바 책 3권을 찾았습니다! 📚
+                **종합 방법:**
+                1. 각 Agent의 결과를 확인
+                2. 중요한 정보를 추출
+                3. 자연스러운 한국어로 정리
+                4. 사용자에게 도움이 되는 방향으로 답변
 
-            **강남구 도서관:**
-            - 강남도서관: 2권 대출 가능
-            - 역삼도서관: 1권 대출 가능
+                **예시 응답:**
+                "강남구 근처 도서관에서 빌릴 수 있는 자바 책 3권을 찾았습니다! 📚
 
-            **찾은 도서:**
-            1. 토비의 스프링 (강남도서관 대출 가능)
-            2. 자바의 정석 (역삼도서관 대출 가능)
-            ..."
-            """;
+                **강남구 도서관:**
+                - 강남도서관: 2권 대출 가능
+                - 역삼도서관: 1권 대출 가능
 
-        // Agent 결과를 프롬프트에 포함
-        StringBuilder agentResultsText = new StringBuilder("**Agent 실행 결과:**\n\n");
+                **찾은 도서:**
+                1. 토비의 스프링 (강남도서관 대출 가능)
+                2. 자바의 정석 (역삼도서관 대출 가능)
+                ..."
+                """;
+
+            // Agent 결과를 프롬프트에 포함
+            StringBuilder agentResultsText = new StringBuilder("**Agent 실행 결과:**\n\n");
+            agentResults.forEach((agentType, result) -> {
+                agentResultsText.append(String.format("[%s 결과]\n%s\n\n",
+                    agentType.getDisplayName(), result));
+            });
+
+            String fullPrompt = String.format("""
+                %s
+
+                **사용자 요청:**
+                %s
+
+                %s
+                """, systemPrompt, userMessage, agentResultsText);
+
+            String response = chatClient.prompt()
+                .user(fullPrompt)
+                .call()
+                .content();
+
+            log.info("[MainAgent] 결과 종합 완료");
+            return response;
+
+        } catch (Exception e) {
+            log.error("[MainAgent] LLM 종합 실패, 직접 합치 시도", e);
+            // LLM 실패 시 결과를 직접 합쳐서 반환
+            return fallbackSynthesize(agentResults);
+        }
+    }
+
+    /**
+     * LLM 실패 시 대안으로 결과를 직접 합칩니다.
+     */
+    private String fallbackSynthesize(Map<AgentType, String> agentResults) {
+        StringBuilder response = new StringBuilder();
+        response.append("📚 검색 결과\n\n");
+
         agentResults.forEach((agentType, result) -> {
-            agentResultsText.append(String.format("[%s 결과]\n%s\n\n",
+            response.append(String.format("**%s**\n%s\n\n",
                 agentType.getDisplayName(), result));
         });
 
-        String fullPrompt = String.format("""
-            %s
-
-            **사용자 요청:**
-            %s
-
-            %s
-            """, systemPrompt, userMessage, agentResultsText);
-
-        String response = chatClient.prompt()
-            .user(fullPrompt)
-            .call()
-            .content();
-
-        log.info("[MainAgent] 결과 종합 완료");
-        return response;
+        return response.toString();
     }
 
     /**
