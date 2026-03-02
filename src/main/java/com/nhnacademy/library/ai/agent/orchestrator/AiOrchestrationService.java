@@ -170,6 +170,10 @@ public class AiOrchestrationService {
 
     /**
      * 선택된 Agent들을 실행하고 결과를 수집합니다.
+     * <p>
+     * 순차적으로 실행하며, 이전 Agent의 결과를 다음 Agent에 전달하여 정보 공유를 지원합니다.
+     * 예: BookAgent가 찾은 ISBN을 LoanAgent가 활용
+     * </p>
      *
      * @param userMessage      사용자 메시지
      * @param selectedAgents 선택된 Agent 목록
@@ -180,7 +184,8 @@ public class AiOrchestrationService {
 
         for (AgentType agentType : selectedAgents) {
             try {
-                String agentResult = executeAgent(userMessage, agentType);
+                // 현재까지 수집된 결과를 다음 Agent에 전달 (Agent 간 정보 공유)
+                String agentResult = executeAgent(userMessage, agentType, results);
                 results.put(agentType, agentResult);
             } catch (Exception e) {
                 log.error("[MainAgent] Agent 실행 실패: agentType={}", agentType, e);
@@ -197,13 +202,14 @@ public class AiOrchestrationService {
      *
      * @param userMessage 사용자 메시지
      * @param agentType  Agent 타입
+     * @param previousResults 이전 Agent들의 실행 결과 (정보 공유용)
      * @return Agent 실행 결과
      */
-    private String executeAgent(String userMessage, AgentType agentType) {
-        log.info("[MainAgent] Agent 실행 시작: agentType={}", agentType);
+    private String executeAgent(String userMessage, AgentType agentType, Map<AgentType, String> previousResults) {
+        log.info("[MainAgent] Agent 실행 시작: agentType={}, sharedResults={}", agentType, previousResults.size());
 
         Agent agent = getAgent(agentType);
-        AgentRequest request = createAgentRequest(userMessage, agentType);
+        AgentRequest request = createAgentRequest(userMessage, agentType, previousResults);
         return agent.execute(request);
     }
 
@@ -232,22 +238,28 @@ public class AiOrchestrationService {
      *
      * @param userMessage 사용자 메시지
      * @param agentType  Agent 타입
+     * @param previousResults 이전 Agent들의 실행 결과 (정보 공유용)
      * @return Agent 요청
      */
-    private AgentRequest createAgentRequest(String userMessage, AgentType agentType) {
+    private AgentRequest createAgentRequest(String userMessage, AgentType agentType, Map<AgentType, String> previousResults) {
         // TODO: LLM을 사용하여 검색어/파라미터 추출 (현재는 단순 구현)
-        String query = extractQuery(userMessage, agentType);
-        return AgentRequest.of(agentType, userMessage, query);
+        String query = extractQuery(userMessage, agentType, previousResults);
+        return AgentRequest.withSharedResults(agentType, userMessage, query, previousResults);
     }
 
     /**
      * 사용자 메시지에서 검색어를 추출합니다.
+     * <p>
+     * 다른 Agent의 실행 결과가 있으면 그 정보를 활용합니다.
+     * 예: BookAgent가 찾은 ISBN을 LoanAgent가 활용
+     * </p>
      *
      * @param userMessage 사용자 메시지
      * @param agentType  Agent 타입
+     * @param previousResults 이전 Agent들의 실행 결과
      * @return 추출된 검색어
      */
-    private String extractQuery(String userMessage, AgentType agentType) {
+    private String extractQuery(String userMessage, AgentType agentType, Map<AgentType, String> previousResults) {
         // 간단 구현: 도서명, 지역명 등을 추출
         // TODO: LLM 기반 지능형 추출로 개선
 
@@ -259,10 +271,28 @@ public class AiOrchestrationService {
                 // 지역명 추출 (강남구, 서초구 등)
                 return extractRegionName(userMessage);
             case LOAN:
-                // ISBN이나 책명 추출
+                // BookAgent 결과에서 ISBN 추출 시도
+                if (previousResults.containsKey(AgentType.BOOK)) {
+                    String bookAgentResult = previousResults.get(AgentType.BOOK);
+                    String isbn = extractIsbnFromResult(bookAgentResult);
+                    if (isbn != null && !isbn.isBlank()) {
+                        log.info("[MainAgent] BookAgent 결과에서 ISBN 추출 성공: {}", isbn);
+                        return isbn;
+                    }
+                }
+                // ISBN이 없으면 책명 추출
                 return extractBookNameOrIsbn(userMessage);
             case REVIEW:
-                // 책명 추출
+                // BookAgent 결과에서 ISBN 추출 시도
+                if (previousResults.containsKey(AgentType.BOOK)) {
+                    String bookAgentResult = previousResults.get(AgentType.BOOK);
+                    String isbn = extractIsbnFromResult(bookAgentResult);
+                    if (isbn != null && !isbn.isBlank()) {
+                        log.info("[MainAgent] BookAgent 결과에서 ISBN 추출 성공: {}", isbn);
+                        return isbn;
+                    }
+                }
+                // ISBN이 없으면 책명 추출
                 return extractBookName(userMessage);
             case BOOK_DETAIL:
                 // ISBN 추출 (우선 순위)
@@ -340,6 +370,40 @@ public class AiOrchestrationService {
             }
         }
         return false;
+    }
+
+    /**
+     * BookAgent 실행 결과에서 ISBN을 추출합니다.
+     * <p>
+     * BookAgent 결과 형식: "도서 제목 (ISBN: 1234567890123)"
+     * </p>
+     *
+     * @param bookAgentResult BookAgent 실행 결과
+     * @return 추출된 ISBN (없으면 null)
+     */
+    private String extractIsbnFromResult(String bookAgentResult) {
+        if (bookAgentResult == null || bookAgentResult.isBlank()) {
+            return null;
+        }
+
+        // ISBN 패턴: 10자리 또는 13자리 숫자
+        // "ISBN: 1234567890" 또는 "ISBN:1234567890" 형식 검색
+        java.util.regex.Pattern isbnPattern = java.util.regex.Pattern.compile("ISBN\\s*:?\s*(\\d{10,13})");
+        java.util.regex.Matcher matcher = isbnPattern.matcher(bookAgentResult);
+
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+
+        // ISBN 형식이 없으면 일반 10~13자리 숫자 패턴 검색
+        java.util.regex.Pattern numberPattern = java.util.regex.Pattern.compile("\\b(\\d{10,13})\\b");
+        java.util.regex.Matcher numberMatcher = numberPattern.matcher(bookAgentResult);
+
+        if (numberMatcher.find()) {
+            return numberMatcher.group(1);
+        }
+
+        return null;
     }
 
     /**
