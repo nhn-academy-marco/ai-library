@@ -1,10 +1,13 @@
 package com.nhnacademy.library.ai.service;
 
 import com.nhnacademy.library.ai.function.BookSearchFunction;
+import com.nhnacademy.library.ai.function.LibrarySearchFunction;
 import com.nhnacademy.library.ai.function.LoanCheckFunction;
 import com.nhnacademy.library.ai.function.ReviewFunction;
 import com.nhnacademy.library.ai.function.dto.BookSearchRequest;
 import com.nhnacademy.library.ai.function.dto.BookSearchResult;
+import com.nhnacademy.library.ai.function.dto.LibrarySearchRequest;
+import com.nhnacademy.library.ai.function.dto.LibrarySearchResult;
 import com.nhnacademy.library.ai.function.dto.LoanCheckRequest;
 import com.nhnacademy.library.ai.function.dto.LoanCheckResult;
 import com.nhnacademy.library.ai.function.dto.ReviewResult;
@@ -35,12 +38,14 @@ public class AiLibraryAssistantService {
     private final BookSearchFunction bookSearchFunction;
     private final ReviewFunction reviewFunction;
     private final LoanCheckFunction loanCheckFunction;
+    private final LibrarySearchFunction librarySearchFunction;
 
     /**
      * 사용자 요청을 처리하고 AI 응답을 반환합니다.
      * <p>
      * AI가 필요에 따라 다음 Function들을 호출할 수 있습니다:
      * - BookSearch: 도서 검색
+     * - SearchLibraries: 도서관 검색
      * - GetReviews: 리뷰 조회
      * - CheckLoanAvailability: 대출 가능 확인
      * </p>
@@ -74,9 +79,16 @@ public class AiLibraryAssistantService {
                 .inputType(LoanCheckRequest.class)
                 .build();
 
+        FunctionToolCallback<LibrarySearchRequest, LibrarySearchResult> librarySearchTool =
+            FunctionToolCallback.builder("SearchLibraries", librarySearchFunction::searchLibraries)
+                .description("지역별 도서관을 검색합니다. " +
+                            "지역명(예: 강남구, 서초구)을 받아 해당 지역의 도서관 목록을 반환합니다.")
+                .inputType(LibrarySearchRequest.class)
+                .build();
+
         // ChatClient 생성 (Function Tool 등록)
         ChatClient chatClient = ChatClient.builder(chatModel)
-            .defaultToolCallbacks(bookSearchTool, reviewTool, loanCheckTool)
+            .defaultToolCallbacks(bookSearchTool, reviewTool, loanCheckTool, librarySearchTool)
             .build();
 
         // System Prompt: AI에게 함수 결과를 바탕으로 자연어 응답하도록 지시
@@ -87,6 +99,13 @@ public class AiLibraryAssistantService {
             1. 필요한 도구(함수)를 호출하여 정보를 수집하세요
             2. 도구 호출 결과를 받으면 반드시 자연스러운 한국어로 답변하세요
             3. 검색 결과, 리뷰, 대출 가능 정보를 종합해서 친절하게 설명하세요
+
+            **지역 기반 검색 예시:**
+            사용자: "강남구 근처 도서관에서 빌릴 수 있는 자바 책 알려줘"
+            1. SearchLibraries("강남구") → 강남구 도서관 목록 확보
+            2. BookSearch("자바") → 자바 도서 목록 확보 (ISBN)
+            3. CheckLoanAvailability(isbn, "강남구") → 강남구 도서관 대출 가능 확인
+            4. 종합 답변: "강남구 도서관에서 빌릴 수 있는 자바 책 5권을 찾았습니다..."
 
             예시 응답:
             "토비의 스프링 책을 찾았습니다! 📚
