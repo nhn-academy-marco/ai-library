@@ -423,24 +423,29 @@ public class AiOrchestrationService {
             return entry.getValue();
         }
 
-        // 복수 Agent 결과는 LLM로 종합 (결과 길이 제한)
+        // 복수 Agent 결과는 nginx 타임아웃 방지를 위해 바로 fallback 사용
+        // LLM 호출이 너무 느려서 HTTP 504 발생하므로 직접 합치기로 대체
+        log.info("[MainAgent] 복수 Agent 결과이므로 fallback 사용 (LLM 타임아웃 방지)");
+        return fallbackSynthesize(agentResults);
+
+        /* TODO: Ollama 서버 성능 개선 시 LLM 종합 활성화
         try {
             // 전체 결과 길이 확인 - 너무 길면 fallback 사용
             int totalLength = agentResults.values().stream()
                 .mapToInt(String::length)
                 .sum();
 
-            // 전체 결과가 2000자를 넘으면 직접 합치기 사용 (LLM 타임아웃 방지)
-            if (totalLength > 2000) {
+            // 전체 결과가 500자를 넘으면 직접 합치기 사용 (LLM 타임아웃 방지)
+            if (totalLength > 500) {
                 log.warn("[MainAgent] 결과가 너무 김({}자), fallback 사용", totalLength);
                 return fallbackSynthesize(agentResults);
             }
 
-            // 각 Agent 결과를 500자로 제한
+            // 각 Agent 결과를 200자로 제한
             Map<AgentType, String> truncatedResults = new EnumMap<>(AgentType.class);
             agentResults.forEach((agentType, result) -> {
-                String truncated = result.length() > 500 ?
-                    result.substring(0, 500) + "\n...(중략)" : result;
+                String truncated = result.length() > 200 ?
+                    result.substring(0, 200) + "\n...(중략)" : result;
                 truncatedResults.put(agentType, truncated);
             });
 
@@ -501,6 +506,7 @@ public class AiOrchestrationService {
             // LLM 실패 시 결과를 직접 합쳐서 반환
             return fallbackSynthesize(agentResults);
         }
+        */
     }
 
     /**
