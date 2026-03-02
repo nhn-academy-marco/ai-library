@@ -1,6 +1,7 @@
 package com.nhnacademy.library.ai.agent.orchestrator;
 
 import com.nhnacademy.library.ai.agent.*;
+import com.nhnacademy.library.external.opennaru.client.LibraryInfoNaruApiClient;
 import com.nhnacademy.library.external.opennaru.util.RegionCodeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class AiOrchestrationService {
     private final RecommendationAgent recommendationAgent;
     private final TrendAgent trendAgent;
     private final LibraryExtendedAgent libraryExtendedAgent;
+    private final LibraryInfoNaruApiClient libraryInfoNaruApiClient;  // 직접 호출용
 
     /**
      * 사용자 요청을 처리하고 AI 응답을 반환합니다.
@@ -437,6 +439,12 @@ public class AiOrchestrationService {
             return entry.getValue();
         }
 
+        // BOOK + LOAN 조합: 도서별 대출 가능 통합 표시
+        if (agentResults.containsKey(AgentType.BOOK) && agentResults.containsKey(AgentType.LOAN)) {
+            log.info("[MainAgent] BOOK + LOAN 조합이므로 통합 표시 사용");
+            return synthesizeBookWithLoan(agentResults.get(AgentType.BOOK), agentResults.get(AgentType.LOAN));
+        }
+
         // 복수 Agent 결과는 nginx 타임아웃 방지를 위해 바로 fallback 사용
         // LLM 호출이 너무 느려서 HTTP 504 발생하므로 직접 합치기로 대체
         log.info("[MainAgent] 복수 Agent 결과이므로 fallback 사용 (LLM 타임아웃 방지)");
@@ -552,5 +560,178 @@ public class AiOrchestrationService {
             .user(userMessage)
             .call()
             .content();
+    }
+
+    /**
+     * BOOK + LOAN 조합: 도서별 대출 가능 정보 통합
+     */
+    private String synthesizeBookWithLoan(String bookAgentResult, String loanAgentResult) {
+        log.info("[MainAgent] 도서별 대출 가능 통합 시작");
+
+        try {
+            // 1. BookAgent 결과에서 도서 정보 파싱
+            List<BookData> books = parseBookAgentResult(bookAgentResult);
+            log.info("[MainAgent] 파싱된 도서: {}권", books.size());
+
+            // 2. 지역 코드 추출 (사용자 메시지에서)
+            String regionCode = extractRegionCodeFromContext();
+            String regionName = regionCode != null ? extractRegionNameFromCode(regionCode) : null;
+
+            // 3. 각 도서별 대출 가능 확인
+            for (BookData book : books) {
+                if (book.isbn != null) {
+                    String loanInfo = getLoanInfoForIsbn(book.isbn, regionCode);
+                    book.loanInfo = loanInfo;
+                }
+            }
+
+            // 4. 통합 결과 생성
+            StringBuilder response = new StringBuilder();
+            response.append(String.format("'%s' 검색 결과 %d권을 찾았습니다.\n\n",
+                books.isEmpty() ? "검색" : extractSearchQuery(bookAgentResult), books.size()));
+
+            for (int i = 0; i < books.size(); i++) {
+                BookData book = books.get(i);
+                response.append(String.format("%d. %s\n", i + 1, book.title));
+                response.append(String.format("   저자: %s\n", book.author));
+                response.append(String.format("   출판사: %s\n", book.publisher));
+                if (book.isbn != null) {
+                    response.append(String.format("   ISBN: %s\n", book.isbn));
+                }
+                if (book.loanInfo != null) {
+                    response.append(String.format("   %s\n", book.loanInfo));
+                }
+                response.append("\n");
+            }
+
+            log.info("[MainAgent] 도서별 대출 가능 통합 완료");
+            return response.toString();
+
+        } catch (Exception e) {
+            log.error("[MainAgent] 도서별 대출 가능 통합 실패, 기본 fallback 사용", e);
+            return fallbackSynthesize(Map.of(
+                AgentType.BOOK, bookAgentResult,
+                AgentType.LOAN, loanAgentResult
+            ));
+        }
+    }
+
+    /**
+     * ISBN으로 대출 가능 정보 조회
+     */
+    private String getLoanInfoForIsbn(String isbn, String regionCode) {
+        try {
+            var loanItems = regionCode != null
+                ? libraryInfoNaruApiClient.searchLoanItemsByIsbn(isbn, regionCode)
+                : libraryInfoNaruApiClient.searchLoanItemsByIsbn(isbn);
+
+            if (loanItems.isEmpty()) {
+                return "대출 가능: ❌ 해당 도서를 소장한 도서관이 없습니다.";
+            }
+
+            // 대출 가능한 도서관만 필터링
+            var availableLibraries = loanItems.stream()
+                .filter(item -> "Y".equalsIgnoreCase(item.loanAvailable()))
+                .toList();
+
+            if (availableLibraries.isEmpty()) {
+                return String.format("대출 가능: ❌ 소장 도서관 %d개지만 현재 대출 불가능", loanItems.size());
+            }
+
+            return String.format("대출 가능: ✅ %d개 도서관 (예: %s)",
+                availableLibraries.size(),
+                availableLibraries.get(0).libraryName());
+
+        } catch (Exception e) {
+            log.warn("[MainAgent] 대출 가능 확인 실패: isbn={}", isbn, e);
+            return "대출 가능: ⚠️ 조회 실패";
+        }
+    }
+
+    /**
+     * BookAgent 결과 파싱
+     */
+    private List<BookData> parseBookAgentResult(String result) {
+        List<BookData> books = new ArrayList<>();
+
+        String[] lines = result.split("\n");
+        BookData currentBook = null;
+
+        for (String line : lines) {
+            // 숫자. 제목 형식
+            if (line.matches("^\\d+\\.\\s+.+")) {
+                if (currentBook != null) {
+                    books.add(currentBook);
+                }
+                String title = line.replaceFirst("^\\d+\\.\\s+", "").trim();
+                currentBook = new BookData();
+                currentBook.title = title;
+            }
+            // 저자
+            else if (line.contains("저자:")) {
+                if (currentBook != null) {
+                    currentBook.author = line.replace("저자:", "").trim();
+                }
+            }
+            // 출판사
+            else if (line.contains("출판사:")) {
+                if (currentBook != null) {
+                    currentBook.publisher = line.replace("출판사:", "").trim();
+                }
+            }
+            // ISBN
+            else if (line.contains("ISBN:")) {
+                if (currentBook != null) {
+                    String isbnStr = line.replace("ISBN:", "").trim();
+                    currentBook.isbn = isbnStr;
+                }
+            }
+        }
+
+        if (currentBook != null) {
+            books.add(currentBook);
+        }
+
+        return books;
+    }
+
+    /**
+     * BookAgent 결과에서 검색어 추출
+     */
+    private String extractSearchQuery(String result) {
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("'(.+?)' 검색 결과");
+        java.util.regex.Matcher matcher = pattern.matcher(result);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return "검색";
+    }
+
+    /**
+     * 지역 코드에서 지역명 추출
+     */
+    private String extractRegionNameFromCode(String regionCode) {
+        // 간단 매핑 (필요시 확장)
+        if ("24".equals(regionCode)) return "광주";
+        return null;
+    }
+
+    /**
+     * 컨텍스트에서 지역 코드 추출 (미구현)
+     */
+    private String extractRegionCodeFromContext() {
+        // TODO: LIBRARY Agent 결과에서 지역 코드 추출 로직 추가
+        return null;
+    }
+
+    /**
+     * 도서 데이터 내부 클래스
+     */
+    private static class BookData {
+        String title;
+        String author;
+        String publisher;
+        String isbn;
+        String loanInfo;
     }
 }
