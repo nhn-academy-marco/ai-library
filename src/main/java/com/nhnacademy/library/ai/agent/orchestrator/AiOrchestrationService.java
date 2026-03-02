@@ -33,6 +33,10 @@ public class AiOrchestrationService {
     private final ReviewAgent reviewAgent;
     private final LoanAgent loanAgent;
     private final LibraryAgent libraryAgent;
+    private final BookDetailAgent bookDetailAgent;
+    private final RecommendationAgent recommendationAgent;
+    private final TrendAgent trendAgent;
+    private final LibraryExtendedAgent libraryExtendedAgent;
 
     /**
      * 사용자 요청을 처리하고 AI 응답을 반환합니다.
@@ -112,6 +116,34 @@ public class AiOrchestrationService {
             selectedAgents.add(0, AgentType.BOOK); // 항상 먼저 실행
         }
 
+        // 도서 상세 정보 키워드
+        if (message.contains("상세") || message.contains("detail") ||
+            message.contains("정보") || message.contains("키워드") ||
+            message.contains("keyword")) {
+            selectedAgents.add(AgentType.BOOK_DETAIL);
+        }
+
+        // 추천 키워드
+        if (message.contains("추천") || message.contains("recommend") ||
+            message.contains("인기") || message.contains("best") ||
+            message.contains("마니아") || message.contains("다독")) {
+            selectedAgents.add(AgentType.RECOMMENDATION);
+        }
+
+        // 트렌드 키워드
+        if (message.contains("급상승") || message.contains("hot") ||
+            message.contains("트렌드") || message.contains("trend") ||
+            message.contains("월간") || message.contains("독서량") ||
+            message.contains("독서율")) {
+            selectedAgents.add(AgentType.TREND);
+        }
+
+        // 도서관 통합정보 키워드
+        if (message.contains("연령") || message.contains("age") ||
+            message.contains("소장") || message.contains("exist")) {
+            selectedAgents.add(AgentType.LIBRARY_EXTENDED);
+        }
+
         return selectedAgents;
     }
 
@@ -166,6 +198,10 @@ public class AiOrchestrationService {
             case REVIEW -> reviewAgent;
             case LOAN -> loanAgent;
             case LIBRARY -> libraryAgent;
+            case BOOK_DETAIL -> bookDetailAgent;
+            case RECOMMENDATION -> recommendationAgent;
+            case TREND -> trendAgent;
+            case LIBRARY_EXTENDED -> libraryExtendedAgent;
             default -> throw new IllegalArgumentException("Unknown agent type: " + agentType);
         };
     }
@@ -207,6 +243,17 @@ public class AiOrchestrationService {
             case REVIEW:
                 // 책명 추출
                 return extractBookName(userMessage);
+            case BOOK_DETAIL:
+                // ISBN 추출 (우선 순위)
+                if (userMessage.matches(".*\\d{10,13}.*")) {
+                    return userMessage.replaceAll(".*\\b(\\d{10,13})\\b.*", "$1");
+                }
+                return userMessage.replaceAll("(상세|정보|키워드|keyword)", "").trim();
+            case RECOMMENDATION:
+            case TREND:
+            case LIBRARY_EXTENDED:
+                // 전체 메시지 전달 (Agent 내에서 분석)
+                return userMessage;
             default:
                 return userMessage;
         }
@@ -291,6 +338,8 @@ public class AiOrchestrationService {
             당신은 도서관 도우미 AI 오케스트레이터입니다.
             여러 전문 Agent들의 실행 결과를 종합하여 사용자에게 친절한 답변을 제공하세요.
 
+            **중요: 반드시 한국어로 답변하세요. 중국어나 다른 언어를 사용하지 마세요.**
+
             **종합 방법:**
             1. 각 Agent의 결과를 확인
             2. 중요한 정보를 추출
@@ -345,6 +394,7 @@ public class AiOrchestrationService {
         ChatClient chatClient = ChatClient.builder(chatModel).build();
 
         return chatClient.prompt()
+            .system("당신은 도서관 도우미 AI입니다. 반드시 한국어로만 답변하세요. 중국어나 다른 언어를 사용하지 마세요.")
             .user(userMessage)
             .call()
             .content();
