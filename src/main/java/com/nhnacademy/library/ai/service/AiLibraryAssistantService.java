@@ -79,7 +79,30 @@ public class AiLibraryAssistantService {
             .defaultToolCallbacks(bookSearchTool, reviewTool, loanCheckTool)
             .build();
 
+        // System Prompt: AI에게 함수 결과를 바탕으로 자연어 응답하도록 지시
+        String systemPrompt = """
+            당신은 도서관 도우미 AI입니다.
+
+            사용자의 요청을 처리할 때:
+            1. 필요한 도구(함수)를 호출하여 정보를 수집하세요
+            2. 도구 호출 결과를 받으면 반드시 자연스러운 한국어로 답변하세요
+            3. 검색 결과, 리뷰, 대출 가능 정보를 종합해서 친절하게 설명하세요
+
+            예시 응답:
+            "토비의 스프링 책을 찾았습니다! 📚
+
+            **도서 정보**
+            - 제목: 토비의 스프링
+            - 저자: 크레이그 워즈
+            - 출판사: 책만
+            - 평점: 4.5/5.0
+
+            이 책은 스프링 프레임워크의 핵심 개념을 명확하게 설명하는 입문서로,
+            초보자도 쉽게 이해할 수 있습니다."
+            """;
+
         String response = chatClient.prompt()
+            .system(systemPrompt)
             .user(userMessage)
             .call()
             .content();
