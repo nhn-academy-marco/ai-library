@@ -1,6 +1,7 @@
 package com.nhnacademy.library.external.telegram.bot;
 
 import com.nhnacademy.library.ai.service.AiLibraryAssistantService;
+import com.nhnacademy.library.ai.agent.orchestrator.AiOrchestrationService;
 import com.nhnacademy.library.core.book.service.cache.SemanticCacheService;
 import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import com.nhnacademy.library.external.telegram.config.TelegramBotProperties;
@@ -41,6 +42,8 @@ class LibraryTelegramBotTest {
     private FeedbackService feedbackService;
     @Mock
     private AiLibraryAssistantService aiLibraryAssistantService;
+    @Mock
+    private AiOrchestrationService aiOrchestrationService;
 
     private LibraryTelegramBot bot;
 
@@ -51,7 +54,8 @@ class LibraryTelegramBotTest {
 
         DefaultBotOptions options = new DefaultBotOptions();
         bot = new LibraryTelegramBot(properties, options, bookSearchService, semanticCacheService,
-                                      callbackQueryHandler, keyboardFactory, feedbackService, aiLibraryAssistantService);
+                                      callbackQueryHandler, keyboardFactory, feedbackService,
+                                      aiLibraryAssistantService, aiOrchestrationService);
     }
 
     @Test

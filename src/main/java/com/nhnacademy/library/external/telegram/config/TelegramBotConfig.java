@@ -1,6 +1,7 @@
 package com.nhnacademy.library.external.telegram.config;
 
 import com.nhnacademy.library.ai.service.AiLibraryAssistantService;
+import com.nhnacademy.library.ai.agent.orchestrator.AiOrchestrationService;
 import com.nhnacademy.library.core.book.service.cache.SemanticCacheService;
 import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import com.nhnacademy.library.external.telegram.bot.LibraryTelegramBot;
@@ -51,14 +52,16 @@ public class TelegramBotConfig {
                                                    CallbackQueryHandler callbackQueryHandler,
                                                    TelegramKeyboardFactory keyboardFactory,
                                                    FeedbackService feedbackService,
-                                                   AiLibraryAssistantService aiLibraryAssistantService) {
+                                                   AiLibraryAssistantService aiLibraryAssistantService,
+                                                   AiOrchestrationService aiOrchestrationService) {
         log.info("[Telegram] Creating LibraryTelegramBot bean");
         // DefaultBotOptions 생성 (필요시 추가 설정 가능)
         DefaultBotOptions options = new DefaultBotOptions();
         // 예: options.setMaxThreads(5);
 
         return new LibraryTelegramBot(properties, options, bookSearchService, semanticCacheService,
-                                      callbackQueryHandler, keyboardFactory, feedbackService, aiLibraryAssistantService);
+                                      callbackQueryHandler, keyboardFactory, feedbackService,
+                                      aiLibraryAssistantService, aiOrchestrationService);
     }
 
     /**
