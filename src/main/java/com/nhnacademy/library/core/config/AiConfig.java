@@ -9,6 +9,7 @@ import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.annotation.Order;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
@@ -44,6 +45,7 @@ public class AiConfig {
      * </p>
      */
     @Bean
+    @Primary  // 기본 RestClient.Builder 대신 이 빈을 우선 사용
     @ConditionalOnProperty(name = "spring.ai.selected-model", havingValue = "ollama")
     public RestClient.Builder ollamaRestClientBuilder() {
         return RestClient.builder()

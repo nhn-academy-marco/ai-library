@@ -8,8 +8,6 @@ import com.nhnacademy.library.external.opennaru.client.LibraryInfoNaruApiClient;
 import com.nhnacademy.library.external.opennaru.dto.LibraryBookInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
@@ -28,7 +26,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class BookAgent implements Agent {
 
-    private final ChatModel chatModel;
     private final BookSearchService bookSearchService;
     private final LibraryInfoNaruApiClient libraryInfoNaruApiClient;
 
