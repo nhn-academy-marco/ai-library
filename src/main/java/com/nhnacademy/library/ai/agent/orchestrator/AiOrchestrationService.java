@@ -174,9 +174,9 @@ public class AiOrchestrationService {
         if (parsed.hasBookName()) {
             prompt.append(String.format("검색 도서: %s\n\n", parsed.bookName()));
         }
-        if (parsed.hasRegionName()) {
-            String regionCode = RegionCodeMapper.convert(parsed.regionName());
-            prompt.append(String.format("지역: %s\n\n", parsed.regionName()));
+        if (parsed.hasRegionName() && parsed.regionCode() != null) {
+            prompt.append(String.format("**지역 정보:** %s (코드: %s)\n", parsed.regionName(), parsed.regionCode()));
+            prompt.append("**중요:** SearchLibraries 호출 시 region 파라미터에 ").append(parsed.regionCode()).append("를 사용하세요.\n\n");
         }
 
         prompt.append("**중요한 지침:**\n");
@@ -187,7 +187,7 @@ public class AiOrchestrationService {
 
         prompt.append("**도구 호출 가이드:**\n");
         prompt.append("- SearchBooks: 도서 제목으로 검색하여 ISBN 확보\n");
-        prompt.append("- SearchLibraries: 지역별 도서관 검색 (지역명→코드 변환 필요)\n");
+        prompt.append("- SearchLibraries: 지역별 도서관 검색 (region 파라미터에 지역 코드 사용)\n");
         prompt.append("- CheckBookExists: 도서관 코드와 ISBN으로 소장 여부 확인\n\n");
 
         prompt.append("**응답 형식 (Telegram용):**\n\n");

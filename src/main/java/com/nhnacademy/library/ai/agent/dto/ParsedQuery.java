@@ -12,6 +12,7 @@ import java.util.List;
  * @param bookName 도서명 (없으면 null)
  * @param authorName 저자명 (없으면 null)
  * @param regionName 지역명 (예: "서울", "광주", "부산" - 없으면 null)
+ * @param regionCode 지역 코드 (예: "11", "29" - 도서관정보나루 API용, 없으면 null)
  * @param intent 검색 의도 (SEARCH, CHECK_AVAILABILITY, RECOMMEND)
  * @param keywords 추가 키워드 목록
  * @param originalQuery 원본 사용자 쿼리
@@ -20,6 +21,7 @@ public record ParsedQuery(
     String bookName,
     String authorName,
     String regionName,
+    String regionCode,
     SearchIntent intent,
     List<String> keywords,
     String originalQuery
@@ -80,8 +82,8 @@ public record ParsedQuery(
      */
     public String toDebugString() {
         return String.format(
-            "ParsedQuery{bookName='%s', authorName='%s', regionName='%s', intent=%s, keywords=%s}",
-            bookName, authorName, regionName, intent, keywords
+            "ParsedQuery{bookName='%s', authorName='%s', regionName='%s', regionCode='%s', intent=%s, keywords=%s}",
+            bookName, authorName, regionName, regionCode, intent, keywords
         );
     }
 }

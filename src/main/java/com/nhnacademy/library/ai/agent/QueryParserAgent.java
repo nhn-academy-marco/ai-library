@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.library.ai.agent.dto.ParsedQuery;
 import com.nhnacademy.library.ai.agent.dto.ParsedQuery.SearchIntent;
+import com.nhnacademy.library.external.opennaru.util.RegionCodeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -200,10 +201,18 @@ public class QueryParserAgent {
 
             ParsedQueryJson json = objectMapper.readValue(cleanedJson, ParsedQueryJson.class);
 
+            // 지역명 → 지역 코드 변환
+            String regionCode = null;
+            if (json.regionName() != null && !json.regionName().isBlank()) {
+                regionCode = RegionCodeMapper.convert(json.regionName());
+                log.debug("[QueryParserAgent] 지역 코드 변환: {} → {}", json.regionName(), regionCode);
+            }
+
             return new ParsedQuery(
                 json.bookName(),
                 json.authorName(),
                 json.regionName(),
+                regionCode,
                 parseIntent(json.intent()),
                 json.keywords() != null ? json.keywords() : List.of(),
                 originalQuery
@@ -252,10 +261,18 @@ public class QueryParserAgent {
         // 지역명 추출
         String regionName = extractRegionName(userMessage);
 
+        // 지역명 → 지역 코드 변환
+        String regionCode = null;
+        if (regionName != null && !regionName.isBlank()) {
+            regionCode = RegionCodeMapper.convert(regionName);
+            log.debug("[QueryParserAgent] Fallback 지역 코드 변환: {} → {}", regionName, regionCode);
+        }
+
         return new ParsedQuery(
             null, // bookName (추출 불가)
             null, // authorName (추출 불가)
             regionName,
+            regionCode,
             intent,
             List.of(),
             userMessage
