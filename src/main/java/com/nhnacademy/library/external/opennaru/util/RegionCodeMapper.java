@@ -9,7 +9,13 @@ import java.util.Map;
  * 한국 지역명을 도서관정보나루 API 지역 코드로 변환하는 유틸리티 클래스
  * <p>
  * 도서관정보나루 API는 지역명이 아닌 지역 코드를 요구합니다.
- * 예: "서울" → "11", "부산" → "21"
+ * 예: "서울" → "11", "부산" → "26", "광주" → "29"
+ * </p>
+ * <p>
+ * 지역 코드 참고 (도서관정보나루 API 기준):
+ * 11=서울, 26=부산, 27=대구, 28=인천, 29=광주, 30=대전, 31=울산,
+ * 36=세종, 41=경기, 42=강원, 43=충북, 44=충남, 45=전북, 46=전남,
+ * 47=경북, 48=경남, 50=제주
  * </p>
  */
 @Slf4j
@@ -30,33 +36,34 @@ public class RegionCodeMapper {
         REGION_CODE_MAP.put("seoul", "11");
 
         // 광역시
-        REGION_CODE_MAP.put("부산", "21");
-        REGION_CODE_MAP.put("부산광역시", "21");
-        REGION_CODE_MAP.put("busan", "21");
+        // 도서관정보나루 API 지역 코드: 26=부산, 27=대구, 28=인천, 29=광주, 30=대전, 31=울산, 36=세종
+        REGION_CODE_MAP.put("부산", "26");
+        REGION_CODE_MAP.put("부산광역시", "26");
+        REGION_CODE_MAP.put("busan", "26");
 
-        REGION_CODE_MAP.put("대구", "22");
-        REGION_CODE_MAP.put("대구광역시", "22");
-        REGION_CODE_MAP.put("daegu", "22");
+        REGION_CODE_MAP.put("대구", "27");
+        REGION_CODE_MAP.put("대구광역시", "27");
+        REGION_CODE_MAP.put("daegu", "27");
 
-        REGION_CODE_MAP.put("인천", "23");
-        REGION_CODE_MAP.put("인천광역시", "23");
-        REGION_CODE_MAP.put("incheon", "23");
+        REGION_CODE_MAP.put("인천", "28");
+        REGION_CODE_MAP.put("인천광역시", "28");
+        REGION_CODE_MAP.put("incheon", "28");
 
-        REGION_CODE_MAP.put("광주", "24");
-        REGION_CODE_MAP.put("광주광역시", "24");
-        REGION_CODE_MAP.put("gwangju", "24");
+        REGION_CODE_MAP.put("광주", "29");
+        REGION_CODE_MAP.put("광주광역시", "29");
+        REGION_CODE_MAP.put("gwangju", "29");
 
-        REGION_CODE_MAP.put("대전", "25");
-        REGION_CODE_MAP.put("대전광역시", "25");
-        REGION_CODE_MAP.put("daejeon", "25");
+        REGION_CODE_MAP.put("대전", "30");
+        REGION_CODE_MAP.put("대전광역시", "30");
+        REGION_CODE_MAP.put("daejeon", "30");
 
-        REGION_CODE_MAP.put("울산", "26");
-        REGION_CODE_MAP.put("울산광역시", "26");
-        REGION_CODE_MAP.put("ulsan", "26");
+        REGION_CODE_MAP.put("울산", "31");
+        REGION_CODE_MAP.put("울산광역시", "31");
+        REGION_CODE_MAP.put("ulsan", "31");
 
-        REGION_CODE_MAP.put("세종", "29");
-        REGION_CODE_MAP.put("세종특별자치시", "29");
-        REGION_CODE_MAP.put("sejong", "29");
+        REGION_CODE_MAP.put("세종", "36");
+        REGION_CODE_MAP.put("세종특별자치시", "36");
+        REGION_CODE_MAP.put("sejong", "36");
 
         // 도
         REGION_CODE_MAP.put("경기", "41");
@@ -109,7 +116,7 @@ public class RegionCodeMapper {
      * 지역명을 지역 코드로 변환합니다.
      *
      * @param regionName 지역명 (예: "서울", "광주", "경기도")
-     * @return 지역 코드 (예: "11", "24", "41"), 변환할 수 없는 경우 null
+     * @return 지역 코드 (예: "11", "29", "41"), 변환할 수 없는 경우 null
      */
     public static String toRegionCode(String regionName) {
         if (regionName == null || regionName.isBlank()) {
