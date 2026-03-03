@@ -10,6 +10,10 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.function.Function;
 
+// DTO import 추가
+import static com.nhnacademy.library.ai.function.dto.BookExistRequest.*;
+import static com.nhnacademy.library.ai.function.dto.BookExistResult.*;
+
 /**
  * 도서관정보나루 API용 Spring AI Function Calling 구현
  * <p>
@@ -151,6 +155,26 @@ public class LibraryFunctions {
                 .toList();
             log.info("[Function] 추천도서 조회 완료: {}권", items.size());
             return new RecommendResult(request.isbn13(), request.type(), items.size(), items);
+        };
+    }
+
+    /**
+     * 8. 도서 소장 여부 조회 Function (bookExist API)
+     * <p>
+     * 특정 도서관에 도서가 소장되어 있는지 확인합니다.
+     * </p>
+     */
+    public Function<BookExistRequest, BookExistResult> checkBookExists() {
+        return request -> {
+            log.info("[Function] 도서 소장 여부 조회: libCode={}, isbn={}", request.libCode(), request.isbn13());
+            com.nhnacademy.library.external.opennaru.dto.BookExistInfo info =
+                apiClient.checkBookExists(request.libCode(), request.isbn13());
+
+            BookExistResult result = BookExistResult.from(request.libCode(), null, info);
+            log.info("[Function] 도서 소장 여부 조회 완료: exists={}, loanAvailable={}",
+                result.exists(), result.loanAvailable());
+
+            return result;
         };
     }
 }

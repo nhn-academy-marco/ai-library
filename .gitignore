@@ -36,3 +36,4 @@ build/
 /.gitattributes
 /mvnw
 /mvnw.cmd
+*.backup
