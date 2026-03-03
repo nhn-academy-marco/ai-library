@@ -96,8 +96,10 @@ public class AiOrchestrationService {
             FunctionToolCallback<LibrarySearchRequest, LibrarySearchResult> searchLibrariesTool =
                 FunctionToolCallback.builder("SearchLibraries", libraryFunctions.searchLibraries())
                     .description("지역별 도서관을 검색합니다. " +
-                                "지역명(예: 광주, 서울, 부산)을 받아 해당 지역의 도서관 목록을 반환합니다. " +
-                                "RegionCodeMapper를 사용하여 지역명을 코드로 변환하세요: 광주=29, 서울=11, 부산=26")
+                                "지역 코드(숫자)를 받아 해당 지역의 도서관 목록을 반환합니다. " +
+                                "**중요**: 반드시 숫자 지역 코드를 사용하세요. " +
+                                "한글 지역명(광주, 서울 등)을 사용하면 API 에러가 발생합니다. " +
+                                "지역 코드 예시: 서울=11, 부산=21, 대구=22, 인천=23, 광주=24, 대전=25, 울산=26, 세종=29, 경기=31")
                     .inputType(LibrarySearchRequest.class)
                     .build();
             log.debug("[MainAgent] ✅ SearchLibraries Function 등록 완료");
@@ -180,8 +182,9 @@ public class AiOrchestrationService {
             prompt.append(String.format("검색 도서: %s\n\n", parsed.bookName()));
         }
         if (parsed.hasRegionName() && parsed.regionCode() != null) {
-            prompt.append(String.format("**지역 정보:** %s (코드: %s)\n", parsed.regionName(), parsed.regionCode()));
-            prompt.append("**중요:** SearchLibraries 호출 시 region 파라미터에 ").append(parsed.regionCode()).append("를 사용하세요.\n\n");
+            prompt.append(String.format("**지역 정보:** %s (지역 코드: %s)\n", parsed.regionName(), parsed.regionCode()));
+            prompt.append(String.format("**⚠️ 매우 중요:** SearchLibraries 함수를 호출할 때 반드시 지역 코드 \"%s\"를 사용하세요.\n", parsed.regionCode()));
+            prompt.append(String.format("절대 한글 지역명(\"%s\")을 region 파라미터에 넣지 마세요. API 에러가 발생합니다.\n\n", parsed.regionName()));
         }
 
         prompt.append("**중요한 지침:**\n");
@@ -192,7 +195,7 @@ public class AiOrchestrationService {
 
         prompt.append("**도구 호출 가이드:**\n");
         prompt.append("- SearchBooks: 도서 제목으로 검색하여 ISBN 확보\n");
-        prompt.append("- SearchLibraries: 지역별 도서관 검색 (region 파라미터에 지역 코드 사용)\n");
+        prompt.append("- SearchLibraries: 지역 코드(숫자)로 도서관 검색 (한글 지역명 사용 금지!)\n");
         prompt.append("- CheckBookExists: 도서관 코드와 ISBN으로 소장 여부 확인\n\n");
 
         prompt.append("**응답 형식 (Telegram용):**\n\n");
