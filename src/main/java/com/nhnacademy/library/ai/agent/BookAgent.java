@@ -26,7 +26,7 @@ public class BookAgent implements Agent {
     private final ChatModel chatModel;
     private final BookSearchService bookSearchService;
 
-    private static final int DEFAULT_PAGE_SIZE = 20;  // 전체 결과를 보여주기 위해 20으로 증가
+    private static final int DEFAULT_PAGE_SIZE = 5;  // 검색 결과를 5개로 제한
 
     @Override
     public AgentType getType() {
