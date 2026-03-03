@@ -1,33 +1,25 @@
-# Step 7: Library Assistant Agent - 도서관 도우미 AI
+# Step 7: LLM 기반 오케스트레이션 - 도서관 도우미 AI
 
 ## 학습 개요
 
-Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Function Calling을 통해 **지능형 도서관 도우미 Agent**로 통합합니다. 사용자의 자연어 질문 한 번으로 도서 검색부터 리뷰 확인, 대출 가능 여부까지 한 번에 처리하는 AI 시스템을 구현합니다.
+Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Function Calling을 통해 **지능형 도서관 도우미 AI**로 통합합니다. 사용자의 자연어 질문 한 번으로 도서 검색부터 리뷰 확인, 대출 가능 여부까지 LLM이 스스로 필요한 API를 선택하고 호출하는 AI 시스템을 구현합니다.
 
 ## 학습 목표
 
-1. **AI Agent 이론**
-   - Agent, MCP, A2A 개념 이해
-   - AI 시스템 설계 패턴 학습
-   - 현대 AI 아키텍처 트렌드 파악
+1. **LLM 기반 오케스트레이션 이론**
+   - 수동 오케스트레이션 vs LLM 자율 오케스트레이션
+   - Function Calling 개념과 Spring AI 구현
+   - MCP (Model Context Protocol) 이해
 
-2. **Function Calling 기초**
-   - AI가 시스템 도구를 사용하는 방법
-   - @Description 어노테이션으로 함수 정의
-   - ChatClient에 함수 등록
+2. **Function Calling 구현**
+   - 7개 도서관정보나루 API를 Function으로 변환
+   - 타입 안전한 Request/Response DTO 설계
+   - ChatClient에 Function 등록
 
-3. **다중 Function 조합**
-   - 검색 → 리뷰 → 대출 가능 여부
-   - 함수 간 데이터 전달
-   - 오케스트레이션 패턴 이해
-
-4. **외부 API 연동**
-   - 도서관정보나루 API 연동
-   - 실시간 대출 가능 도서관 조회
-
-5. **개인화 경험**
-   - 사용자 선호도 반영
-   - Step 6 PersonalizationService 활용
+3. **LLM 자율 오케스트레이션**
+   - LLM이 필요한 Function 스스로 선택
+   - 여러 Function 조합 실행
+   - 결과 종합 및 자연어 응답
 
 ---
 
@@ -44,134 +36,191 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 | Step 5 | Telegram Bot, 피드백 | 사용자 인터페이스 |
 | Step 6 | 개인화 추천 시스템 | 맞춤형 추천 |
 
-### Step 7: Library Assistant Agent (현재)
+### Step 7: LLM 기반 오케스트레이션 (현재)
 
-**기존 방식 (Step 6까지)**:
+**기존 방식 (Step 6까지 - 수동 Agent 선택)**:
 ```
-사용자: "자바의 정석 책 정보랑 리뷰도 알려줘"
+사용자: "토비의 스프링 광주 도서관에서 빌릴까?"
    ↓
-[Telegram Bot]
+[MainAgent] 키워드 매칭으로 Agent 선택
+   - BOOK → BookAgent
+   - LOAN → LoanAgent
+   - LIBRARY → LibraryAgent
    ↓
-[검색 API] → 검색 결과 1
-[리뷰 API] → 리뷰 결과 2
+[개발자 hardcode 로직] 결과 종합
    ↓
-사용자: 각각 조회해야 함
+사용자: 파편화된 결과
 ```
 
-**Library Assistant Agent 방식**:
+**새로운 방식 (Step 7 - LLM 자율 오케스트레이션)**:
 ```
-사용자: "자바의 정석 책 정보랑 리뷰도 알려줘"
+사용자: "토비의 스프링 광주 도서관에서 빌릴까?"
    ↓
-[AI가 자동으로 함수 선택]
+[LLM] 질문 분석 → 필요한 Function 자동 선택
    ↓
-[검색 Function] → 도서 정보
-[리뷰 Function] → 리뷰 요약
-[대출 Function] → 대출 가능 도서관
+[searchBooks Function] → 도서 검색 (ISBN 확보)
+[getLibrariesWithBook Function] → 광주(29) 지역 대출 가능 도서관 조회
    ↓
-AI가 종합 답변 생성
+[LLM] 결과 종합 → 자연스러운 한국어 답변
 ```
 
 ---
 
-## Library Assistant Agent란?
+## LLM 기반 오케스트레이션이란?
 
 ### 정의
 
-> **Library Assistant Agent** = 사용자의 자연어 질문을 이해하고, 필요한 도구(함수)를 자동으로 선택하여 도서관 서비스를 제공하는 AI 시스템
+> **LLM 기반 오케스트레이션** = LLM이 사용자의 질문을 이해하고 스스로 필요한 Function(도구)을 선택하여 시스템을 제어하는 AI 패턴
 
-### 핵심 기능
+### 핵심 특징
 
-1. **도서 검색**: 자연어로 도서 검색
-2. **리뷰 요약**: 도서별 리뷰 요약 제공
-3. **대출 가능 여부**: 전국 도서관 대출 가능 현황
-4. **개인화 추천**: 사용자 선호도 반영
+1. **자율성**: LLM이 스스로 함수 선택 (개발자 hardcode 제거)
+2. **유연성**: 복잡한 질문도 동적으로 처리
+3. **확장성**: 새로운 Function 추가가 쉬움
 
 ### 시나리오 예시
 
 ```
-❌ 기존 방식 (Step 5 Telegram Bot)
-사용자: "자바의 정석 책 정보 알려줘"
-→ 검색 결과 표시
+❌ 기존 방식 (Step 6 - 수동 Agent 선택)
+사용자: "토비의 스프링 3.1 광주 도서관에서 빌려고 하는데 추천해줘"
+  → [개발자가 if-else로 Agent 선택]
+  → BOOK, LOAN, LIBRARY, RECOMMENDATION Agent 실행
+  → 결과가 파편화됨
 
-사용자: "리뷰도 보여줘"
-→ 별도 조회 필요
-
-사용자: "대출 가능해?"
-→ 또 별도 조회 필요
-
-✅ Library Assistant Agent
-사용자: "자바의 정석 책 정보, 리뷰, 대출 가능한 곳 알려줘"
-→ AI가 자동으로 3가지 작업 수행
-→ 종합 답변 제공
+✅ LLM 기반 오케스트레이션 (Step 7)
+사용자: "토비의 스프링 3.1 광주 도서관에서 빌려고 하는데 추천해줘"
+  → [LLM이 질문 분석]
+  → 1. searchBooks("토비의 스프링 3.1") → ISBN 확보
+  → 2. getLibrariesWithBook(isbn, region="29") → 광주 대출 가능 도서관
+  → 3. getRecommendedBooks(isbn, "mania") → 마니아 추천
+  → [LLM이 결과 종합] 자연스러운 답변
 ```
 
 ---
 
-## 왜 Library Assistant Agent인가?
+## 왜 LLM 기반 오케스트레이션인가?
 
-### 1. Step 6 기반과 완벽한 시너지
+### 1. 기존 한계 극복
 
-| Step 6 구현 기능 | 활용 방법 |
-|-----------------|-----------|
-| **BookSearchService** | 도서 검색 Function |
-| **ReviewService** | 리뷰 조회 Function |
-| **PersonalizationService** | 개인화 Function |
-| **LibraryInfoNaruApiClient** | 대출 가능 여부 Function |
+| 기존 방식의 문제 | LLM 오케스트레이션 해결 |
+|-----------------|---------------------|
+| 키워드 매칭만 가능 | 의도 이해 후 Function 선택 |
+| 복잡한 if-else 로직 | LLM이 스스로 판단 |
+| 새로운 Agent 추가 시 코드 수정 | Function만 추가하면 자동 인식 |
+| 파편화된 결과 | LLM이 자연스럽게 종합 |
 
-이미 모든 컴포넌트가 준비되어 있어, 이를 조합하기만 하면 됩니다!
+### 2. 도서관정보나루 API 완벽 활용
 
-### 2. 교육적 가치
+**17개 API → 7개 주요 Function으로 변환:**
+
+| Function | API | 설명 |
+|----------|-----|------|
+| `searchBooks` | srchBooks | 도서 검색 |
+| `getLibrariesWithBook` | libSrchByBook | 대출 가능 도서관 조회 |
+| `searchLibraries` | libSrch | 도서관 검색 |
+| `getBookDetail` | srchDtlList | 도서 상세 정보 |
+| `getPopularBooks` | loanItemSrch | 인기대출도서 |
+| `getHotTrendBooks` | hotTrend | 대출 급상승 도서 |
+| `getRecommendedBooks` | recommandList | 추천도서 |
+
+### 3. 교육적 가치
 
 **학습할 수 있는 기술**:
 - Spring AI Function Calling
-- Multi-step Orchestration
-- External API 연동
+- LLM 기반 시스템 설계
+- 타입 안전한 Function 설계
+- 오케스트레이션 패턴
 - Prompt Engineering
-- 에러 처리 및 Fallback
 
-### 3. 실무 적용 가능성
+---
 
-도서관뿐만 아니라, 다양한 서비스에 응용 가능:
-- 쇼핑몰: 상품 검색 → 재고 확인 → 배송 조회
-- 병원: 진료 예약 → 의사 정보 조회 → 결제
-- 은행: 계좌 조회 → 잔액 확인 → 이체 내역
+## 구현 아키텍처
+
+### 핵심 컴포넌트
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    사용자 질문                          │
+│  "토비의 스프링 광주 도서관에서 빌릴까?"              │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ↓
+┌─────────────────────────────────────────────────────────┐
+│              AiOrchestrationService (MainAgent)         │
+│  - 질문 수신                                            │
+│  - ChatClient.prompt().user(message).call()           │
+│  - LLM이 스스로 Function 선택                            │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ↓
+┌─────────────────────────────────────────────────────────┐
+│                LibraryFunctions (7개 Function)           │
+│  ┌─────────────────┬─────────────────┬───────────────┐  │
+│  │  searchBooks    │ getLibrariesWith │ searchLibraries │  │
+│  │                 │ Book             │               │  │
+│  ├─────────────────┼─────────────────┼───────────────┤  │
+│  │ getBookDetail   │ getPopularBooks  │ getHotTrend   │  │
+│  │                 │                 │ Books         │  │
+│  ├─────────────────┴─────────────────┴───────────────┤  │
+│  │          getRecommendedBooks                        │  │
+│  └─────────────────────────────────────────────────────┘  │
+└───────────────────┬─────────────────────────────────────┘
+                    │
+                    ↓
+┌─────────────────────────────────────────────────────────┐
+│          LibraryInfoNaruApiClient (17개 API)            │
+│  - 도서관정보나루 API 직접 호출                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 코드 간소화 효과
+
+| 파일 | 기존 (Step 6) | Step 7 | 변화 |
+|------|---------------|--------|------|
+| AiOrchestrationService | 760줄 | 80줄 | **-89%** |
+| selectAgents() | 80줄 | 0줄 | **제거** |
+| executeAgents() | 100줄 | 0줄 | **제거** |
+| synthesizeResults() | 200줄 | 0줄 | **제거** |
+| 결과 | 수동 Agent 선택 | LLM 자율 선택 | **지능화** |
 
 ---
 
 ## 학습 로드맵
 
 ```
-Level 1: 단일 Function (2시간)
-├─ 도서 검색 Function 구현
+Phase 1: Function 정의 (1시간)
+├─ LibraryFunctions 클래스 생성
+├─ 7개 Function<Request, Response> 구현
+├─ DTO 정의 (Request/Response)
+└─ LibraryInfoNaruApiClient 연동
+
+Phase 2: LLM 오케스트레이션 (1시간)
+├─ AiOrchestrationService 단순화
 ├─ ChatClient 설정
-└─ AI가 함수 호출 확인
+├─ System Prompt 작성
+└─ LLM 자율 Function 선택 테스트
 
-Level 2: 복수 Function (3시간)
-├─ 리뷰 조회 Function 추가
-├─ 검색 + 리뷰 조합
-└─ 함수 간 데이터 전달
+Phase 3: 실전 테스트 (1시간)
+├─ 다양한 질문 시나리오 테스트
+├─ Function 조합 실행 확인
+├─ 에러 처리 및 Fallback
+└─ 성능 최적화
 
-Level 3: 외부 API 연동 (2시간)
-├─ 대출 가능 여부 Function 추가
-├─ 도서관정보나루 API 연동
-└─ 전체 워크플로우 통합
-
-총 시간: 7시간
+총 시간: 3시간
 ```
 
 ---
 
 ## 기술 스택
 
-### 필수 기술
-- **Spring AI**: Function Calling 프레임워크
-- **Google Gemini** 또는 **Ollama**: LLM 모델
+### 핵심 기술
+- **Spring AI 1.1.2**: Function Calling 프레임워크
 - **Java 17+**: Record, Lambda
+- **Ollama (qwen2.5:latest)**: Local LLM (Function Calling 지원)
 
-### 활용 기술 (Step 6에서 이미 구현됨)
+### 활용 기술 (Step 1-6)
 - **Spring Boot**: 웹 프레임워크
-- **JPA + QueryDSL**: 데이터베이스 조회
-- **pgvector**: 벡터 검색
+- **LibraryInfoNaruApiClient**: 도서관정보나루 API 클라이언트
 - **Telegram Bot API**: 사용자 인터페이스
 
 ---
@@ -180,27 +229,27 @@ Level 3: 외부 API 연동 (2시간)
 
 | 단계 | 내용 | 시간 |
 |------|------|------|
-| **이론 학습** | Function Calling 개념 | 1시간 |
-| **Level 1** | 단일 Function 구현 | 2시간 |
-| **Level 2** | 복수 Function 조합 | 3시간 |
-| **Level 3** | 외부 API 연동 | 2시간 |
-| **테스트** | 통합 테스트 및 디버깅 | 1시간 |
-| **총계** | | **9시간** |
+| **이론 학습** | Function Calling, LLM 오케스트레이션 | 30분 |
+| **Phase 1** | Function 정의 | 1시간 |
+| **Phase 2** | LLM 오케스트레이션 | 1시간 |
+| **Phase 3** | 테스트 및 디버깅 | 30분 |
+| **총계** | | **3시간** |
 
 ---
 
 ## 시작하기 전 체크리스트
 
 ### 환경 점검
-- [ ] Spring AI 의존성 추가됨 (pom.xml 확인)
-- [ ] LLM API 키 설정됨 (application.properties)
+- [ ] Spring AI 1.1.2 의존성 추가됨
+- [ ] Ollama 설치 및 qwen2.5:latest 실행 중
 - [ ] Step 6까지 구현 완료됨
+- [ ] LibraryInfoNaruApiClient 구현됨
 
 ### 선행 지식
-- [ ] Spring Boot 기초 (@Controller, @Service)
-- [ ] JPA 기초 (Entity, Repository)
-- [ ] 람다 표현식 이해
-- [ ] HTTP API 기초
+- [ ] Spring Boot 기초 (@Component, @Service)
+- [ ] Java Record 타입 이해
+- [ ] 함수형 인터페이스 (Function<R, T>) 이해
+- [ ] LLM 기초 (Prompt, System Role)
 
 ---
 
@@ -209,19 +258,19 @@ Level 3: 외부 API 연동 (2시간)
 완료 후 다음을 할 수 있는지 확인해 보세요:
 
 ### 기본 개념
-- [ ] Function Calling이 무엇인지 설명할 수 있다
-- [ ] AI가 함수를 선택하는 원리를 이해한다
-- [ ] @Description의 역할을 안다
+- [ ] LLM 기반 오케스트레이션을 설명할 수 있다
+- [ ] Function Calling이 무엇인지 이해한다
+- [ ] 수동 Agent 선택 vs LLM 자율 선택의 차이를 안다
 
 ### 구현 능력
-- [ ] 단일 Function을 정의할 수 있다
-- [ ] ChatClient에 함수를 등록할 수 있다
-- [ ] 여러 Function을 조합할 수 있다
-- [ ] 외부 API를 연동할 수 있다
+- [ ] Function<Request, Response>를 정의할 수 있다
+- [ ] 타입 안전한 Request/Response DTO를 설계할 수 있다
+- [ ] ChatClient에 Function을 등록할 수 있다
+- [ ] LLM이 필요한 Function을 스스로 선택하게 할 수 있다
 
 ### 고급 기능
-- [ ] 함수 간 데이터 전달을 이해한다
-- [ ] 오케스트레이션 패턴을 설계할 수 있다
+- [ ] 여러 Function 조합 실행을 이해한다
+- [ ] System Prompt으로 LLM 행동을 제어할 수 있다
 - [ ] 에러 처리 및 Fallback을 구현할 수 있다
 
 ---
@@ -232,27 +281,26 @@ Level 3: 외부 API 연동 (2시간)
 - AI Agent의 개념과 정의
 - MCP (Model Context Protocol) 이해
 - A2A (Agent-to-Agent) 통신 패턴
-- Library Assistant Agent 아키텍처
 
 ### [01. 개요 및 시나리오](./01.overview.md)
-- Library Assistant Agent 소개
+- LLM 기반 오케스트레이션 소개
 - 왜 필요한지, 무엇을 할 수 있는지
 - 시나리오 예시
 
 ### [02. 단일 Function 구현](./02.single-function.md)
 - 도서 검색 Function
-- ChatClient 설정
+- DTO 설계
 - 테스트 방법
 
 ### [03. 복수 Function 조합](./03.multiple-functions.md)
-- 리뷰 조회 Function
-- 2개 Function 조합
+- 7개 Function 구현
+- Function 조합 실행
 - 데이터 전달
 
-### [04. 외부 API 연동](./04.external-api.md)
-- 대출 가능 여부 Function
-- 도서관정보나루 API
-- 전체 통합
+### [04. LLM 오케스트레이션](./04.external-api.md)
+- AiOrchestrationService 단순화
+- ChatClient 설정
+- System Prompt 작성
 
 ### [05. 실습 가이드](./05.practice-guide.md)
 - 단계별 실습 미션
@@ -264,7 +312,7 @@ Level 3: 외부 API 연동 (2시간)
 ## 참고 자료
 
 - [Spring AI Function Calling](https://docs.spring.io/spring-ai/reference/api/guide.html)
-- [Google Gemini API](https://ai.google.dev/)
+- [Ollama Function Calling](https://ollama.com/blog/function-calling-support)
 - [도서관정보나루 API](https://www.data4library.kr/)
 
 ---
