@@ -39,7 +39,7 @@ public class AiOrchestrationService {
     /**
      * 사용자 요청을 처리하고 AI 응답을 반환합니다.
      * <p>
-     * A2A 패턴: Agent 간 협력으로 복잡한 작업 수행
+     * 하이브리드 오케스트레이션: A2A(정확성) + LLM(유연성)
      * </p>
      *
      * @param userMessage 사용자 메시지
@@ -57,11 +57,11 @@ public class AiOrchestrationService {
                 return "질문을 이해하지 못했습니다. 도서 검색, 도서관 조회 등으로 질문해주세요.";
             }
 
-            // 2. Agent 실행 및 결과 수집 (A2A 정보 공유)
+            // 2. A2A로 정보 수집 (정확성 보장)
             Map<AgentType, String> agentResults = executeAgentsWithA2A(userMessage, selectedAgents);
 
-            // 3. 결과 종합
-            String finalResponse = synthesizeResults(userMessage, agentResults);
+            // 3. LLM으로 결과 재구성 (유연성 확보)
+            String finalResponse = synthesizeWithLLM(userMessage, agentResults);
 
             log.info("[MainAgent] 응답 생성 완료");
             return finalResponse;
@@ -123,7 +123,67 @@ public class AiOrchestrationService {
             log.info("[MainAgent] {} Agent 실행 완료", agentType);
         }
 
+        // BOOK + LIBRARY 조합인 경우, bookExist 직접 실행
+        if (results.containsKey(AgentType.BOOK) &&
+            results.containsKey(AgentType.LIBRARY) &&
+            !results.containsKey(AgentType.LIBRARY_EXTENDED)) {
+
+            log.info("[MainAgent] bookExist API 직접 호출 시작...");
+            String bookExistResult = executeBookExistDirect(results);
+            results.put(AgentType.LIBRARY_EXTENDED, bookExistResult);
+        }
+
         return results;
+    }
+
+    /**
+     * bookExist API를 직접 실행합니다 (A2A 완성체)
+     */
+    private String executeBookExistDirect(Map<AgentType, String> results) {
+        StringBuilder response = new StringBuilder();
+        response.append("**bookExist API 호출 결과:**\n\n");
+
+        // BookAgent 결과에서 ISBN 추출
+        String bookResult = results.get(AgentType.BOOK);
+        String isbn = extractIsbnFromBookResult(bookResult);
+
+        if (isbn == null) {
+            return "ISBN을 찾을 수 없어 bookExist를 조회할 수 없습니다.";
+        }
+
+        // 지역 코드 추출
+        String region = extractRegionName(results.get(AgentType.BOOK) + " " + results.get(AgentType.LIBRARY));
+        String regionCode = RegionCodeMapper.convert(region);
+
+        if (regionCode == null) {
+            return "지역을 찾을 수 없어 bookExist를 조회할 수 없습니다.";
+        }
+
+        // 도서관 리스트 조회
+        List<LibraryInfo> libraries = libraryInfoNaruApiClient.searchLibrariesByRegion(regionCode);
+
+        // 상위 5개 도서관만 확인 (성능 고려)
+        int checkCount = Math.min(5, libraries.size());
+
+        for (int i = 0; i < checkCount; i++) {
+            LibraryInfo library = libraries.get(i);
+            BookExistInfo existInfo = libraryExtendedAgent.checkBookExists(library.libCode(), isbn);
+
+            if (existInfo != null) {
+                response.append(String.format("- **%s** (libCode: %s)\n",
+                    library.libName(), library.libCode()));
+                response.append(String.format("  소장: %s\n",
+                    existInfo.exists() ? "✅ 소장 중" : "❌ 미소장"));
+
+                if (existInfo.exists() && "Y".equals(existInfo.loanAvailable())) {
+                    response.append("  대출 가능: ✅\n");
+                }
+
+                response.append("\n");
+            }
+        }
+
+        return response.toString();
     }
 
     /**
@@ -212,111 +272,99 @@ public class AiOrchestrationService {
     }
 
     /**
-     * 결과를 종합합니다.
+     * LLM을 활용한 결과 종합 (하이브리드 방식)
      * <p>
-     * bookExist API 결과를 포함하여 최종 응답을 생성합니다.
+     * A2A로 수집된 정보를 LLM에게 전달하여 유연하게 재구성합니다.
      * </p>
      */
-    private String synthesizeResults(String userMessage, Map<AgentType, String> agentResults) {
-        // BOOK + LIBRARY + LIBRARY_EXTENDED 조합
-        if (agentResults.containsKey(AgentType.BOOK) &&
-            agentResults.containsKey(AgentType.LIBRARY) &&
-            agentResults.containsKey(AgentType.LIBRARY_EXTENDED)) {
+    private String synthesizeWithLLM(String userMessage, Map<AgentType, String> agentResults) {
+        log.info("[MainAgent] LLM 결과 재구성 시작...");
 
-            return synthesizeBookWithLibrariesWithBookExist(userMessage, agentResults);
-        }
+        try {
+            // A2A 수집 정보 구조화
+            StringBuilder collectedInfo = new StringBuilder();
+            collectedInfo.append("**사용자 질문:**\n").append(userMessage).append("\n\n");
 
-        // BOOK + LIBRARY 조합
-        if (agentResults.containsKey(AgentType.BOOK) &&
-            agentResults.containsKey(AgentType.LIBRARY)) {
-            return synthesizeBookWithLibraries(agentResults);
-        }
-
-        // 단일 Agent 결과
-        return agentResults.values().iterator().next();
-    }
-
-    /**
-     * 도서 + 도서관 + bookExist 종합 응답 (A2A 완성체)
-     */
-    private String synthesizeBookWithLibrariesWithBookExist(String userMessage, Map<AgentType, String> agentResults) {
-        StringBuilder response = new StringBuilder();
-
-        // 1. 도서 검색 결과
-        String bookResult = agentResults.get(AgentType.BOOK);
-        response.append(bookResult);
-        response.append("\n\n");
-
-        // 2. 도서관 리스트
-        String libResult = agentResults.get(AgentType.LIBRARY);
-        response.append(libResult);
-        response.append("\n\n");
-
-        // 3. bookExist로 실제 소장 여부 확인
-        String isbn = extractIsbnFromBookResult(bookResult);
-        String region = extractRegionName(userMessage);
-
-        if (isbn != null && region != null) {
-            response.append("📚 **실제 소장 도서관 확인 (bookExist API)**\n\n");
-
-            // 지역 코드 변환
-            String regionCode = RegionCodeMapper.convert(region);
-
-            // 도서관 리스트 직접 조회
-            List<LibraryInfo> libraries = libraryInfoNaruApiClient.searchLibrariesByRegion(regionCode);
-
-            // 상위 5개 도서관만 확인 (성능 고려)
-            int checkCount = Math.min(5, libraries.size());
-            response.append(String.format("(상위 %d개 도서관만 확인)\n\n", checkCount));
-
-            for (int i = 0; i < checkCount; i++) {
-                LibraryInfo library = libraries.get(i);
-                BookExistInfo existInfo = libraryExtendedAgent.checkBookExists(library.libCode(), isbn);
-
-                if (existInfo != null) {
-                    response.append(String.format("- **%s** (libCode: %s)\n",
-                        library.libName(), library.libCode()));
-                    response.append(String.format("  소장 여부: %s\n",
-                        existInfo.exists() ? "✅ 소장 중" : "❌ 미소장"));
-
-                    if (existInfo.exists()) {
-                        if ("Y".equals(existInfo.loanAvailable())) {
-                            response.append("  대출 가능: ✅\n");
-                        }
-                        if (existInfo.callNumber() != null && !existInfo.callNumber().isBlank()) {
-                            response.append(String.format("  청구기호: %s\n", existInfo.callNumber()));
-                        }
-                    }
-
-                    response.append("\n");
-                }
+            // 도서 검색 결과
+            if (agentResults.containsKey(AgentType.BOOK)) {
+                collectedInfo.append("**검색된 도서:**\n").append(agentResults.get(AgentType.BOOK)).append("\n\n");
             }
+
+            // 도서관 리스트
+            if (agentResults.containsKey(AgentType.LIBRARY)) {
+                collectedInfo.append("**지역 도서관:**\n").append(agentResults.get(AgentType.LIBRARY)).append("\n\n");
+            }
+
+            // bookExist 결과 (실제 소장 여부)
+            if (agentResults.containsKey(AgentType.LIBRARY_EXTENDED)) {
+                collectedInfo.append("**실제 소장 확인 (bookExist API):**\n").append(agentResults.get(AgentType.LIBRARY_EXTENDED)).append("\n\n");
+            }
+
+            // LLM에게 전달할 시스템 프롬프트
+            String systemPrompt = """
+                당신은 도서관 도우미 AI입니다.
+
+                **중요:**
+                - 반드시 한국어로 답변하세요.
+                - 사용자에게 한눈에 보이도록 정보를 정리해주세요.
+
+                **출력 형식: 도서별 대출 가능 도서관 표**
+
+                사용자가 "광주에서 토비의 스프링 빌릴까?"라고 물어보면:
+
+                ┌─────────────────────┬──────────────────────────────┐
+                │ 도서                 │ 대출 가능 도서관             │
+                ├─────────────────────┼──────────────────────────────┤
+                │ 토비의 스프링 3.1   │ ✅ 광주광역시립북구도서관     │
+                │ (ISBN: 97911...)   │ ✅ 광주광역시립남구도서관     │
+                │                     │ ❌ 광주광역시립동구도서관     │
+                ├─────────────────────┼──────────────────────────────┤
+                │ Clean Code         │ ✅ 고운동도서관               │
+                │ (ISBN: 97911...)   │ ✅ 나성동도서관               │
+                └─────────────────────┴──────────────────────────────┘
+
+                **정렬 기준:**
+                - 먼저 도서별로 그룹화
+                - 각 도서 아래 대출 가능한 도서관 나열
+                - ✅ 표시로 대출 가능 여부 명확히 표시
+
+                **팁:**
+                - 표 형식이 깨지지 않도록 주의하세요
+                - 도서가 너무 많으면 상위 5~10권만 보여주세요
+                - 대출 가능한 도서관이 없으면 "❌ 대출 불가" 표시
+                """;
+
+            // ChatClient 생성 및 LLM 호출
+            ChatClient chatClient = ChatClient.builder(chatModel).build();
+
+            String response = chatClient.prompt()
+                .system(systemPrompt)
+                .user(collectedInfo.toString())
+                .call()
+                .content();
+
+            log.info("[MainAgent] LLM 결과 재구성 완료");
+            return response;
+
+        } catch (Exception e) {
+            log.error("[MainAgent] LLM 재구성 실패", e);
+            // 실패하면 기본 A2A 결과 반환
+            return synthesizeBasicResults(agentResults);
+        }
+    }
+
+    /**
+     * 기본 결과 종합 (LLM 실패 시 Fallback)
+     */
+    private String synthesizeBasicResults(Map<AgentType, String> agentResults) {
+        StringBuilder response = new StringBuilder();
+
+        for (Map.Entry<AgentType, String> entry : agentResults.entrySet()) {
+            response.append("**").append(entry.getKey()).append(" 결과:**\n\n");
+            response.append(entry.getValue());
+            response.append("\n\n");
         }
 
         return response.toString();
-    }
-
-    /**
-     * 도서 + 도서관 종합 응답
-     */
-    private String synthesizeBookWithLibraries(Map<AgentType, String> agentResults) {
-        StringBuilder response = new StringBuilder();
-
-        // 도서 검색 결과
-        response.append(agentResults.get(AgentType.BOOK));
-        response.append("\n\n");
-
-        // 도서관 리스트
-        response.append(agentResults.get(AgentType.LIBRARY));
-
-        return response.toString();
-    }
-
-    /**
-     * LibraryAgent 결과에서 LibraryInfo 목록 추출 (도우미 메서드)
-     */
-    private List<LibraryInfo> getLibrariesFromResult(String libraryResult) {
-        // 간단 구현: 필요시 LibraryInfoNaruApiClient 직접 호출
-        return Collections.emptyList();
     }
 }
