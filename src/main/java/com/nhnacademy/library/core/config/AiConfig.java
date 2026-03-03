@@ -1,5 +1,6 @@
 package com.nhnacademy.library.core.config;
 
+import com.nhnacademy.library.ai.function.LibraryFunctions;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -59,8 +60,8 @@ public class AiConfig {
     /**
      * Library Assistant Agent용 ChatClient
      * <p>
-     * 기본 ChatClient를 생성합니다.
-     * Function은 호출 시점에 AiLibraryAssistantService에서 등록합니다.
+     * Step 7: MCP Function Calling을 위한 기본 ChatClient 생성
+     * Function은 AiOrchestrationService에서 호출 시점에 등록합니다.
      * </p>
      *
      * @param chatModel 선택된 ChatModel

@@ -1,13 +1,10 @@
 package com.nhnacademy.library.ai.service;
 
 import com.nhnacademy.library.ai.function.BookSearchFunction;
-import com.nhnacademy.library.ai.function.LibrarySearchFunction;
 import com.nhnacademy.library.ai.function.LoanCheckFunction;
 import com.nhnacademy.library.ai.function.ReviewFunction;
 import com.nhnacademy.library.ai.function.dto.BookSearchRequest;
 import com.nhnacademy.library.ai.function.dto.BookSearchResult;
-import com.nhnacademy.library.ai.function.dto.LibrarySearchRequest;
-import com.nhnacademy.library.ai.function.dto.LibrarySearchResult;
 import com.nhnacademy.library.ai.function.dto.LoanCheckRequest;
 import com.nhnacademy.library.ai.function.dto.LoanCheckResult;
 import com.nhnacademy.library.ai.function.dto.ReviewResult;
@@ -38,14 +35,13 @@ public class AiLibraryAssistantService {
     private final BookSearchFunction bookSearchFunction;
     private final ReviewFunction reviewFunction;
     private final LoanCheckFunction loanCheckFunction;
-    private final LibrarySearchFunction librarySearchFunction;
+    // private final LibrarySearchFunction librarySearchFunction; // TODO: Use LibraryFunctions instead
 
     /**
      * 사용자 요청을 처리하고 AI 응답을 반환합니다.
      * <p>
      * AI가 필요에 따라 다음 Function들을 호출할 수 있습니다:
      * - BookSearch: 도서 검색
-     * - SearchLibraries: 도서관 검색
      * - GetReviews: 리뷰 조회
      * - CheckLoanAvailability: 대출 가능 확인
      * </p>
@@ -79,16 +75,9 @@ public class AiLibraryAssistantService {
                 .inputType(LoanCheckRequest.class)
                 .build();
 
-        FunctionToolCallback<LibrarySearchRequest, LibrarySearchResult> librarySearchTool =
-            FunctionToolCallback.builder("SearchLibraries", librarySearchFunction::searchLibraries)
-                .description("지역별 도서관을 검색합니다. " +
-                            "지역명(예: 강남구, 서초구)을 받아 해당 지역의 도서관 목록을 반환합니다.")
-                .inputType(LibrarySearchRequest.class)
-                .build();
-
         // ChatClient 생성 (Function Tool 등록)
         ChatClient chatClient = ChatClient.builder(chatModel)
-            .defaultToolCallbacks(bookSearchTool, reviewTool, loanCheckTool, librarySearchTool)
+            .defaultToolCallbacks(bookSearchTool, reviewTool, loanCheckTool)
             .build();
 
         // System Prompt: AI에게 함수 결과를 바탕으로 자연어 응답하도록 지시
