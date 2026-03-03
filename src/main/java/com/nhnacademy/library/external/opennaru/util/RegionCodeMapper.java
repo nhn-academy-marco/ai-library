@@ -36,9 +36,10 @@ public class RegionCodeMapper {
         REGION_CODE_MAP.put("seoul", "11");
 
         // 광역시
-        // 도서관정보나루 API 지역 코드 (한국 표준 행정코드 기준)
-        // 11=서울, 26=부산, 27=대구, 28=인천, 29=세종, 30=대전, 31=울산
-        // 29가 세종으로 변경됨 (2012년 세종특별자치시 출범 이후)
+        // 도서관정보나루 API 지역 코드
+        // 11=서울, 26=부산, 27=대구, 28=인천, 29=광주, 30=대전, 31=울산
+        // 36=세종, 41=경기, 42=강원, 43=충북, 44=충남, 45=전북, 46=전남
+        // 47=경북, 48=경남, 50=제주
         REGION_CODE_MAP.put("부산", "26");
         REGION_CODE_MAP.put("부산광역시", "26");
         REGION_CODE_MAP.put("busan", "26");
@@ -51,10 +52,9 @@ public class RegionCodeMapper {
         REGION_CODE_MAP.put("인천광역시", "28");
         REGION_CODE_MAP.put("incheon", "28");
 
-        // 세종특별자치시 (코드 29)
-        REGION_CODE_MAP.put("세종", "29");
-        REGION_CODE_MAP.put("세종특별자치시", "29");
-        REGION_CODE_MAP.put("sejong", "29");
+        REGION_CODE_MAP.put("광주", "29");
+        REGION_CODE_MAP.put("광주광역시", "29");
+        REGION_CODE_MAP.put("gwangju", "29");
 
         REGION_CODE_MAP.put("대전", "30");
         REGION_CODE_MAP.put("대전광역시", "30");
@@ -64,10 +64,9 @@ public class RegionCodeMapper {
         REGION_CODE_MAP.put("울산광역시", "31");
         REGION_CODE_MAP.put("ulsan", "31");
 
-        // 광주광역시 (코드 24)
-        REGION_CODE_MAP.put("광주", "24");
-        REGION_CODE_MAP.put("광주광역시", "24");
-        REGION_CODE_MAP.put("gwangju", "24");
+        REGION_CODE_MAP.put("세종", "36");
+        REGION_CODE_MAP.put("세종특별자치시", "36");
+        REGION_CODE_MAP.put("sejong", "36");
 
         // 도
         REGION_CODE_MAP.put("경기", "41");
