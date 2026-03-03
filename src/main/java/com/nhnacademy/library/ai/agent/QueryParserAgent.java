@@ -43,28 +43,68 @@ public class QueryParserAgent {
      * @return 파싱된 쿼리 정보
      */
     public ParsedQuery parse(String userMessage) {
-        log.info("[QueryParserAgent] 쿼리 파싱 시작 (llama3-korean-blossom): {}", userMessage);
+        long startTime = System.currentTimeMillis();
+        log.info("┌─────────────────────────────────────────────────────┐");
+        log.info("│ [QueryParserAgent] 🔍 쿼리 파싱 시작                   │");
+        log.info("│ 모델: llama3-korean-blossom                           │");
+        log.info("├─────────────────────────────────────────────────────┤");
+        log.info("│ 입력 메시지:                                            │");
+        log.info("│   \"{}\"                                              │", userMessage);
+        log.info("└─────────────────────────────────────────────────────┘");
 
         try {
             String systemPrompt = buildSystemPrompt();
+            log.debug("[QueryParserAgent] System Prompt 길이: {}字符", systemPrompt.length());
 
             // llama3-korean-blossom 사용
+            long llmStart = System.currentTimeMillis();
+            log.info("[QueryParserAgent] LLM 호출 시작...");
+
             String response = llama3ChatClient.prompt()
                 .system(systemPrompt)
                 .user(userMessage)
                 .call()
                 .content();
 
-            log.debug("[QueryParserAgent] LLM 응답: {}", response);
+            long llmElapsed = System.currentTimeMillis() - llmStart;
+            log.info("[QueryParserAgent] ✅ LLM 응답 수신 (소요시간: {}ms)", llmElapsed);
+            log.info("┌─────────────────────────────────────────────────────┐");
+            log.info("│ [QueryParserAgent] LLM 응답 (Raw):                     │");
+            log.info("├─────────────────────────────────────────────────────┤");
+            log.info("│ {}                                                    │", response);
+            log.info("└─────────────────────────────────────────────────────┘");
 
             // JSON 파싱
+            long parseStart = System.currentTimeMillis();
             ParsedQuery parsed = parseJsonResponse(response, userMessage);
+            long parseElapsed = System.currentTimeMillis() - parseStart;
 
-            log.info("[QueryParserAgent] 파싱 완료: {}", parsed.toDebugString());
+            log.info("┌─────────────────────────────────────────────────────┐");
+            log.info("│ [QueryParserAgent] ✅ 파싱 완료                        │");
+            log.info("├─────────────────────────────────────────────────────┤");
+            log.info("│ 추출된 엔티티:                                        │");
+            log.info("│   - bookName: {}                                     │", parsed.bookName());
+            log.info("│   - authorName: {}                                   │", parsed.authorName());
+            log.info("│   - regionName: {}                                   │", parsed.regionName());
+            log.info("│   - intent: {}                                        │", parsed.intent());
+            log.info("│   - keywords: {}                                      │", parsed.keywords());
+            log.info("│   - JSON 파싱 소요시간: {}ms                           │", parseElapsed);
+            log.info("└─────────────────────────────────────────────────────┘");
+
+            long totalElapsed = System.currentTimeMillis() - startTime;
+            log.info("┌─────────────────────────────────────────────────────┐");
+            log.info("│ [QueryParserAgent] ⏱️ 총 소요시간: {}ms               │", totalElapsed);
+            log.info("└─────────────────────────────────────────────────────┘");
+
             return parsed;
 
         } catch (Exception e) {
-            log.error("[QueryParserAgent] 파싱 실패, fallback으로 전환: {}", userMessage, e);
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.error("┌─────────────────────────────────────────────────────┐");
+            log.error("│ [QueryParserAgent] ❌ 파싱 실패 ({}ms)                │", elapsed);
+            log.error("│ 에러: {}                                                │", e.getMessage());
+            log.error("│ Fallback으로 전환합니다...                            │");
+            log.error("└─────────────────────────────────────────────────────┘");
             return fallbackParse(userMessage);
         }
     }

@@ -56,24 +56,42 @@ public class AiOrchestrationService {
      * @return AI 응답
      */
     public String ask(String userMessage) {
-        log.info("[MainAgent] 사용자 요청 수신: {}", userMessage);
+        long startTime = System.currentTimeMillis();
+        log.info("========================================");
+        log.info("[MainAgent] 👤 사용자 요청 수신");
+        log.info("[MainAgent] 요청 내용: {}", userMessage);
+        log.info("========================================");
 
         try {
             // 1. QueryParserAgent로 쿼리 파싱 (llama3-korean-blossom)
+            log.info("[MainAgent] 🔍 Step 1: 쿼리 파싱 시작 (llama3-korean-blossom)");
+            long parseStart = System.currentTimeMillis();
+
             ParsedQuery parsed = queryParserAgent.parse(userMessage);
-            log.info("[MainAgent] 파싱 결과: {}", parsed.toDebugString());
+
+            long parseElapsed = System.currentTimeMillis() - parseStart;
+            log.info("[MainAgent] ✅ 쿼리 파싱 완료 (소요시간: {}ms)", parseElapsed);
+            log.info("[MainAgent] 파싱 결과: bookName='{}', regionName='{}', intent={}",
+                parsed.bookName(), parsed.regionName(), parsed.intent());
 
             if (!parsed.isValid()) {
+                log.warn("[MainAgent] ❌ 파싱 실패: 유효하지 않은 쿼리");
                 return "질문을 이해하지 못했습니다. 도서 검색, 도서관 조회 등으로 질문해주세요.";
             }
 
             // 2. FunctionToolCallback 생성
+            log.info("[MainAgent] 🔧 Step 2: Function Tool 등록 시작");
+            log.info("[MainAgent] 등록할 Function: SearchBooks, SearchLibraries, CheckBookExists");
+
+            long toolRegStart = System.currentTimeMillis();
+
             FunctionToolCallback<BookSearchRequest, BookSearchResult> searchBooksTool =
                 FunctionToolCallback.builder("SearchBooks", libraryFunctions.searchBooks())
                     .description("도서관 시스템에서 도서를 검색합니다. " +
                                 "제목으로 검색할 수 있으며, 검색어를 받아 도서 목록과 ISBN을 반환합니다.")
                     .inputType(BookSearchRequest.class)
                     .build();
+            log.debug("[MainAgent] ✅ SearchBooks Function 등록 완료");
 
             FunctionToolCallback<LibrarySearchRequest, LibrarySearchResult> searchLibrariesTool =
                 FunctionToolCallback.builder("SearchLibraries", libraryFunctions.searchLibraries())
@@ -82,6 +100,7 @@ public class AiOrchestrationService {
                                 "RegionCodeMapper를 사용하여 지역명을 코드로 변환하세요: 광주=29, 서울=11, 부산=26")
                     .inputType(LibrarySearchRequest.class)
                     .build();
+            log.debug("[MainAgent] ✅ SearchLibraries Function 등록 완료");
 
             FunctionToolCallback<BookExistRequest, BookExistResult> checkBookExistsTool =
                 FunctionToolCallback.builder("CheckBookExists", libraryFunctions.checkBookExists())
@@ -89,27 +108,57 @@ public class AiOrchestrationService {
                                 "도서관 코드(libCode)와 ISBN을 받아 소장 여부와 대출 가능 여부를 반환합니다.")
                     .inputType(BookExistRequest.class)
                     .build();
+            log.debug("[MainAgent] ✅ CheckBookExists Function 등록 완료");
+
+            long toolRegElapsed = System.currentTimeMillis() - toolRegStart;
+            log.info("[MainAgent] ✅ Function Tool 등록 완료 (소요시간: {}ms)", toolRegElapsed);
 
             // 3. ChatClient 생성 (Function Tool 등록)
+            log.info("[MainAgent] 🤖 Step 3: ChatClient 생성 및 Function 등록");
+            long clientBuildStart = System.currentTimeMillis();
+
             ChatClient chatClient = ChatClient.builder(chatModel)
                 .defaultToolCallbacks(searchBooksTool, searchLibrariesTool, checkBookExistsTool)
                 .build();
 
+            long clientBuildElapsed = System.currentTimeMillis() - clientBuildStart;
+            log.info("[MainAgent] ✅ ChatClient 생성 완료 (소요시간: {}ms)", clientBuildElapsed);
+
             // 4. System Prompt
+            log.info("[MainAgent] 📝 Step 4: System Prompt 생성");
             String systemPrompt = buildSystemPrompt(parsed);
+            log.debug("[MainAgent] System Prompt 길이: {}字符", systemPrompt.length());
 
             // 5. LLM 호출 (qwen2.5)
+            log.info("[MainAgent] 🧠 Step 5: LLM 호출 시작 (qwen2.5)");
+            log.info("[MainAgent] 사용자 메시지를 LLM에 전달하여 Function 선택 유도...");
+            long llmCallStart = System.currentTimeMillis();
+
             String response = chatClient.prompt()
                 .system(systemPrompt)
                 .user(userMessage)
                 .call()
                 .content();
 
-            log.info("[MainAgent] 응답 생성 완료");
+            long llmCallElapsed = System.currentTimeMillis() - llmCallStart;
+            log.info("[MainAgent] ✅ LLM 호출 완료 (소요시간: {}ms)", llmCallElapsed);
+            log.debug("[MainAgent] LLM 응답 길이: {}字符", response.length());
+
+            // 총 소요시간
+            long totalElapsed = System.currentTimeMillis() - startTime;
+            log.info("[MainAgent] ✅ 응답 생성 완료");
+            log.info("========================================");
+            log.info("[MainAgent] ⏱️ 총 소요시간: {}ms ({}초)", totalElapsed, totalElapsed / 1000.0);
+            log.info("[MainAgent] 📊 시간 분석: 파싱={}ms, Function등록={}ms, LLM={}ms",
+                parseElapsed, toolRegElapsed + clientBuildElapsed, llmCallElapsed);
+            log.info("========================================");
+
             return response;
 
         } catch (Exception e) {
-            log.error("[MainAgent] 요청 처리 실패: userMessage={}", userMessage, e);
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.error("[MainAgent] ❌ 요청 처리 실패 (소요시간: {}ms)", elapsed, e);
+            log.error("[MainAgent] 에러 메시지: {}", e.getMessage());
             return "요청 처리 중 오류가 발생했습니다. 다시 시도해주세요.";
         }
     }
