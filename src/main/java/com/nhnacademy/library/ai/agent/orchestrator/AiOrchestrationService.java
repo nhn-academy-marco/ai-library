@@ -198,6 +198,9 @@ public class AiOrchestrationService {
         prompt.append("- SearchLibraries: 지역 코드(숫자)로 도서관 검색 (한글 지역명 사용 금지!)\n");
         prompt.append("- CheckBookExists: 도서관 코드와 ISBN으로 소장 여부 확인\n\n");
 
+        prompt.append("**중요:** 도서관이 많을 경우는 최대 10~15개만 보여주고, " );
+        prompt.append("\"나머지 도서관이 있습니다. 전체 목록이 필요하시면 말씀해주세요.\"라고 안내해 주세요.\n\n");
+
         prompt.append("**응답 형식 (Telegram용):**\n\n");
         prompt.append("*도서 검색 결과*\n\n");
         prompt.append("1. *도서명* (ISBN: xxx)\n");
