@@ -9,13 +9,13 @@ import java.util.Map;
  * 한국 지역명을 도서관정보나루 API 지역 코드로 변환하는 유틸리티 클래스
  * <p>
  * 도서관정보나루 API는 지역명이 아닌 지역 코드를 요구합니다.
- * 예: "서울" → "11", "부산" → "26", "광주" → "29"
+ * 예: "서울" → "11", "부산" → "21", "광주" → "24"
  * </p>
  * <p>
  * 지역 코드 참고 (도서관정보나루 API 기준):
- * 11=서울, 26=부산, 27=대구, 28=인천, 29=광주, 30=대전, 31=울산,
- * 36=세종, 41=경기, 42=강원, 43=충북, 44=충남, 45=전북, 46=전남,
- * 47=경북, 48=경남, 50=제주
+ * 11=서울, 21=부산, 22=대구, 23=인천, 24=광주, 25=대전, 26=울산,
+ * 29=세종, 31=경기, 32=강원, 33=충북, 34=충남, 35=전북, 36=전남,
+ * 37=경북, 38=경남, 39=제주
  * </p>
  */
 @Slf4j
@@ -37,75 +37,75 @@ public class RegionCodeMapper {
 
         // 광역시
         // 도서관정보나루 API 지역 코드
-        // 11=서울, 26=부산, 27=대구, 28=인천, 29=광주, 30=대전, 31=울산
-        // 36=세종, 41=경기, 42=강원, 43=충북, 44=충남, 45=전북, 46=전남
-        // 47=경북, 48=경남, 50=제주
-        REGION_CODE_MAP.put("부산", "26");
-        REGION_CODE_MAP.put("부산광역시", "26");
-        REGION_CODE_MAP.put("busan", "26");
+        // 11=서울, 21=부산, 22=대구, 23=인천, 24=광주, 25=대전, 26=울산
+        // 29=세종, 31=경기, 32=강원, 33=충북, 34=충남, 35=전북, 36=전남
+        // 37=경북, 38=경남, 39=제주
+        REGION_CODE_MAP.put("부산", "21");
+        REGION_CODE_MAP.put("부산광역시", "21");
+        REGION_CODE_MAP.put("busan", "21");
 
-        REGION_CODE_MAP.put("대구", "27");
-        REGION_CODE_MAP.put("대구광역시", "27");
-        REGION_CODE_MAP.put("daegu", "27");
+        REGION_CODE_MAP.put("대구", "22");
+        REGION_CODE_MAP.put("대구광역시", "22");
+        REGION_CODE_MAP.put("daegu", "22");
 
-        REGION_CODE_MAP.put("인천", "28");
-        REGION_CODE_MAP.put("인천광역시", "28");
-        REGION_CODE_MAP.put("incheon", "28");
+        REGION_CODE_MAP.put("인천", "23");
+        REGION_CODE_MAP.put("인천광역시", "23");
+        REGION_CODE_MAP.put("incheon", "23");
 
-        REGION_CODE_MAP.put("광주", "29");
-        REGION_CODE_MAP.put("광주광역시", "29");
-        REGION_CODE_MAP.put("gwangju", "29");
+        REGION_CODE_MAP.put("광주", "24");
+        REGION_CODE_MAP.put("광주광역시", "24");
+        REGION_CODE_MAP.put("gwangju", "24");
 
-        REGION_CODE_MAP.put("대전", "30");
-        REGION_CODE_MAP.put("대전광역시", "30");
-        REGION_CODE_MAP.put("daejeon", "30");
+        REGION_CODE_MAP.put("대전", "25");
+        REGION_CODE_MAP.put("대전광역시", "25");
+        REGION_CODE_MAP.put("daejeon", "25");
 
-        REGION_CODE_MAP.put("울산", "31");
-        REGION_CODE_MAP.put("울산광역시", "31");
-        REGION_CODE_MAP.put("ulsan", "31");
+        REGION_CODE_MAP.put("울산", "26");
+        REGION_CODE_MAP.put("울산광역시", "26");
+        REGION_CODE_MAP.put("ulsan", "26");
 
-        REGION_CODE_MAP.put("세종", "36");
-        REGION_CODE_MAP.put("세종특별자치시", "36");
-        REGION_CODE_MAP.put("sejong", "36");
+        REGION_CODE_MAP.put("세종", "29");
+        REGION_CODE_MAP.put("세종특별자치시", "29");
+        REGION_CODE_MAP.put("sejong", "29");
 
         // 도
-        REGION_CODE_MAP.put("경기", "41");
-        REGION_CODE_MAP.put("경기도", "41");
-        REGION_CODE_MAP.put("gyeonggi", "41");
+        REGION_CODE_MAP.put("경기", "31");
+        REGION_CODE_MAP.put("경기도", "31");
+        REGION_CODE_MAP.put("gyeonggi", "31");
 
-        REGION_CODE_MAP.put("강원", "42");
-        REGION_CODE_MAP.put("강원도", "42");
-        REGION_CODE_MAP.put("강원특별자치도", "42");
-        REGION_CODE_MAP.put("gangwon", "42");
+        REGION_CODE_MAP.put("강원", "32");
+        REGION_CODE_MAP.put("강원도", "32");
+        REGION_CODE_MAP.put("강원특별자치도", "32");
+        REGION_CODE_MAP.put("gangwon", "32");
 
-        REGION_CODE_MAP.put("충북", "43");
-        REGION_CODE_MAP.put("충청북도", "43");
-        REGION_CODE_MAP.put("chungbuk", "43");
+        REGION_CODE_MAP.put("충북", "33");
+        REGION_CODE_MAP.put("충청북도", "33");
+        REGION_CODE_MAP.put("chungbuk", "33");
 
-        REGION_CODE_MAP.put("충남", "44");
-        REGION_CODE_MAP.put("충청남도", "44");
-        REGION_CODE_MAP.put("chungnam", "44");
+        REGION_CODE_MAP.put("충남", "34");
+        REGION_CODE_MAP.put("충청남도", "34");
+        REGION_CODE_MAP.put("chungnam", "34");
 
-        REGION_CODE_MAP.put("전북", "45");
-        REGION_CODE_MAP.put("전라북도", "45");
-        REGION_CODE_MAP.put("jeonbuk", "45");
+        REGION_CODE_MAP.put("전북", "35");
+        REGION_CODE_MAP.put("전라북도", "35");
+        REGION_CODE_MAP.put("jeonbuk", "35");
 
-        REGION_CODE_MAP.put("전남", "46");
-        REGION_CODE_MAP.put("전라남도", "46");
-        REGION_CODE_MAP.put("jeonnam", "46");
+        REGION_CODE_MAP.put("전남", "36");
+        REGION_CODE_MAP.put("전라남도", "36");
+        REGION_CODE_MAP.put("jeonnam", "36");
 
-        REGION_CODE_MAP.put("경북", "47");
-        REGION_CODE_MAP.put("경상북도", "47");
-        REGION_CODE_MAP.put("gyeongbuk", "47");
+        REGION_CODE_MAP.put("경북", "37");
+        REGION_CODE_MAP.put("경상북도", "37");
+        REGION_CODE_MAP.put("gyeongbuk", "37");
 
-        REGION_CODE_MAP.put("경남", "48");
-        REGION_CODE_MAP.put("경상남도", "48");
-        REGION_CODE_MAP.put("gyeongnam", "48");
+        REGION_CODE_MAP.put("경남", "38");
+        REGION_CODE_MAP.put("경상남도", "38");
+        REGION_CODE_MAP.put("gyeongnam", "38");
 
-        REGION_CODE_MAP.put("제주", "50");
-        REGION_CODE_MAP.put("제주도", "50");
-        REGION_CODE_MAP.put("제주특별자치도", "50");
-        REGION_CODE_MAP.put("jeju", "50");
+        REGION_CODE_MAP.put("제주", "39");
+        REGION_CODE_MAP.put("제주도", "39");
+        REGION_CODE_MAP.put("제주특별자치도", "39");
+        REGION_CODE_MAP.put("jeju", "39");
 
         // 주요 시/군 (상세 지역 코드)
         REGION_CODE_MAP.put("강남구", "680");
