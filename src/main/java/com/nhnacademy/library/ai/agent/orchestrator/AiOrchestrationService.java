@@ -164,38 +164,43 @@ public class AiOrchestrationService {
     }
 
     /**
-     * System Prompt 생성
+     * System Prompt 생성 (Telegram 메신저에 최적화)
      */
     private String buildSystemPrompt(ParsedQuery parsed) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("당신은 도서관 도우미 AI입니다.\n\n");
-        prompt.append("**중요:**\n");
-        prompt.append("- 반드시 한국어로 답변하세요.\n");
-        prompt.append("- 사용자에게 한눈에 보이도록 정보를 정리해주세요.\n\n");
 
         // 파싱된 정보가 있으면 힌트 제공
         if (parsed.hasBookName()) {
-            prompt.append(String.format("**검색할 도서:** %s\n\n", parsed.bookName()));
+            prompt.append(String.format("검색 도서: %s\n\n", parsed.bookName()));
         }
         if (parsed.hasRegionName()) {
             String regionCode = RegionCodeMapper.convert(parsed.regionName());
-            prompt.append(String.format("**지역:** %s (코드: %s)\n\n", parsed.regionName(), regionCode));
+            prompt.append(String.format("지역: %s\n\n", parsed.regionName()));
         }
 
-        prompt.append("**도구 호출 가이드:**\n");
-        prompt.append("1. SearchBooks: 도서 제목으로 검색하여 ISBN 확보\n");
-        prompt.append("2. SearchLibraries: 지역별 도서관 검색 (지역명→코드 변환 필요)\n");
-        prompt.append("3. CheckBookExists: 도서관 코드와 ISBN으로 소장 여부 확인\n\n");
+        prompt.append("**중요한 지침:**\n");
+        prompt.append("1. 반드시 한국어로 답변하세요.\n");
+        prompt.append("2. Telegram 메신저에 맞춰 간단 명료하게 작성하세요.\n");
+        prompt.append("3. 제목(#, ##) 대신 볼드(*text*)를 사용하세요.\n");
+        prompt.append("4. 줄바꿈을 적절히 사용하여 가독성을 높이세요.\n\n");
 
-        prompt.append("**출력 형식:**\n\n");
-        prompt.append("## 도서별 대출 가능 도서관\n\n");
-        prompt.append("### 1. [도서명] (ISBN: xxx)\n\n");
-        prompt.append("**대출 가능한 도서관:**\n");
-        prompt.append("- ✅ 도서관명 (libCode: xxxxx)\n");
-        prompt.append("- ✅ 도서관명 (libCode: xxxxx)\n\n");
-        prompt.append("**대출 불가능한 도서관:**\n");
-        prompt.append("- ❌ 도서관명 (libCode: xxxxx) - 미소장\n\n");
-        prompt.append("---\n\n");
+        prompt.append("**도구 호출 가이드:**\n");
+        prompt.append("- SearchBooks: 도서 제목으로 검색하여 ISBN 확보\n");
+        prompt.append("- SearchLibraries: 지역별 도서관 검색 (지역명→코드 변환 필요)\n");
+        prompt.append("- CheckBookExists: 도서관 코드와 ISBN으로 소장 여부 확인\n\n");
+
+        prompt.append("**응답 형식 (Telegram용):**\n\n");
+        prompt.append("*도서 검색 결과*\n\n");
+        prompt.append("1. *도서명* (ISBN: xxx)\n");
+        prompt.append("저자: xxx | 출판사: xxx\n\n");
+        prompt.append("대출 가능한 도서관:\n");
+        prompt.append("✅ 도서관명 (코드: xxxxx)\n");
+        prompt.append("✅ 도서관명 (코드: xxxxx)\n\n");
+        prompt.append("대출 불가능한 도서관:\n");
+        prompt.append("❌ 도서관명 - 미소장\n");
+        prompt.append("❌ 도서관명 - 대출중\n\n");
+        prompt.append("━━━━━━━━━━━━━━━━━━━━\n\n");
 
         return prompt.toString();
     }
