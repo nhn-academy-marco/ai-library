@@ -281,8 +281,15 @@ public class AiOrchestrationService {
 
         switch (agentType) {
             case BOOK:
-                // 책 관련 키워드 제거
-                return userMessage.replaceAll("(책|검색|찾아줘|推荐)", "").trim();
+                // 책 관련 키워드 및 노이즈 제거
+                String cleaned = userMessage
+                    .replaceAll("(책|검색|찾아줘|推荐|도서)", "")
+                    .replaceAll("(대여할건데|빌리려고하는데|빌려고|빌릴만한|대여해서|대여하려고)", "")
+                    .replaceAll("(도서관 추천해줘|추천해줘|광주에서|서울에서|부산에서|\\w*에서\\s*)", "")
+                    .replaceAll("(알려줘|보여줘|찾아|목록|리스트)", "")
+                    .trim();
+                log.info("[MainAgent] BOOK 검색어 정제: '{}' → '{}'", userMessage, cleaned);
+                return cleaned.isEmpty() ? userMessage : cleaned;
             case LIBRARY:
                 // 지역명 추출 (강남구, 서초구 등)
                 return extractRegionName(userMessage);
@@ -330,13 +337,21 @@ public class AiOrchestrationService {
      * 메시지에서 지역명을 추출합니다.
      */
     private String extractRegionName(String message) {
-        // 대한민국 주요 지역명 매칭
+        // 대한민국 주요 지역명 매칭 (광역시/특별시/도 포함)
         String[] regions = {
+            // 특별시/광역시
+            "서울", "서울특별시", "부산", "부산광역시", "대구", "대구광역시",
+            "인천", "인천광역시", "광주", "광주광역시", "대전", "대전광역시",
+            "울산", "울산광역시", "세종", "세종특별자치시",
+            // 도
+            "경기", "경기도", "강원", "강원도", "충북", "충청북도",
+            "충남", "충청남도", "전북", "전라북도", "전남", "전라남도",
+            "경북", "경상북도", "경남", "경상남도", "제주", "제주도", "제주특별자치도",
+            // 서울 구 단위
             "강남구", "서초구", "송파구", "강동구", "강서구",
             "마포구", "양천구", "은평구", "서대문구", "종로구",
             "용산구", "성동구", "광진구", "동대문구", "중구",
-            "중랑구", "성북구", "강북구", "도봉구", "노원구",
-            "강남구", "관악구"
+            "중랑구", "성북구", "강북구", "도봉구", "노원구", "관악구"
         };
 
         for (String region : regions) {
@@ -345,7 +360,7 @@ public class AiOrchestrationService {
             }
         }
 
-        return message; // 지역명을 찾지 못하면 원본 반환
+        return null; // 지역명을 찾지 못하면 null 반환
     }
 
     /**
@@ -713,8 +728,26 @@ public class AiOrchestrationService {
      */
     private String extractRegionNameFromCode(String regionCode) {
         // 간단 매핑 (필요시 확장)
-        if ("24".equals(regionCode)) return "광주";
-        return null;
+        return switch (regionCode) {
+            case "11" -> "서울";
+            case "26" -> "부산";
+            case "27" -> "대구";
+            case "28" -> "인천";
+            case "29" -> "광주";
+            case "30" -> "대전";
+            case "31" -> "울산";
+            case "36" -> "세종";
+            case "41" -> "경기";
+            case "42" -> "강원";
+            case "43" -> "충북";
+            case "44" -> "충남";
+            case "45" -> "전북";
+            case "46" -> "전남";
+            case "47" -> "경북";
+            case "48" -> "경남";
+            case "50" -> "제주";
+            default -> null;
+        };
     }
 
     /**
