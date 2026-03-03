@@ -142,6 +142,11 @@ public class AiOrchestrationService {
 
             long llmCallElapsed = System.currentTimeMillis() - llmCallStart;
             log.info("[MainAgent] ✅ LLM 호출 완료 (소요시간: {}ms)", llmCallElapsed);
+            log.info("┌─────────────────────────────────────────────────────┐");
+            log.info("│ [MainAgent] LLM 응답 (Raw):                         │");
+            log.info("├─────────────────────────────────────────────────────┤");
+            log.info("│ {}                                                    │", response);
+            log.info("└─────────────────────────────────────────────────────┘");
             log.debug("[MainAgent] LLM 응답 길이: {}字符", response.length());
 
             // 총 소요시간
