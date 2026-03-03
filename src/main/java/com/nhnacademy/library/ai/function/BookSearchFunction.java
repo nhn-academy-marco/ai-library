@@ -75,7 +75,8 @@ public class BookSearchFunction {
             book.getTitle(),
             book.getAuthorName(),
             book.getPublisherName(),
-            book.getIsbn()
+            book.getIsbn(),
+            "내부 DB"
         );
     }
 }

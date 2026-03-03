@@ -1,10 +1,13 @@
 package com.nhnacademy.library.ai.function;
 
 import com.nhnacademy.library.ai.function.dto.*;
+import com.nhnacademy.library.core.book.dto.BookSearchResponse;
+import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import com.nhnacademy.library.external.opennaru.client.LibraryInfoNaruApiClient;
 import com.nhnacademy.library.external.opennaru.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -18,6 +21,7 @@ import static com.nhnacademy.library.ai.function.dto.BookExistResult.*;
  * 도서관정보나루 API용 Spring AI Function Calling 구현
  * <p>
  * LLM이 도서관정보나루 API를 직접 호출할 수 있게 합니다.
+ * 내부 DB 검색 후 결과가 없으면 도서관정보나루 API를 Fallback으로 호출합니다.
  * </p>
  */
 @Component
@@ -26,9 +30,10 @@ import static com.nhnacademy.library.ai.function.dto.BookExistResult.*;
 public class LibraryFunctions {
 
     private final LibraryInfoNaruApiClient apiClient;
+    private final BookSearchService bookSearchService;
 
     /**
-     * 1. 도서 검색 Function
+     * 1. 도서 검색 Function (내부 DB → 도서관정보나루 Fallback)
      */
     public Function<BookSearchRequest, BookSearchResult> searchBooks() {
         return request -> {
@@ -42,29 +47,59 @@ public class LibraryFunctions {
             log.info("└─────────────────────────────────────────────────────┘");
 
             try {
-                List<LibraryBookInfo> libraryBooks = apiClient.searchBooksByTitle(request.query());
-
-                long apiElapsed = System.currentTimeMillis() - startTime;
+                // 1단계: 내부 DB 검색
                 log.info("┌─────────────────────────────────────────────────────┐");
-                log.info("│ [Function: SearchBooks] API 호출 완료                  │");
-                log.info("│   - 소요시간: {}ms                                   │", apiElapsed);
-                log.info("│   - 검색된 도서 수: {}권                              │", libraryBooks.size());
+                log.info("│ [Step 1] 내부 DB 검색 시작                           │");
                 log.info("└─────────────────────────────────────────────────────┘");
 
-                List<BookSearchResult.BookItem> items = libraryBooks.stream()
-                    .limit(request.limit())
-                    .map(book -> {
-                        log.debug("   도서: {} (ISBN: {})", book.title(), book.isbn13());
-                        return BookSearchResult.BookItem.from(
-                            0L, book.title(), book.authors(), book.publisher(), book.isbn13());
-                    })
-                    .toList();
+                long dbStart = System.currentTimeMillis();
+                List<BookSearchResult.BookItem> internalBooks = searchInternalDb(request.query(), request.limit());
+                long dbElapsed = System.currentTimeMillis() - dbStart;
+
+                log.info("┌─────────────────────────────────────────────────────┐");
+                log.info("│ [Step 1] 내부 DB 검색 완료                           │");
+                log.info("│   - 소요시간: {}ms                                   │", dbElapsed);
+                log.info("│   - 검색된 도서 수: {}권                              │", internalBooks.size());
+                log.info("│   - 데이터 출처: 내부 DB                             │");
+                log.info("└─────────────────────────────────────────────────────┘");
+
+                // 2단계: Fallback (내부 DB 결과가 없으면 도서관정보나루 API 호출)
+                List<BookSearchResult.BookItem> items = internalBooks;
+                String source = "내부 DB";
+
+                if (internalBooks.isEmpty()) {
+                    log.info("┌─────────────────────────────────────────────────────┐");
+                    log.info("│ [Step 2] Fallback: 도서관정보나루 API 호출           │");
+                    log.info("└─────────────────────────────────────────────────────┘");
+
+                    long apiStart = System.currentTimeMillis();
+                    List<LibraryBookInfo> libraryBooks = apiClient.searchBooksByTitle(request.query());
+                    long apiElapsed = System.currentTimeMillis() - apiStart;
+
+                    log.info("┌─────────────────────────────────────────────────────┐");
+                    log.info("│ [Step 2] 도서관정보나루 API 호출 완료                 │");
+                    log.info("│   - 소요시간: {}ms                                   │", apiElapsed);
+                    log.info("│   - 검색된 도서 수: {}권                              │", libraryBooks.size());
+                    log.info("│   - 데이터 출처: 도서관정보나루                       │");
+                    log.info("└─────────────────────────────────────────────────────┘");
+
+                    items = libraryBooks.stream()
+                        .limit(request.limit())
+                        .map(book -> {
+                            log.debug("   도서: {} (ISBN: {})", book.title(), book.isbn13());
+                            return BookSearchResult.BookItem.fromLibraryApi(
+                                book.title(), book.authors(), book.publisher(), book.isbn13());
+                        })
+                        .toList();
+                    source = "도서관정보나루";
+                }
 
                 long totalElapsed = System.currentTimeMillis() - startTime;
                 log.info("┌─────────────────────────────────────────────────────┐");
                 log.info("│ [Function: SearchBooks] ✅ 실행 완료                   │");
                 log.info("│   - 총 소요시간: {}ms                                 │", totalElapsed);
                 log.info("│   - 반환할 도서 수: {}권                              │", items.size());
+                log.info("│   - 데이터 출처: {}                                   │", source);
                 log.info("└─────────────────────────────────────────────────────┘");
 
                 return BookSearchResult.from(items);
@@ -78,6 +113,39 @@ public class LibraryFunctions {
                 throw e;
             }
         };
+    }
+
+    /**
+     * 내부 DB에서 도서를 검색합니다.
+     */
+    private List<BookSearchResult.BookItem> searchInternalDb(String query, int limit) {
+        try {
+            com.nhnacademy.library.core.book.dto.BookSearchRequest searchRequest =
+                new com.nhnacademy.library.core.book.dto.BookSearchRequest(
+                    query,
+                    null,
+                    com.nhnacademy.library.core.book.domain.SearchType.HYBRID,
+                    null,
+                    false
+                );
+
+            PageRequest pageRequest = PageRequest.of(0, limit);
+            var result = bookSearchService.searchBooks(pageRequest, searchRequest);
+
+            return result.getBooks().getContent().stream()
+                .map(book -> BookSearchResult.BookItem.fromInternalDb(
+                    book.getId(),
+                    book.getTitle(),
+                    book.getAuthorName(),
+                    book.getPublisherName(),
+                    book.getIsbn()
+                ))
+                .toList();
+
+        } catch (Exception e) {
+            log.warn("[Function] 내부 DB 검색 실패: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     /**
