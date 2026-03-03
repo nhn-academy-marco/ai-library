@@ -158,7 +158,8 @@ public class AiOrchestrationService {
             !results.containsKey(AgentType.LIBRARY_EXTENDED)) {
 
             log.info("[MainAgent] bookExist API 직접 호출 시작...");
-            String bookExistResult = executeBookExistDirect(results, parsedQuery.originalQuery());
+            log.info("[MainAgent] 파싱된 지역명: {}", parsedQuery.regionName());
+            String bookExistResult = executeBookExistDirect(results, parsedQuery);
             results.put(AgentType.LIBRARY_EXTENDED, bookExistResult);
         }
 
@@ -169,9 +170,9 @@ public class AiOrchestrationService {
      * bookExist API를 직접 실행합니다 (A2A 완성체)
      *
      * @param results Agent 실행 결과
-     * @param originalUserMessage 원본 사용자 메시지 (지역명 추출용)
+     * @param parsedQuery 파싱된 쿼리 정보 (지역명 추출용)
      */
-    private String executeBookExistDirect(Map<AgentType, String> results, String originalUserMessage) {
+    private String executeBookExistDirect(Map<AgentType, String> results, ParsedQuery parsedQuery) {
         StringBuilder response = new StringBuilder();
         response.append("**bookExist API 호출 결과:**\n\n");
 
@@ -183,9 +184,9 @@ public class AiOrchestrationService {
             return "ISBN을 찾을 수 없어 bookExist를 조회할 수 없습니다.";
         }
 
-        // 원본 사용자 메시지에서 지역 코드 추출 (BookAgent/LibraryAgent 결과가 아닌 원본 메시지 사용)
-        String region = extractRegionName(originalUserMessage);
-        log.info("[executeBookExistDirect] 원본 메시지에서 추출한 지역: {}", region);
+        // 파싱된 지역명 사용 (LLM이 추출한 정확한 지역명)
+        String region = parsedQuery.regionName();
+        log.info("[executeBookExistDirect] 파싱된 지역명: {}", region);
 
         String regionCode = RegionCodeMapper.convert(region);
         log.info("[executeBookExistDirect] 지역 코드: {}", regionCode);
@@ -368,32 +369,39 @@ public class AiOrchestrationService {
 
                 **중요:**
                 - 반드시 한국어로 답변하세요.
-                - 사용자에게 한눈에 보이도록 정보를 정리해주세요.
+                - 간단하고 명확하게 정보를 전달하세요.
 
-                **출력 형식: 도서별 대출 가능 도서관 표**
+                **출력 형식:**
 
-                사용자가 "광주에서 토비의 스프링 빌릴까?"라고 물어보면:
+                ## 도서별 대출 가능 도서관
 
-                ┌─────────────────────┬──────────────────────────────┐
-                │ 도서                 │ 대출 가능 도서관             │
-                ├─────────────────────┼──────────────────────────────┤
-                │ 토비의 스프링 3.1   │ ✅ 광주광역시립북구도서관     │
-                │ (ISBN: 97911...)   │ ✅ 광주광역시립남구도서관     │
-                │                     │ ❌ 광주광역시립동구도서관     │
-                ├─────────────────────┼──────────────────────────────┤
-                │ Clean Code         │ ✅ 고운동도서관               │
-                │ (ISBN: 97911...)   │ ✅ 나성동도서관               │
-                └─────────────────────┴──────────────────────────────┘
+                ### 1. [도서명] (ISBN: xxx)
 
-                **정렬 기준:**
-                - 먼저 도서별로 그룹화
-                - 각 도서 아래 대출 가능한 도서관 나열
-                - ✅ 표시로 대출 가능 여부 명확히 표시
+                **대출 가능한 도서관:**
+                - ✅ 도서관명 (libCode: xxxxx)
+                - ✅ 도서관명 (libCode: xxxxx)
+
+                **대출 불가능한 도서관:**
+                - ❌ 도서관명 (libCode: xxxxx) - 미소장
+
+                ---
+
+                **예시:**
+
+                ## 도서별 대출 가능 도서관
+
+                ### 1. 토비의 스프링 3.1 (ISBN: 97911...)
+
+                **대출 가능한 도서관:**
+                - ✅ 광주광역시립북구도서관 (libCode: 290001)
+                - ✅ 광주광역시립남구도서관 (libCode: 290002)
+
+                ---
 
                 **팁:**
-                - 표 형식이 깨지지 않도록 주의하세요
                 - 도서가 너무 많으면 상위 5~10권만 보여주세요
-                - 대출 가능한 도서관이 없으면 "❌ 대출 불가" 표시
+                - 대출 가능한 도서관이 없으면 "❌ 현재 대출 불가" 표시
+                - 소장 정보가 없으면 "소장 정보를 찾을 수 없습니다" 표시
                 """;
 
             // qwen2.5로 결과 재구성 (qwenChatClient 사용)
