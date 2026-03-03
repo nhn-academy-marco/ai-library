@@ -98,6 +98,10 @@ public class AiOrchestrationService {
      * <p>
      * LLM 기반 파싱 결과를 활용하여 정확하게 Agent를 선택합니다.
      * </p>
+     * <p>
+     * <b>중요:</b> LIBRARY_EXTENDED는 제외합니다.
+     * bookExist API는 executeBookExistDirect에서 직접 호출합니다.
+     * </p>
      */
     private List<AgentType> selectAgentsByParsedQuery(ParsedQuery parsedQuery) {
         List<AgentType> selectedAgents = new ArrayList<>();
@@ -109,10 +113,11 @@ public class AiOrchestrationService {
             selectedAgents.add(AgentType.BOOK);
         }
 
-        // 지역명이 있는 경우 → LibraryAgent + LibraryExtendedAgent
+        // 지역명이 있는 경우 → LibraryAgent만 추가
+        // bookExist API는 executeBookExistDirect에서 별도 호출
         if (parsedQuery.hasRegionName()) {
             selectedAgents.add(AgentType.LIBRARY);
-            selectedAgents.add(AgentType.LIBRARY_EXTENDED);
+            // LIBRARY_EXTENDED는 제거 (executeBookExistDirect가 직접 처리)
         }
 
         return selectedAgents;
@@ -320,17 +325,21 @@ public class AiOrchestrationService {
 
     /**
      * LibraryAgent 결과에서 도서관 코드를 추출합니다.
+     * <p>
+     * LibraryAgent 출력 형식: "1. 광주광역시립북구도서관 (libCode: 290001)"
+     * </p>
      */
     private List<String> extractLibCodesFromLibraryResult(String libraryResult) {
         List<String> libCodes = new ArrayList<>();
-        // 도서관 코드를 추출하는 정규식 (예: (129001))
-        Pattern libCodePattern = Pattern.compile("\\((\\d{6})\\)");
+        // 도서관 코드를 추출하는 정규식 (예: libCode: 290001)
+        Pattern libCodePattern = Pattern.compile("libCode: (\\d{6})");
         Matcher matcher = libCodePattern.matcher(libraryResult);
 
         while (matcher.find()) {
             libCodes.add(matcher.group(1));
         }
 
+        log.info("[extractLibCodesFromLibraryResult] 추출된 libCodes: {}", libCodes);
         return libCodes;
     }
 
