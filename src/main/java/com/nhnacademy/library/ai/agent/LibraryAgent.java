@@ -47,6 +47,7 @@ public class LibraryAgent implements Agent {
         try {
             // 1. 지역명 추출
             String region = request.query();
+            log.info("[LibraryAgent] 수신된 지역명: '{}'", region);
 
             if (region == null || region.isBlank()) {
                 log.warn("[{}] 지역명 없음: query={}", getName(), request.query());
@@ -55,13 +56,17 @@ public class LibraryAgent implements Agent {
 
             // 1.5 지역명 → 지역 코드 변환
             String regionCode = RegionCodeMapper.convert(region);
+            log.info("[LibraryAgent] 지역 코드 변환 결과: region='{}' → regionCode='{}'", region, regionCode);
+
             if (regionCode == null) {
                 log.warn("[{}] 지역명 → 코드 변환 실패: region={}", getName(), region);
                 return String.format("'%s' 지역을 찾을 수 없습니다. 지역명을 확인해 주세요.", region);
             }
 
             // 2. 도서관 검색
+            log.info("[LibraryAgent] 도서관 검색 API 호출: regionCode={}", regionCode);
             List<LibraryInfo> libraries = libraryInfoNaruApiClient.searchLibrariesByRegion(regionCode);
+            log.info("[LibraryAgent] 검색된 도서관 수: {}", libraries.size());
 
             if (libraries.isEmpty()) {
                 log.info("[{}] 도서관 검색 결과 없음: region={}", getName(), region);
