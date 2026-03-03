@@ -212,6 +212,14 @@ public class LibraryExtendedAgent implements Agent {
     }
 
     /**
+     * 공개 메서드: 도서 소장 여부 조회 (AiOrchestrationService에서 호출)
+     */
+    public BookExistInfo checkBookExists(String libCode, String isbn13) {
+        log.info("[LibraryExtendedAgent] bookExist 호출: libCode={}, isbn={}", libCode, isbn13);
+        return libraryInfoNaruApiClient.checkBookExists(libCode, isbn13);
+    }
+
+    /**
      * 상위 도서 목록 표시
      */
     private void displayTopBooks(StringBuilder response, List<?> books, int count) {

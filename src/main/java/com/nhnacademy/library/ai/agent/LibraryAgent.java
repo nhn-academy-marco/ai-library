@@ -72,10 +72,10 @@ public class LibraryAgent implements Agent {
             StringBuilder response = new StringBuilder();
             response.append(String.format("'%s' 지역 도서관 %d개:\n\n", region, libraries.size()));
 
-            // 전체 도서관 표시
+            // 전체 도서관 표시 (libCode 포함)
             for (int i = 0; i < libraries.size(); i++) {
                 LibraryInfo lib = libraries.get(i);
-                response.append(String.format("%d. %s", i + 1, lib.libName()));
+                response.append(String.format("%d. %s (libCode: %s)", i + 1, lib.libName(), lib.libCode()));
 
                 // 주소 전체 표시
                 if (lib.address() != null && !lib.address().isBlank()) {
