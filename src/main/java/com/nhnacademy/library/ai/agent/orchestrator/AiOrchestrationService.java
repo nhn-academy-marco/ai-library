@@ -2,10 +2,13 @@ package com.nhnacademy.library.ai.agent.orchestrator;
 
 import com.nhnacademy.library.ai.agent.QueryParserAgent;
 import com.nhnacademy.library.ai.agent.dto.ParsedQuery;
+import com.nhnacademy.library.ai.function.LibraryFunctions;
+import com.nhnacademy.library.ai.function.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Service;
 
 /**
@@ -21,17 +24,17 @@ import org.springframework.stereotype.Service;
  *   <li><b>LibraryFunctions</b>: 도서관정보나루 API Function</li>
  * </ol>
  *
- * <p><b>리팩토링:</b> ChatClient와 FunctionToolCallback을 Bean으로 등록하여 재사용합니다.</p>
+ * <p><b>리팩토링 롤백:</b> 순환 의존성 문제로 인해 FunctionToolCallback을 Bean으로 등록하지 않고,
+ * 서비스 내부에서 프로그래밍 방식으로 생성합니다.</p>
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiOrchestrationService {
 
+    private final ChatModel chatModel;
     private final QueryParserAgent queryParserAgent;
-
-    @Qualifier("orchestrationChatClient")
-    private final ChatClient chatClient;
+    private final LibraryFunctions libraryFunctions;
 
     /**
      * 사용자 요청을 처리하고 AI 응답을 반환합니다.
@@ -67,11 +70,55 @@ public class AiOrchestrationService {
                 return "질문을 이해하지 못했습니다. 도서 검색, 도서관 조회 등으로 질문해주세요.";
             }
 
-            // 2. System Prompt 생성
+            // 2. FunctionToolCallback 생성
+            log.info("[MainAgent] Step 2: Function Tool 등록 시작");
+            long toolRegStart = System.currentTimeMillis();
+
+            FunctionToolCallback<BookSearchRequest, BookSearchResult> searchBooksTool =
+                FunctionToolCallback.builder("SearchBooks", libraryFunctions.searchBooks())
+                    .description("도서관 시스템에서 도서를 검색합니다. " +
+                                "제목으로 검색할 수 있으며, 검색어를 받아 도서 목록과 ISBN을 반환합니다.")
+                    .inputType(BookSearchRequest.class)
+                    .build();
+
+            FunctionToolCallback<LibrarySearchRequest, LibrarySearchResult> searchLibrariesTool =
+                FunctionToolCallback.builder("SearchLibraries", libraryFunctions.searchLibraries())
+                    .description("지역별 도서관을 검색합니다. " +
+                                "지역 코드(숫자)를 받아 해당 지역의 도서관 목록을 반환합니다. " +
+                                "**중요**: 반드시 숫자 지역 코드를 사용하세요. " +
+                                "한글 지역명(광주, 서울 등)을 사용하면 API 에러가 발생합니다. " +
+                                "지역 코드 예시: 서울=11, 부산=21, 대구=22, 인천=23, 광주=24, 대전=25, 울산=26, 세종=29, 경기=31")
+                    .inputType(LibrarySearchRequest.class)
+                    .build();
+
+            FunctionToolCallback<BookExistRequest, BookExistResult> checkBookExistsTool =
+                FunctionToolCallback.builder("CheckBookExists", libraryFunctions.checkBookExists())
+                    .description("특정 도서관에 도서가 소장되어 있는지 확인합니다. " +
+                                "도서관 코드(libCode)와 ISBN을 받아 소장 여부와 대출 가능 여부를 반환합니다.")
+                    .inputType(BookExistRequest.class)
+                    .build();
+
+            long toolRegElapsed = System.currentTimeMillis() - toolRegStart;
+            log.info("[MainAgent] Function Tool 등록 완료 ({}ms)", toolRegElapsed);
+
+            // 3. ChatClient 생성 (Function Tool 등록)
+            log.info("[MainAgent] Step 3: ChatClient 생성 및 Function 등록");
+            long clientBuildStart = System.currentTimeMillis();
+
+            ChatClient chatClient = ChatClient.builder(chatModel)
+                .defaultToolCallbacks(searchBooksTool, searchLibrariesTool, checkBookExistsTool)
+                .build();
+
+            long clientBuildElapsed = System.currentTimeMillis() - clientBuildStart;
+            log.info("[MainAgent] ChatClient 생성 완료 ({}ms)", clientBuildElapsed);
+
+            // 4. System Prompt
+            log.info("[MainAgent] Step 4: System Prompt 생성");
             String systemPrompt = buildSystemPrompt(parsed);
 
-            // 3. LLM 호출 (qwen2.5)
-            log.info("[MainAgent] Step 2: LLM 호출 시작 (Function 자동 선택)");
+            // 5. LLM 호출 (qwen2.5)
+            log.info("[MainAgent] Step 5: LLM 호출 시작 (qwen2.5)");
+            log.info("[MainAgent] 사용자 메시지를 LLM에 전달하여 Function 선택 유도...");
             long llmCallStart = System.currentTimeMillis();
 
             String response = chatClient.prompt()
