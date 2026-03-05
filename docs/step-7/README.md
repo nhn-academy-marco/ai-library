@@ -111,17 +111,25 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 
 ### 2. 도서관정보나루 API 완벽 활용
 
-**17개 API → 7개 주요 Function으로 변환:**
+**17개 API → 8개 주요 Function으로 변환:**
 
-| Function | API | 설명 |
+| Function | API | 설명 | 구현 위치 |
+|----------|-----|------|----------|
+| `searchBooks` | srchBooks | 도서 검색 (내부 DB → API Fallback) | LibraryFunctions |
+| `getLibrariesWithBook` | libSrchByBook | 대출 가능 도서관 조회 | LibraryFunctions |
+| `searchLibraries` | libSrch | 도서관 검색 | LibraryFunctions |
+| `getBookDetail` | srchDtlList | 도서 상세 정보 | LibraryFunctions |
+| `getPopularBooks` | loanItemSrch | 인기대출도서 | LibraryFunctions |
+| `getHotTrendBooks` | hotTrend | 대출 급상승 도서 | LibraryFunctions |
+| `getRecommendedBooks` | recommandList | 추천도서 | LibraryFunctions |
+| `checkBookExists` | bookExist | 도서 소장 여부 확인 | LibraryFunctions |
+
+**AiLibraryAssistantService용 Function**:
+| Function | 설명 | 구현 위치 |
 |----------|-----|------|
-| `searchBooks` | srchBooks | 도서 검색 |
-| `getLibrariesWithBook` | libSrchByBook | 대출 가능 도서관 조회 |
-| `searchLibraries` | libSrch | 도서관 검색 |
-| `getBookDetail` | srchDtlList | 도서 상세 정보 |
-| `getPopularBooks` | loanItemSrch | 인기대출도서 |
-| `getHotTrendBooks` | hotTrend | 대출 급상승 도서 |
-| `getRecommendedBooks` | recommandList | 추천도서 |
+| `BookSearch` | 내부 DB 도서 검색 | BookSearchFunction |
+| `GetReviews` | 리뷰 조회 | ReviewFunction |
+| `CheckLoanAvailability` | 대출 가능 확인 | LoanCheckFunction |
 
 ### 3. 교육적 가치
 
@@ -138,32 +146,43 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 
 ### 핵심 컴포넌트
 
+**두 가지 오케스트레이션 방식이 공존합니다:**
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    사용자 질문                          │
 │  "토비의 스프링 광주 도서관에서 빌릴까?"              │
 └───────────────────┬─────────────────────────────────────┘
                     │
-                    ↓
-┌─────────────────────────────────────────────────────────┐
-│              AiOrchestrationService (MainAgent)         │
-│  - 질문 수신                                            │
-│  - ChatClient.prompt().user(message).call()           │
-│  - LLM이 스스로 Function 선택                            │
-└───────────────────┬─────────────────────────────────────┘
+         ┌──────────┴──────────┐
+         │                     │
+         ↓                     ↓
+┌──────────────────┐   ┌─────────────────────────────────┐
+│  단일 Agent 방식  │   │     A2A 방식 (기존 유지)        │
+│                  │   │                                 │
+│ AiLibraryAssistant│   │  AiOrchestrationService        │
+│   Service        │   │  - QueryParserAgent             │
+│                  │   │  - BookAgent                    │
+│ 3개 Function     │   │  - ReviewAgent                  │
+│  - BookSearch    │   │  - LoanAgent                    │
+│  - GetReviews    │   │  - LibraryAgent                 │
+│  - CheckLoan     │   │  - RecommendationAgent          │
+└──────────────────┘   └─────────────────────────────────┘
+         │                           │
+         └──────────┬────────────────┘
                     │
                     ↓
 ┌─────────────────────────────────────────────────────────┐
-│                LibraryFunctions (7개 Function)           │
+│         LibraryFunctions (8개 Function)                  │
 │  ┌─────────────────┬─────────────────┬───────────────┐  │
 │  │  searchBooks    │ getLibrariesWith │ searchLibraries │  │
 │  │                 │ Book             │               │  │
 │  ├─────────────────┼─────────────────┼───────────────┤  │
 │  │ getBookDetail   │ getPopularBooks  │ getHotTrend   │  │
 │  │                 │                 │ Books         │  │
-│  ├─────────────────┴─────────────────┴───────────────┤  │
-│  │          getRecommendedBooks                        │  │
-│  └─────────────────────────────────────────────────────┘  │
+│  ├─────────────────┴─────────────────┼───────────────┤  │
+│  │ getRecommendedBooks              │checkBookExists │  │
+│  └───────────────────────────────────┴───────────────┘  │
 └───────────────────┬─────────────────────────────────────┘
                     │
                     ↓
@@ -173,15 +192,34 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 └─────────────────────────────────────────────────────────┘
 ```
 
+### 사용 방식
+
+**Telegram Bot**:
+```java
+// 일반 메시지: AiOrchestrationService (A2A) 호출
+String aiResponse = aiOrchestrationService.ask(keyword);
+
+// /ai 명령어: AiLibraryAssistantService (단일 Agent) 호출 가능
+String aiResponse = aiLibraryAssistantService.ask(keyword);
+```
+
 ### 코드 간소화 효과
 
-| 파일 | 기존 (Step 6) | Step 7 | 변화 |
-|------|---------------|--------|------|
-| AiOrchestrationService | 760줄 | 80줄 | **-89%** |
-| selectAgents() | 80줄 | 0줄 | **제거** |
-| executeAgents() | 100줄 | 0줄 | **제거** |
-| synthesizeResults() | 200줄 | 0줄 | **제거** |
-| 결과 | 수동 Agent 선택 | LLM 자율 선택 | **지능화** |
+**참고**: Step 7에서는 기존 AiOrchestrationService (A2A 패턴)를 유지하면서 새로운 단일 Agent 방식(AiLibraryAssistantService)을 추가했습니다.
+
+| 파일 | Step 6 | Step 7 | 변화 |
+|------|--------|--------|------|
+| AiOrchestrationService | 760줄 | 유지 | A2A 패턴 유지 |
+| AiLibraryAssistantService | 0줄 | 120줄 | **새로 추가** (단일 Agent) |
+| BookSearchFunction | 0줄 | 80줄 | **새로 추가** |
+| ReviewFunction | 0줄 | 80줄 | **새로 추가** |
+| LoanCheckFunction | 0줄 | 140줄 | **새로 추가** |
+| LibraryFunctions | 0줄 | 355줄 | **새로 추가** |
+| 결과 | 수동 Agent 선택 | LLM 자율 선택 + A2A 유지 | **확장** |
+
+**두 가지 방식 공존**:
+1. **AiOrchestrationService**: A2A 패턴, 여러 전문 Agent 조합 (기존 방식 유지)
+2. **AiLibraryAssistantService**: 단일 Agent, FunctionToolCallback 방식 (새로 추가)
 
 ---
 
@@ -214,9 +252,14 @@ Phase 3: 실전 테스트 (1시간)
 ## 기술 스택
 
 ### 핵심 기술
-- **Spring AI 1.1.2**: Function Calling 프레임워크
+- **Spring AI 1.1.2**: Function Calling 프레임워크 (FunctionToolCallback 방식)
 - **Java 17+**: Record, Lambda
 - **Ollama (qwen2.5:latest)**: Local LLM (Function Calling 지원)
+
+### Function 등록 방식
+- **FunctionToolCallback.builder()**: 프로그래밍 방식으로 Function 등록
+- 순환 의존성 방지를 위해 서비스 내부에서 FunctionToolCallback 생성
+- ChatClient는 매번 새로 생성하여 FunctionToolCallback 등록
 
 ### 활용 기술 (Step 1-6)
 - **Spring Boot**: 웹 프레임워크

@@ -1,18 +1,9 @@
 package com.nhnacademy.library.ai.service;
 
-import com.nhnacademy.library.ai.function.BookSearchFunction;
-import com.nhnacademy.library.ai.function.LoanCheckFunction;
-import com.nhnacademy.library.ai.function.ReviewFunction;
-import com.nhnacademy.library.ai.function.dto.BookSearchRequest;
-import com.nhnacademy.library.ai.function.dto.BookSearchResult;
-import com.nhnacademy.library.ai.function.dto.LoanCheckRequest;
-import com.nhnacademy.library.ai.function.dto.LoanCheckResult;
-import com.nhnacademy.library.ai.function.dto.ReviewResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 /**
@@ -22,8 +13,7 @@ import org.springframework.stereotype.Service;
  * Function Calling을 통해 AI가 도서 검색, 리뷰 조회, 대출 가능 확인을 수행합니다.
  * </p>
  * <p>
- * 순환 의존성을 방지하기 위해 FunctionToolCallback을 Spring Bean으로 등록하지 않고,
- * 서비스 내부에서 프로그래밍 방식으로 생성합니다.
+ * <b>리팩토링:</b> ChatClient와 FunctionToolCallback을 Bean으로 등록하여 재사용합니다.
  * </p>
  */
 @Service
@@ -31,11 +21,8 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class AiLibraryAssistantService {
 
-    private final ChatModel chatModel;
-    private final BookSearchFunction bookSearchFunction;
-    private final ReviewFunction reviewFunction;
-    private final LoanCheckFunction loanCheckFunction;
-    // private final LibrarySearchFunction librarySearchFunction; // TODO: Use LibraryFunctions instead
+    @Qualifier("libraryAssistantChatClient")
+    private final ChatClient chatClient;
 
     /**
      * 사용자 요청을 처리하고 AI 응답을 반환합니다.
@@ -52,35 +39,7 @@ public class AiLibraryAssistantService {
     public String ask(String userMessage) {
         log.info("[AI Service] 사용자 요청: {}", userMessage);
 
-        // FunctionToolCallback 프로그래밍 방식 생성 (순환 의존성 방지)
-        FunctionToolCallback<BookSearchRequest, BookSearchResult> bookSearchTool =
-            FunctionToolCallback.builder("BookSearch", bookSearchFunction::searchBooks)
-                .description("도서관 시스템에서 도서를 검색합니다. " +
-                            "제목, 저자명으로 검색할 수 있으며, 검색어를 받아 도서 목록을 반환합니다.")
-                .inputType(BookSearchRequest.class)
-                .build();
-
-        FunctionToolCallback<Long, ReviewResult> reviewTool =
-            FunctionToolCallback.builder("GetReviews", reviewFunction::getReviews)
-                .description("도서의 리뷰 목록을 조회합니다. " +
-                            "도서 ID를 받아 리뷰 요약, 평점, 주요 리뷰를 제공합니다.")
-                .inputType(Long.class)
-                .build();
-
-        FunctionToolCallback<LoanCheckRequest, LoanCheckResult> loanCheckTool =
-            FunctionToolCallback.builder("CheckLoanAvailability", loanCheckFunction::checkLoanAvailability)
-                .description("도서의 대출 가능 여부를 조회합니다. " +
-                            "ISBN을 받아 전국 도서관의 대출 가능 현황을 제공합니다. " +
-                            "지역, 위도, 경도를 제공하면 해당 지역의 가까운 도서관을 우선으로 보여줍니다.")
-                .inputType(LoanCheckRequest.class)
-                .build();
-
-        // ChatClient 생성 (Function Tool 등록)
-        ChatClient chatClient = ChatClient.builder(chatModel)
-            .defaultToolCallbacks(bookSearchTool, reviewTool, loanCheckTool)
-            .build();
-
-        // System Prompt: AI에게 함수 결과를 바탕으로 자연어 응답하도록 지시
+        // System Prompt
         String systemPrompt = """
             당신은 도서관 도우미 AI입니다.
 
