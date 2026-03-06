@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -16,8 +17,12 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ReviewSummarizer {
-    private static final int MAP_CHUNK_SIZE = 10;
-    private static final int REDUCE_THRESHOLD = 10; // Full Rebuild 기준
+
+    @Value("${app.review.map-chunk-size:10}")
+    private int mapChunkSize;
+
+    @Value("${app.review.reduce-threshold:10}")
+    private int reduceThreshold;
 
     private final ChatModel chatModel;
 
@@ -34,7 +39,7 @@ public class ReviewSummarizer {
 
         // 1. Map 단계: 리뷰를 청크 단위로 나누어 부분 요약 생성
         List<String> partialSummaries = new ArrayList<>();
-        List<List<String>> chunks = Lists.partition(reviews, MAP_CHUNK_SIZE);
+        List<List<String>> chunks = Lists.partition(reviews, mapChunkSize);
 
         for (int i = 0; i < chunks.size(); i++) {
             log.info("Map step: processing chunk {}/{}", i + 1, chunks.size());
@@ -69,7 +74,7 @@ public class ReviewSummarizer {
 
         // 1. 새 리뷰를 청크 단위로 나누어 부분 요약 생성
         List<String> partialSummaries = new ArrayList<>();
-        List<List<String>> chunks = Lists.partition(newReviews, MAP_CHUNK_SIZE);
+        List<List<String>> chunks = Lists.partition(newReviews, mapChunkSize);
 
         for (int i = 0; i < chunks.size(); i++) {
             log.info("Map step: processing new reviews chunk {}/{}", i + 1, chunks.size());
@@ -146,6 +151,6 @@ public class ReviewSummarizer {
     }
 
     public int getReduceThreshold() {
-        return REDUCE_THRESHOLD;
+        return reduceThreshold;
     }
 }

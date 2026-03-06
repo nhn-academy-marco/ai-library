@@ -4,11 +4,17 @@ import com.nhnacademy.library.external.telegram.dto.FeedbackStats;
 import com.nhnacademy.library.external.telegram.entity.SearchFeedback;
 import com.nhnacademy.library.external.telegram.service.FeedbackService;
 import com.nhnacademy.library.external.telegram.util.CsvExportService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -32,6 +38,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/feedback")
 @RequiredArgsConstructor
+@Validated
 public class FeedbackAdminController {
 
     private final FeedbackService feedbackService;
@@ -40,11 +47,12 @@ public class FeedbackAdminController {
     /**
      * 도서별 피드백 통계를 조회합니다.
      *
-     * @param bookId 도서 ID
+     * @param bookId 도서 ID (양수)
      * @return 피드백 통계
      */
     @GetMapping("/book/{bookId}/stats")
-    public ResponseEntity<FeedbackStats> getBookFeedbackStats(@PathVariable("bookId") Long bookId) {
+    public ResponseEntity<FeedbackStats> getBookFeedbackStats(
+            @PathVariable("bookId") @Positive(message = "도서 ID는 양수여야 합니다") Long bookId) {
         log.info("[Admin API] Getting feedback stats for bookId: {}", bookId);
         FeedbackStats stats = feedbackService.getBookFeedbackStats(bookId);
         return ResponseEntity.ok(stats);
@@ -53,11 +61,13 @@ public class FeedbackAdminController {
     /**
      * 검색어별 피드백 통계를 조회합니다.
      *
-     * @param query 검색어
+     * @param query 검색어 (비어있지 않아야 함)
      * @return 피드백 통계
      */
     @GetMapping("/stats")
-    public ResponseEntity<FeedbackStats> getQueryFeedbackStats(@RequestParam("query") String query) {
+    public ResponseEntity<FeedbackStats> getQueryFeedbackStats(
+            @RequestParam("query") @NotBlank(message = "검색어는 비어있을 수 없습니다")
+            @Size(max = 100, message = "검색어는 100자 이하여야 합니다") String query) {
         log.info("[Admin API] Getting feedback stats for query: {}", query);
         FeedbackStats stats = feedbackService.getQueryFeedbackStats(query);
         return ResponseEntity.ok(stats);
@@ -66,29 +76,30 @@ public class FeedbackAdminController {
     /**
      * 최근 N일간의 피드백 목록을 조회합니다.
      *
-     * @param days 일수 (기본값 7일, 최대 30일)
+     * @param days 일수 (기본값 7일, 최소 1일, 최대 30일)
      * @return 피드백 목록
      */
     @GetMapping("/recent")
     public ResponseEntity<List<SearchFeedback>> getRecentFeedback(
-            @RequestParam(value = "days", defaultValue = "7") int days) {
+            @RequestParam(value = "days", defaultValue = "7")
+            @Min(value = 1, message = "일수는 최소 1일 이상이어야 합니다")
+            @Max(value = 30, message = "일수는 최대 30일 이하여야 합니다") int days) {
 
-        // 최대 30일로 제한
-        int validDays = Math.min(Math.max(days, 1), 30);
-        log.info("[Admin API] Getting recent feedback for last {} days", validDays);
+        log.info("[Admin API] Getting recent feedback for last {} days", days);
 
-        List<SearchFeedback> feedbacks = feedbackService.getRecentFeedback(validDays);
+        List<SearchFeedback> feedbacks = feedbackService.getRecentFeedback(days);
         return ResponseEntity.ok(feedbacks);
     }
 
     /**
      * 특정 사용자의 피드백 목록을 조회합니다.
      *
-     * @param chatId Telegram 사용자 ID
+     * @param chatId Telegram 사용자 ID (양수)
      * @return 피드백 목록
      */
     @GetMapping("/user/{chatId}")
-    public ResponseEntity<List<SearchFeedback>> getUserFeedback(@PathVariable("chatId") Long chatId) {
+    public ResponseEntity<List<SearchFeedback>> getUserFeedback(
+            @PathVariable("chatId") @Positive(message = "사용자 ID는 양수여야 합니다") Long chatId) {
         log.info("[Admin API] Getting feedback for user chatId: {}", chatId);
         List<SearchFeedback> feedbacks = feedbackService.getUserFeedback(chatId);
         return ResponseEntity.ok(feedbacks);

@@ -21,6 +21,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -173,15 +175,9 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
             throw new IllegalArgumentException("Vector cannot be null");
         }
 
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < vector.length; i++) {
-            sb.append(vector[i]);
-            if (i < vector.length - 1) {
-                sb.append(",");
-            }
-        }
-        sb.append("]");
-        return sb.toString();
+        // Arrays.toString()을 사용하여 불필요한 루프 제거
+        // Arrays.toString()은 [1.0, 2.0, 3.0] 형식으로 반환
+        return Arrays.toString(vector);
     }
 
     private BooleanBuilder commonWhere(BookSearchRequest request) {

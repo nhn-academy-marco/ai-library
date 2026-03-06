@@ -9,11 +9,14 @@ import com.nhnacademy.library.external.telegram.entity.SearchFeedback;
 import com.nhnacademy.library.external.telegram.repository.SearchFeedbackRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -31,19 +34,22 @@ public class PersonalizationServiceImpl implements PersonalizationService {
      * 개인화 적용 최소 피드백 수
      * <p>피드백이 이 수보다 적으면 콜드 스타트로 간주하여 개인화를 적용하지 않습니다.</p>
      */
-    private static final int MIN_FEEDBACK_COUNT = 3;
+    @Value("${app.personalization.min-feedback-count:3}")
+    private int minFeedbackCount;
 
     /**
      * 선호도 계산에 사용할 최대 피드백 수
      * <p>최신 피드백부터 이 수만큼만 사용하여 선호도를 계산합니다.</p>
      */
-    private static final int MAX_FEEDBACK_COUNT = 20;
+    @Value("${app.personalization.max-feedback-count:20}")
+    private int maxFeedbackCount;
 
     /**
      * 개인화 점수 가중치
      * <p>최종 점수 = RRF 점수 + (코사인 유사도 × 이 가중치)</p>
      */
-    private static final double PERSONALIZATION_WEIGHT = 0.3;
+    @Value("${app.personalization.weight:0.3}")
+    private double personalizationWeight;
 
     private final BookRepository bookRepository;
     private final SearchFeedbackRepository feedbackRepository;
@@ -62,7 +68,7 @@ public class PersonalizationServiceImpl implements PersonalizationService {
         List<Long> likedBookIds = getLikedBookIds(chatId);
 
         // 2. 콜드 스타트 체크
-        if (likedBookIds.size() < MIN_FEEDBACK_COUNT) {
+        if (likedBookIds.size() < minFeedbackCount) {
             log.info("[PERSONALIZATION] Cold start for chatId: {} (feedback count: {})",
                 chatId, likedBookIds.size());
             return null;
@@ -108,34 +114,45 @@ public class PersonalizationServiceImpl implements PersonalizationService {
 
         log.info("[PERSONALIZATION] Applying personalization for chatId: {}", chatId);
 
-        // 3. 각 도서별 코사인 유사도 계산 및 최종 점수 계산
+        // 3. N+1 쿼리 방지: 한 번에 모든 임베딩 조회
+        List<Long> bookIds = results.stream()
+            .map(BookSearchResponse::getId)
+            .collect(Collectors.toList());
+
+        // BookRepository의 findEmbeddingsByIds 사용 (한 번의 쿼리로 모든 임베딩 조회)
+        List<float[]> embeddings = bookRepository.findEmbeddingsByIds(bookIds);
+
+        // bookId와 임베딩을 매핑 (Map 생성)
+        Map<Long, float[]> embeddingMap = new HashMap<>();
+        for (int i = 0; i < bookIds.size(); i++) {
+            if (i < embeddings.size()) {
+                embeddingMap.put(bookIds.get(i), embeddings.get(i));
+            }
+        }
+
+        // 4. 각 도서별 코사인 유사도 계산 및 최종 점수 계산 (메모리 상에서 처리)
         return results.stream()
             .map(response -> {
-                // Book 엔티티에서 임베딩 조회
-                return bookRepository.findById(response.getId())
-                    .map(book -> {
-                        float[] bookEmbedding = book.getEmbedding();
-                        if (bookEmbedding == null) {
-                            return response;
-                        }
+                float[] bookEmbedding = embeddingMap.get(response.getId());
+                if (bookEmbedding == null) {
+                    return response;
+                }
 
-                        // 코사인 유사도 계산
-                        double similarity = VectorUtils.calculateCosineSimilarity(preferenceVector, bookEmbedding);
+                // 코사인 유사도 계산
+                double similarity = VectorUtils.calculateCosineSimilarity(preferenceVector, bookEmbedding);
 
-                        // 최종 점수 계산: 기존 RRF 점수 + (유사도 × 가중치)
-                        double rrfScore = response.getRrfScore() != null ? response.getRrfScore() : 0.0;
-                        double finalScore = rrfScore + (similarity * PERSONALIZATION_WEIGHT);
+                // 최종 점수 계산: 기존 RRF 점수 + (유사도 × 가중치)
+                double rrfScore = response.getRrfScore() != null ? response.getRrfScore() : 0.0;
+                double finalScore = rrfScore + (similarity * personalizationWeight);
 
-                        // 점수 업데이트 (임시로 similarity 필드에 개인화 점수 저장)
-                        response.setSimilarity(similarity);
-                        response.setRrfScore(finalScore);
+                // 점수 업데이트 (임시로 similarity 필드에 개인화 점수 저장)
+                response.setSimilarity(similarity);
+                response.setRrfScore(finalScore);
 
-                        log.debug("[PERSONALIZATION] Book: {}, Similarity: {:.4f}, Final Score: {:.4f}",
-                            response.getTitle(), similarity, finalScore);
+                log.debug("[PERSONALIZATION] Book: {}, Similarity: {:.4f}, Final Score: {:.4f}",
+                    response.getTitle(), similarity, finalScore);
 
-                        return response;
-                    })
-                    .orElse(response);
+                return response;
             })
             .sorted((a, b) -> {
                 double scoreA = a.getRrfScore() != null ? a.getRrfScore() : 0.0;
@@ -169,7 +186,7 @@ public class PersonalizationServiceImpl implements PersonalizationService {
             .filter(feedback -> feedback.getType() == FeedbackType.GOOD)
             .map(SearchFeedback::getBookId)
             .distinct() // 중복 제거
-            .limit(MAX_FEEDBACK_COUNT)
+            .limit(maxFeedbackCount)
             .collect(Collectors.toList());
     }
 }

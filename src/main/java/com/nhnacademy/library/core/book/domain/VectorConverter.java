@@ -3,6 +3,8 @@ package com.nhnacademy.library.core.book.domain;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
+import java.util.Arrays;
+
 @Converter
 public class VectorConverter implements AttributeConverter<float[], String> {
 
@@ -11,15 +13,8 @@ public class VectorConverter implements AttributeConverter<float[], String> {
         if (attribute == null || attribute.length == 0) {
             return null;
         }
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < attribute.length; i++) {
-            sb.append(attribute[i]);
-            if (i < attribute.length - 1) {
-                sb.append(",");
-            }
-        }
-        sb.append("]");
-        return sb.toString();
+        // Arrays.toString()을 사용하여 불필요한 루프와 조건문 제거
+        return Arrays.toString(attribute);
     }
 
     @Override

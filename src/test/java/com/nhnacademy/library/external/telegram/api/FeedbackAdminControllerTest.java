@@ -91,29 +91,33 @@ class FeedbackAdminControllerTest {
     }
 
     @Test
-    @DisplayName("최대 30일로 제한")
+    @DisplayName("최대 30일 범위 테스트")
     void testGetRecentFeedback_MaxDays() {
-        // Given
-        when(feedbackService.getRecentFeedback(eq(30))).thenReturn(List.of());
+        // Given - 유효한 최대값 30일 사용
+        SearchFeedback feedback1 = SearchFeedback.of(123L, "해리포터", 1L, FeedbackType.GOOD);
+        when(feedbackService.getRecentFeedback(eq(30))).thenReturn(List.of(feedback1));
 
         // When
-        ResponseEntity<List<SearchFeedback>> response = controller.getRecentFeedback(100);
+        ResponseEntity<List<SearchFeedback>> response = controller.getRecentFeedback(30);
 
         // Then
         assertThat(response.getStatusCodeValue()).isEqualTo(200);
+        assertThat(response.getBody()).hasSize(1);
     }
 
     @Test
-    @DisplayName("최소 1일로 제한")
+    @DisplayName("최소 1일 범위 테스트")
     void testGetRecentFeedback_MinDays() {
-        // Given
-        when(feedbackService.getRecentFeedback(eq(1))).thenReturn(List.of());
+        // Given - 유효한 최소값 1일 사용
+        SearchFeedback feedback1 = SearchFeedback.of(123L, "해리포터", 1L, FeedbackType.GOOD);
+        when(feedbackService.getRecentFeedback(eq(1))).thenReturn(List.of(feedback1));
 
         // When
-        ResponseEntity<List<SearchFeedback>> response = controller.getRecentFeedback(0);
+        ResponseEntity<List<SearchFeedback>> response = controller.getRecentFeedback(1);
 
         // Then
         assertThat(response.getStatusCodeValue()).isEqualTo(200);
+        assertThat(response.getBody()).hasSize(1);
     }
 
     @Test
