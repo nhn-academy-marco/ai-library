@@ -429,6 +429,9 @@ public class RegionCodeMapper {
         REGION_CODE_MAP.put("강남구", "11230");
         REGION_CODE_MAP.put("서울 강남구", "11230");
 
+        // 광주 남구
+        REGION_CODE_MAP.put("광주 남구", "24030");
+
         // 부산 남구
         REGION_CODE_MAP.put("부산 남구", "21070");
 
@@ -492,15 +495,15 @@ public class RegionCodeMapper {
      * 입력값이 이미 지역 코드 형식인지 확인합니다.
      *
      * @param value 입력값
-     * @return 지역 코드 형식이면 true (2~5자리 숫자)
+     * @return 지역 코드 형식이면 true (2자리 또는 5자리 숫자)
      */
     public static boolean isRegionCode(String value) {
         if (value == null || value.isBlank()) {
             return false;
         }
 
-        // 숫자 2~5자리 형식 확인 (예: "11", "11010", "24030")
-        return value.matches("\\d{2,5}");
+        // 숫자 2자리(시/도) 또는 5자리(시/군/구) 형식 확인 (예: "11", "11010", "24030")
+        return value.matches("\\d{2}|\\d{5}");
     }
 
     /**
