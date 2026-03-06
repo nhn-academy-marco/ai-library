@@ -10,7 +10,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 // DTO import 추가
@@ -157,12 +160,29 @@ public class LibraryFunctions {
             List<LoanItemInfo> loanItems = request.region() != null
                 ? apiClient.searchLoanItemsByIsbn(request.isbn13(), request.region())
                 : apiClient.searchLoanItemsByIsbn(request.isbn13());
-            List<LoanAvailabilityResult.LibraryItem> libraries = loanItems.stream()
-                .map(item -> new LoanAvailabilityResult.LibraryItem(
-                    item.libraryName(), item.location(),
-                    "Y".equalsIgnoreCase(item.loanAvailable()), item.region()))
-                .toList();
-            log.info("[Function] 대출 가능 도서관 조회 완료: {}개 도서관", libraries.size());
+
+            // 도서관별로 그룹화하여 중복 제거 (같은 도서관에서 최소 1권이라도 대출 가능하면 "대출 가능"으로 표시)
+            Map<String, LoanAvailabilityResult.LibraryItem> libraryMap = new LinkedHashMap<>();
+            for (LoanItemInfo item : loanItems) {
+                String libName = item.libraryName();
+                boolean isLoanAvailable = "Y".equalsIgnoreCase(item.loanAvailable());
+
+                // 같은 도서관이 이미 있고, 현재 항목이 대출 가능하면 업데이트
+                if (libraryMap.containsKey(libName)) {
+                    LoanAvailabilityResult.LibraryItem existing = libraryMap.get(libName);
+                    if (!existing.loanAvailable() && isLoanAvailable) {
+                        libraryMap.put(libName, new LoanAvailabilityResult.LibraryItem(
+                            item.libraryName(), item.location(), true, item.region()));
+                    }
+                } else {
+                    // 새로운 도서관 추가
+                    libraryMap.put(libName, new LoanAvailabilityResult.LibraryItem(
+                        item.libraryName(), item.location(), isLoanAvailable, item.region()));
+                }
+            }
+
+            List<LoanAvailabilityResult.LibraryItem> libraries = new ArrayList<>(libraryMap.values());
+            log.info("[Function] 대출 가능 도서관 조회 완료: {}개 도서관 (중복 제거됨)", libraries.size());
             return new LoanAvailabilityResult(request.isbn13(), libraries.size(), libraries);
         };
     }
