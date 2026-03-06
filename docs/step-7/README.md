@@ -252,14 +252,24 @@ Phase 3: 실전 테스트 (1시간)
 ## 기술 스택
 
 ### 핵심 기술
-- **Spring AI 1.1.2**: Function Calling 프레임워크 (FunctionToolCallback 방식)
+- **Spring AI 1.1.2**: Function Calling 프레임워크
+  - FunctionToolCallback.builder() 방식
+  - @Tool 애노테이션 방식 (새로운 권장 방식)
 - **Java 17+**: Record, Lambda
 - **Ollama (qwen2.5:latest)**: Local LLM (Function Calling 지원)
 
-### Function 등록 방식
-- **FunctionToolCallback.builder()**: 프로그래밍 방식으로 Function 등록
+### Function 등록 방식 (두 가지 지원)
+
+**방식 1: FunctionToolCallback.builder()** (현재 사용 중)
+- 프로그래밍 방식으로 Function 등록
 - 순환 의존성 방지를 위해 서비스 내부에서 FunctionToolCallback 생성
 - ChatClient는 매번 새로 생성하여 FunctionToolCallback 등록
+
+**방식 2: @Tool 애노테이션** (권장, Spring AI 1.1.2+)
+- 애노테이션 기반으로 간결한 코드
+- @ToolParam으로 파라미터 설명 직접 제공
+- Spring이 자동으로 @Tool 메서드 스캔 및 등록
+- `defaultTools()`로 자동 등록 가능
 
 ### 활용 기술 (Step 1-6)
 - **Spring Boot**: 웹 프레임워크
@@ -340,12 +350,18 @@ Phase 3: 실전 테스트 (1시간)
 - Function 조합 실행
 - 데이터 전달
 
-### [04. LLM 오케스트레이션](./04.external-api.md)
+### [04. @Tool 애노테이션 방식](./04.tool-annotation.md)
+- Spring AI 1.1.2 @Tool 애노테이션 활용
+- 더 간결한 Function Calling 구현
+- @ToolParam으로 파라미터 설명
+- FunctionToolCallback.builder()와의 비교
+
+### [05. LLM 오케스트레이션](./05.external-api.md)
 - AiOrchestrationService 단순화
 - ChatClient 설정
 - System Prompt 작성
 
-### [05. 실습 가이드](./05.practice-guide.md)
+### [06. 실습 가이드](./06.practice-guide.md)
 - 단계별 실습 미션
 - 테스트 시나리오
 - 디버깅 팁
