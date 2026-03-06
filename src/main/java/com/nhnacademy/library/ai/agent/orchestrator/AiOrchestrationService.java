@@ -169,21 +169,32 @@ public class AiOrchestrationService {
         prompt.append("**도구 호출 가이드:**\n");
         prompt.append("- SearchBooks: 도서 제목으로 검색하여 ISBN 확보\n");
         prompt.append("- SearchLibraries: 지역 코드(숫자)로 도서관 검색 (한글 지역명 사용 금지!)\n");
+        prompt.append("- GetLibrariesWithBook: ISBN으로 특정 도서의 대출 가능 도서관 조회\n");
         prompt.append("- CheckBookExists: 도서관 코드와 ISBN으로 소장 여부 확인\n\n");
+
+        prompt.append("**⚠️ 매우 중요 - 각 도서별로 대출 가능 여부 확인:**\n");
+        prompt.append("검색된 도서가 여러 권인 경우, 각 도서마다 GetLibrariesWithBook을 호출하여 ");
+        prompt.append("해당 도서의 대출 가능 여부를 개별적으로 확인해야 합니다.\n");
+        prompt.append("절대 여러 도서를 합쳐서 대출 가능 도서관을 표시하지 마세요.\n\n");
 
         prompt.append("**중요:** 도서관이 많을 경우는 최대 10~15개만 보여주고, " );
         prompt.append("\"나머지 도서관이 있습니다. 전체 목록이 필요하시면 말씀해주세요.\"라고 안내해 주세요.\n\n");
 
-        prompt.append("**응답 형식 (Telegram용):**\n\n");
+        prompt.append("**응답 형식 (Telegram용) - 각 도서별로 표시:**\n\n");
         prompt.append("*도서 검색 결과*\n\n");
         prompt.append("1. *도서명* (ISBN: xxx)\n");
-        prompt.append("저자: xxx | 출판사: xxx\n\n");
+        prompt.append("저자: xxx | 출판사: xxx\n");
         prompt.append("대출 가능한 도서관:\n");
         prompt.append("✅ 도서관명 (코드: xxxxx)\n");
-        prompt.append("✅ 도서관명 (코드: xxxxx)\n\n");
         prompt.append("대출 불가능한 도서관:\n");
-        prompt.append("❌ 도서관명 - 미소장\n");
-        prompt.append("❌ 도서관명 - 대출중\n\n");
+        prompt.append("❌ 도서관명 - 사유\n");
+        prompt.append("━━━━━━━━━━━━━━━━━━━━\n\n");
+        prompt.append("2. *도서명* (ISBN: xxx)\n");
+        prompt.append("저자: xxx | 출판사: xxx\n");
+        prompt.append("대출 가능한 도서관:\n");
+        prompt.append("✅ 도서관명 (코드: xxxxx)\n");
+        prompt.append("대출 불가능한 도서관:\n");
+        prompt.append("❌ 도서관명 - 사유\n");
         prompt.append("━━━━━━━━━━━━━━━━━━━━\n\n");
 
         return prompt.toString();
