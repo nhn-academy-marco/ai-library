@@ -5,6 +5,7 @@ import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import com.nhnacademy.library.core.book.service.search.BookSearchService;
 import com.nhnacademy.library.external.opennaru.client.LibraryInfoNaruApiClient;
 import com.nhnacademy.library.external.opennaru.dto.*;
+import com.nhnacademy.library.external.opennaru.util.RegionCodeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -291,7 +292,21 @@ public class LibraryTools {
         log.info("└─────────────────────────────────────────────────────┘");
 
         try {
-            List<LibraryInfo> libraries = apiClient.searchLibraries(libraryName, region);
+            // 5자리 코드를 2자리로 변환 (API가 5자리 코드를 지원하지 않음)
+            String originalRegion = region;
+            String apiRegion = RegionCodeMapper.toTwoDigitCode(region);
+            String districtName = null;
+
+            if (region != null && region.length() == 5) {
+                districtName = RegionCodeMapper.extractDistrictName(region);
+                log.info("│ [@Tool: SearchLibraries] 5자리 코드 감지:          │");
+                log.info("│   - 원본 코드: {}                                    │", region);
+                log.info("│   - API 호출 코드: {} (2자리)                       │", apiRegion);
+                log.info("│   - 추출된 구 이름: {}                               │", districtName);
+                log.info("├─────────────────────────────────────────────────────┤");
+            }
+
+            List<LibraryInfo> libraries = apiClient.searchLibraries(libraryName, apiRegion);
 
             long apiElapsed = System.currentTimeMillis() - startTime;
             log.info("┌─────────────────────────────────────────────────────┐");
@@ -300,7 +315,21 @@ public class LibraryTools {
             log.info("│   - 검색된 도서관 수: {}개                             │", libraries.size());
             log.info("└─────────────────────────────────────────────────────┘");
 
-            List<LibrarySearchResult.LibraryItem> items = libraries.stream()
+            // 구 단위 필터링 (5자리 코드가 입력된 경우)
+            List<LibraryInfo> filteredLibraries = libraries;
+            if (districtName != null) {
+                final String filterDistrict = districtName;
+                filteredLibraries = libraries.stream()
+                    .filter(lib -> lib.address() != null && lib.address().contains(filterDistrict))
+                    .toList();
+                log.info("┌─────────────────────────────────────────────────────┐");
+                log.info("│ [@Tool: SearchLibraries] 구 단위 필터링 완료        │");
+                log.info("│   - 필터링 전: {}개                                  │", libraries.size());
+                log.info("│   - 필터링 후: {}개 (주소에 '{}' 포함)               │", filteredLibraries.size(), filterDistrict);
+                log.info("└─────────────────────────────────────────────────────┘");
+            }
+
+            List<LibrarySearchResult.LibraryItem> items = filteredLibraries.stream()
                 .map(lib -> {
                     log.debug("   도서관: {} (libCode: {})", lib.libName(), lib.libCode());
                     return new LibrarySearchResult.LibraryItem(

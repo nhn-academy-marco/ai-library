@@ -527,4 +527,59 @@ public class RegionCodeMapper {
         // 지역명 → 코드 변환
         return toRegionCode(regionInput);
     }
+
+    /**
+     * 5자리 지역 코드에서 구/군 이름을 추출합니다.
+     * 예: 24030 → "남구", 11010 → "종로구"
+     *
+     * @param regionCode 5자리 지역 코드
+     * @return 구/군 이름 (예: "남구", "종로구"), 변환할 수 없는 경우 null
+     */
+    public static String extractDistrictName(String regionCode) {
+        if (regionCode == null || regionCode.length() != 5) {
+            return null;
+        }
+
+        // 코드 → 지역명 역매핑
+        for (Map.Entry<String, String> entry : REGION_CODE_MAP.entrySet()) {
+            if (entry.getValue().equals(regionCode)) {
+                String regionName = entry.getKey();
+                // "광주 남구" → "남구" 추출
+                if (regionName.contains(" ")) {
+                    return regionName.substring(regionName.lastIndexOf(" ") + 1);
+                }
+                // "남구" → "남구"
+                return regionName;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 5자리 지역 코드를 2자리 코드로 변환합니다.
+     * 도서관정보나루 API는 libSrch에서 2자리 코드만 지원합니다.
+     * 예: 24030 → "24", 11010 → "11"
+     *
+     * @param regionCode 지역 코드 (2자리 또는 5자리)
+     * @return 2자리 지역 코드
+     */
+    public static String toTwoDigitCode(String regionCode) {
+        if (regionCode == null || regionCode.isBlank()) {
+            return null;
+        }
+
+        // 이미 2자리면 그대로 반환
+        if (regionCode.length() == 2) {
+            return regionCode;
+        }
+
+        // 5자리면 앞 2자리만 반환
+        if (regionCode.length() == 5) {
+            return regionCode.substring(0, 2);
+        }
+
+        log.warn("[RegionCodeMapper] 알 수 없는 지역 코드 형식: {}", regionCode);
+        return null;
+    }
 }
