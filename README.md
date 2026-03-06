@@ -59,7 +59,9 @@ src/main/java/com/nhnacademy/library
 - **[Week 2] 검색의 진화: 벡터 검색**: 임베딩 생성 및 `pgvector` 기반 의미 검색 도입.
 - **[Week 3] RAG: AI가 답변을 생성하다**: LLM 연동 및 검색 결과 기반 프롬프트 엔지니어링.
 - **[Week 4] AI 성능 튜닝**: 응답 지연 및 비용 문제 해결을 위한 Top-K 튜닝 및 캐싱 전략.
-- **[Week 5] MCP: AI가 시스템을 사용하다**: AI 오케스트레이션 및 도구 활용(Tool Use).
+- **[Week 5] Telegram Bot: 대화형 검색 UI**: Telegram Bot 기반 자연어 검색 인터페이스 구현.
+- **[Week 6] 개인화: 사용자 맞춤형 추천**: 피드백 기반 사용자 프로필링 및 개인화 추천 시스템.
+- **[Week 7] LLM 오케스트레이션**: Function Calling 및 @Tool 애노테이션 기반 지능형 도서관 도우미 AI.
 
 ## ⚙️ 실행 방법
 

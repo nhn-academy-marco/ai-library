@@ -187,26 +187,70 @@ src/main/java/com/nhnacademy/library
 
 ---
 
-### Step 6 — MCP: AI가 시스템을 사용하다
+### Step 6 — 개인화: 사용자 맞춤형 추천
 
 #### 주요 흐름
 
-* [01. MCP 이해: AI가 시스템을 사용하는 방법](step-6/01.understanding-mcp.md)
-* [02. 검색 Function 구현: Spring AI Function Calling](step-6/02.mcp-search-server.md)
-* [03. 외부 API 연동: 도서관정보나루 연동 (Fallback 패턴)](step-6/03.external-api-integration.md)
-* [04. AI 오케스트레이션: 다중 Function 조합](step-6/04.ai-orchestration.md)
-* [05. 실습 미션: 점진적 난이도별 Function Calling 실습](step-6/05.scenarios.md)
+* [01. 벡터 임베딩 기초: 임베딩의 이해와 필요성](step-6/01.vector-embedding-basics.md)
+* [02. 사용자 선호 벡터: 피드백 기반 선호도 학습](step-6/02.user-preference-vector.md)
+* [03. 개인화 랭킹: 사용자 맞춤형 도서 추천](step-6/03.personalized-ranking.md)
+* [04. 콜드 스타트와 최적화: 신규 사용자 및 성능 튜닝](step-6/04.cold-start-and-optimization.md)
+* [05. 통합 가이드: 개인화 시스템 실전 구현](step-6/05.integration-guide.md)
 
 #### 학습 포인트
 
-* AI는 단순 응답기가 아님
-* Function Calling 기초 및 오케스트레이션 개념
-* Fallback 패턴으로 내부/외부 데이터 연동
-* A2A (AI to AI) 확장 가능성
+* 사용자 피드백 루프 구축
+* 벡터 공간에서의 사용자 프로필링
+* 콜드 스타트 문제 해결
+* 개인화와 다양성의 균형
 
 ---
 
-## 5. MCP 활용 예시 요약
+### Step 7 — LLM 기반 오케스트레이션: 지능형 도서관 도우미
+
+#### 주요 흐름
+
+* [00. 이론: MCP, A2A, Agent 개념](step-7/00.theory.md)
+* [01. 개요 및 시나리오: LLM 오케스트레이션 소개](step-7/01.overview.md)
+* [02. 단일 Function: 도서 검색 Function 구현](step-7/02.single-function.md)
+* [03. 복수 Function: 여러 Function 조합 실행](step-7/03.multiple-functions.md)
+* [04. 외부 API 연동: 도서관정보나루 API 연동](step-7/04.external-api.md)
+* [05. @Tool 애노테이션: Spring AI 1.1.2 새로운 방식](step-7/04.tool-annotation.md)
+* [06. 실습 가이드: 단계별 실습 미션](step-7/05.practice-guide.md)
+
+#### 학습 포인트
+
+* **Function Calling**: LLM이 스스로 적절한 Function 선택
+* **@Tool 애노테이션**: Spring AI 1.1.2의 간결한 Function 정의 방식
+* **A2A 패턴**: Agent-to-Agent 통신을 통한 복잡한 작업 처리
+* **오케스트레이션**: 여러 Function 조합과 결과 종합
+* **17개 도서관정보나루 API → 8개 주요 Function** 변환
+
+#### 구현된 컴포넌트
+
+**LibraryTools** (@Tool 기반, 8개 메서드):
+- `searchBooks` - 내부 DB → 도서관정보나루 Fallback
+- `getLibrariesWithBook` - 대출 가능 도서관 조회
+- `searchLibraries` - 도서관 검색
+- `getBookDetail` - 도서 상세 정보
+- `getPopularBooks` - 인기대출도서 조회
+- `getHotTrendBooks` - 대출 급상승 도서 조회
+- `getRecommendedBooks` - 추천도서 조회
+- `checkBookExists` - 도서 소장 여부 확인
+
+**InternalBookTools** (@Tool 기반, 3개 메서드):
+- `searchInternalBooks` - 내부 DB 하이브리드 검색
+- `getReviews` - 리뷰 조회
+- `checkLoanAvailability` - 대출 가능 여부 조회
+
+**ToolBasedAiOrchestrationService**:
+- @Tool 기반 오케스트레이션 서비스
+- FunctionToolCallback.builder() → @Tool 애노테이션
+- `.defaultTools()`로 자동 등록
+
+---
+
+## 5. 활용 예시 요약
 
 * Vector 검색 MCP
 * 외부 도서 정보 보강 MCP

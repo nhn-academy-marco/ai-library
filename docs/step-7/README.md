@@ -253,9 +253,9 @@ Phase 3: 실전 테스트 (1시간)
 
 ### 핵심 기술
 - **Spring AI 1.1.2**: Function Calling 프레임워크
-  - FunctionToolCallback.builder() 방식
-  - @Tool 애노테이션 방식 (새로운 권장 방식)
-- **Java 17+**: Record, Lambda
+  - FunctionToolCallback.builder() 방식 (기존 방식)
+  - @Tool 애노테이션 방식 (새로운 권장 방식, 2025년 3월 구현 완료)
+- **Java 21**: Record, Lambda
 - **Ollama (qwen2.5:latest)**: Local LLM (Function Calling 지원)
 
 ### Function 등록 방식 (두 가지 지원)
@@ -365,6 +365,55 @@ Phase 3: 실전 테스트 (1시간)
 - 단계별 실습 미션
 - 테스트 시나리오
 - 디버깅 팁
+
+---
+
+## 구현 완료 상태 (2025년 3월 6일)
+
+### ✅ 구현된 컴포넌트
+
+**LibraryTools** (`ai/function/LibraryTools.java`)
+- Spring AI 1.1.2 @Tool 애노테이션 기반
+- 8개 @Tool 메서드 구현 완료
+- 내부 DB → 도서관정보나루 API Fallback 로직 포함
+
+**InternalBookTools** (`ai/function/InternalBookTools.java`)
+- 내부 DB 검색용 @Tool 기반 클래스
+- 3개 @Tool 메서드 구현 완료
+- 하이브리드 검색, 리뷰 조회, 대출 가능 여부 확인
+
+**ToolBasedAiOrchestrationService** (`ai/agent/orchestrator/ToolBasedAiOrchestrationService.java`)
+- @Tool 기반 오케스트레이션 서비스
+- `.defaultTools()`로 자동 등록
+- 기존 AiOrchestrationService(A2A)와 병행 운영
+
+### 🔧 기존 코드 유지
+
+**기존 FunctionToolCallback 방식 유지**:
+- `LibraryFunctions.java` - 8개 FunctionToolCallback 메서드
+- `AiOrchestrationService.java` - A2A 패턴 오케스트레이션
+- `BookSearchFunction.java`, `ReviewFunction.java`, `LoanCheckFunction.java`
+
+### 📝 두 방식 비교
+
+| 특징 | FunctionToolCallback.builder() | @Tool 애노테이션 |
+|------|------------------------------|------------------|
+| 코드 간결성 | ⚠️ Builder 패턴으로 코드 길어짐 | ✅ 애노테이션으로 간결 |
+| 파라미터 설명 | ⚠️ DTO 클래스 필요 | ✅ @ToolParam으로 직접 설명 |
+| 자동 등록 | ❌ 수동 등록 필요 | ✅ Spring 자동 스캔 |
+| 순환 의존성 | ✅ 프로그래밍 방식으로 회피 가능 | ⚠️ Bean 주입 시 주의 필요 |
+
+### 🎯 선택 가이드
+
+**FunctionToolCallback.builder() 사용**:
+- 순환 의존성 문제가 있는 경우
+- 동적 Tool 등록이 필요한 경우
+- 기존 코드와 호환성이 중요한 경우
+
+**@Tool 애노테이션 사용**:
+- 새로운 프로젝트를 시작하는 경우
+- 코드 간결성이 중요한 경우
+- 파라미터 설명이 중요한 경우
 
 ---
 
