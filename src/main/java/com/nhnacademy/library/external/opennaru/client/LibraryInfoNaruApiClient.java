@@ -212,25 +212,46 @@ public class LibraryInfoNaruApiClient {
      */
     @Cacheable(value = "libraryLoanItems", key = "'isbn:' + #isbn13 + ':region:' + #region", unless = "#result.isEmpty()")
     public List<LoanItemInfo> searchLoanItemsByIsbn(String isbn13, String region) {
-        log.info("[도서관정보나루] 대출 가능 도서 조회: isbn13={}, region={}", isbn13, region);
+        return searchLoanItemsByIsbn(isbn13, region, null);
+    }
+
+    /**
+     * 대출 가능 도서 조회 (ISBN + 세부 지역 기반)
+     * <p>
+     * dtl_region 파라미터를 사용하여 구/군 단위 검색을 지원합니다.
+     * 예: region="24", dtl_region="24030" → 광주광역시 남구 도서관만 검색
+     * </p>
+     *
+     * @param isbn13 ISBN13
+     * @param region 지역 코드 (2자리, 예: "24" for 광주)
+     * @param dtlRegion 세부 지역 코드 (5자리, 예: "24030" for 광주 남구, null일 경우 전체 지역)
+     * @return 대출 가능 도서 정보 목록
+     */
+    @Cacheable(value = "libraryLoanItems", key = "'isbn:' + #isbn13 + ':region:' + #region + ':dtl:' + #dtlRegion", unless = "#result.isEmpty()")
+    public List<LoanItemInfo> searchLoanItemsByIsbn(String isbn13, String region, String dtlRegion) {
+        log.info("[도서관정보나루] 대출 가능 도서 조회: isbn13={}, region={}, dtlRegion={}", isbn13, region, dtlRegion);
 
         try {
-            String url;
+            StringBuilder urlBuilder = new StringBuilder(String.format("%s/libSrchByBook?isbn=%s&authKey=%s&format=json&pageSize=50",
+                properties.getUrl(),
+                isbn13,
+                properties.getKey()));
+
+            // region 파라미터 추가 (2자리 코드)
             if (region != null && !region.isEmpty()) {
-                url = String.format("%s/libSrchByBook?isbn=%s&region=%s&authKey=%s&format=json&pageSize=50",
-                    properties.getUrl(),
-                    isbn13,
-                    region,
-                    properties.getKey());
-            } else {
-                url = String.format("%s/libSrchByBook?isbn=%s&authKey=%s&format=json&pageSize=50",
-                    properties.getUrl(),
-                    isbn13,
-                    properties.getKey());
+                // 5자리 코드가 들어오면 앞 2자리만 사용
+                String apiRegion = region.length() == 5 ? region.substring(0, 2) : region;
+                urlBuilder.append("&region=").append(apiRegion);
+            }
+
+            // dtl_region 파라미터 추가 (5자리 코드)
+            if (dtlRegion != null && dtlRegion.length() == 5) {
+                urlBuilder.append("&dtl_region=").append(dtlRegion);
+                log.info("[도서관정보나루] 세부 지역 코드 적용: dtl_region={}", dtlRegion);
             }
 
             String response = createRestClient().get()
-                .uri(url)
+                .uri(urlBuilder.toString())
                 .retrieve()
                 .body(String.class);
 

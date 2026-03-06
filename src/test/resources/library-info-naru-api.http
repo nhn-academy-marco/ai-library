@@ -43,19 +43,45 @@ GET {{baseUrl}}/srchBooks?keyword=9788936434120&authKey={{apiKey}}&format=json&p
 GET {{baseUrl}}/srchBooks?keyword=남궁성&authKey={{apiKey}}&format=json&pageSize=20
 
 
-### 2. 지역별 도서관 조회
-### 설명: 특정 지역에서 도서를 소장한 도서관만 조회합니다.
+### 2. 지역별 도서관 조회 (libSrchByBook)
+### ============================================================================
+### 설명: 특정 ISBN의 도서를 소장한 도서관 목록을 조회합니다.
 ### 파라미터:
 ###   - isbn: ISBN 코드 (필수)
-###   - region: 지역 코드 (예: 11=서울)
-###   - authKey: API 인증 키
-###   - format=json: JSON 형식 응답
+###   - region: 지역 코드 (필수, 2자리) - 시/도 단위
+###   - dtl_region: 세부 지역 코드 (선택, 5자리) - 구/군 단위
+###   - authKey: API 인증 키 (필수)
+###   - format=json: JSON 형식 응답 (선택)
+###   - pageNo: 페이지 번호 (선택, 기본값: 1)
+###   - pageSize: 페이지 크기 (선택, 기본값: 10)
 ###
-### 지역 코드:
+### 지역 코드 (2자리 - 시/도):
 ###   11=서울, 21=부산, 22=대구, 23=인천, 24=광주, 25=대전, 26=울산,
 ###   29=세종, 31=경기, 32=강원, 33=충북, 34=충남, 35=전북, 36=전남,
 ###   37=경북, 38=경남, 39=제주
+###
+### 세부 지역 코드 (5자리 - dtl_region용):
+###   11010=서울 종로구, 24030=광주 남구, 21070=부산 남구 등
+###   자세한 코드: docs/step-7/region-codes.md 참조
+###
+### 2-1. ISBN으로 전국 도서관 조회
+### 설명: 특정 도서를 소장한 전국 도서관을 모두 조회합니다.
+GET {{baseUrl}}/libSrchByBook?isbn=9788936434120&authKey={{apiKey}}&format=json
+
+### 2-2. ISBN + 시/도 단위 조회
+### 설명: 특정 도서를 서울 지역 도서관에서만 조회합니다.
 GET {{baseUrl}}/libSrchByBook?isbn=9788936434120&region=11&authKey={{apiKey}}&format=json
+
+### 2-3. ISBN + 구/군 단위 조회 (dtl_region 사용)
+### 설명: 특정 도서를 광주 남구 도서관에서만 조회합니다.
+### **성능 향상**: dtl_region을 사용하면 API 레벨에서 필터링되어 응답 속도가 빠르고 결과가 정확합니다.
+GET {{baseUrl}}/libSrchByBook?isbn=9788936434120&region=24&dtl_region=24030&authKey={{apiKey}}&format=json
+
+### 2-4. ISBN + 서울 강남구 조회
+### 설명: 특정 도서를 서울 강남구 도서관에서만 조회합니다.
+GET {{baseUrl}}/libSrchByBook?isbn=9788936434120&region=11&dtl_region=11230&authKey={{apiKey}}&format=json
+
+### ============================================================================
 
 ### ============================================================================
 ### 3. 도서관 검색 API (libSrch)

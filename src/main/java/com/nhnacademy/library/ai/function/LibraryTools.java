@@ -190,7 +190,8 @@ public class LibraryTools {
         description = "특정 ISBN의 도서를 대출할 수 있는 도서관 목록을 조회합니다. " +
                      "지역 코드를 제공하면 해당 지역의 도서관만 필터링합니다. " +
                      "**중요**: region 파라미터에는 한글 지역명(광주, 서울 등)을 사용하지 말고 " +
-                     "반드시 숫자 지역 코드를 사용하세요. (서울=11, 부산=21, 대구=22, 인천=23, 광주=24, 대전=25, 울산=26, 세종=29, 경기=31)"
+                     "반드시 숫자 지역 코드를 사용하세요. (서울=11, 부산=21, 대구=22, 인천=23, 광주=24, 대전=25, 울산=26, 세종=29, 경기=31) " +
+                     "세부 지역 검색(예: 광주 남구)을 위해서는 5자리 코드를 사용하세요. (예: 24030=광주 남구)"
     )
     public List<LoanAvailabilityResult.LibraryItem> getLibrariesWithBook(
         @org.springframework.ai.tool.annotation.ToolParam(
@@ -198,6 +199,7 @@ public class LibraryTools {
         ) String isbn13,
         @org.springframework.ai.tool.annotation.ToolParam(
             description = "지역 코드 (숫자). 예: 서울=11, 부산=21, 대구=22, 인천=23, 광주=24, 대전=25, 울산=26, 세종=29, 경기=31. " +
+                         "세부 지역 검색을 위해서는 5자리 코드 사용 (예: 24030=광주 남구, 11010=서울 종로구). " +
                          "한글 지역명 사용 금지! 반드시 숫자 코드 사용할 것.",
             required = false
         ) String region
@@ -211,9 +213,29 @@ public class LibraryTools {
         log.info("└─────────────────────────────────────────────────────┘");
 
         try {
-            List<LoanItemInfo> loanItems = region != null && !region.isBlank()
-                ? apiClient.searchLoanItemsByIsbn(isbn13, region)
-                : apiClient.searchLoanItemsByIsbn(isbn13);
+            List<LoanItemInfo> loanItems;
+
+            // region 파라미터 처리 (5자리 코드 지원)
+            if (region != null && !region.isBlank()) {
+                if (region.length() == 5) {
+                    // 5자리 코드: 세부 지역 검색 (dtl_region 사용)
+                    String apiRegion = region.substring(0, 2);  // 앞 2자리 (예: "24")
+                    String dtlRegion = region;  // 전체 5자리 (예: "24030")
+
+                    log.info("│ [@Tool] 세부 지역 검색 모드:                        │");
+                    log.info("│   - API region (2자리): {}                           │", apiRegion);
+                    log.info("│   - dtl_region (5자리): {}                          │", dtlRegion);
+                    log.info("├─────────────────────────────────────────────────────┤");
+
+                    loanItems = apiClient.searchLoanItemsByIsbn(isbn13, apiRegion, dtlRegion);
+                } else {
+                    // 2자리 코드: 시/도 전체 검색
+                    loanItems = apiClient.searchLoanItemsByIsbn(isbn13, region);
+                }
+            } else {
+                // 지역 미지정: 전국 검색
+                loanItems = apiClient.searchLoanItemsByIsbn(isbn13);
+            }
 
             // 도서관별로 그룹화하여 중복 제거 (같은 도서관에서 최소 1권이라도 대출 가능하면 "대출 가능"으로 표시)
             Map<String, LoanAvailabilityResult.LibraryItem> libraryMap = new LinkedHashMap<>();
