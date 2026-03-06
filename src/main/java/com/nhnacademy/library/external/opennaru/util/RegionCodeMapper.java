@@ -113,6 +113,10 @@ public class RegionCodeMapper {
 
         REGION_CODE_MAP.put("판교", "688");
         REGION_CODE_MAP.put("pangyo", "688");
+
+        // 광주 남구 (24030) - 강남구(680)보다 구체적이므로 먼저 체크
+        REGION_CODE_MAP.put("광주 남구", "24030");
+        REGION_CODE_MAP.put("광주 남구도", "24030");
     }
 
     /**
