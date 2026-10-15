@@ -1,309 +1,143 @@
-# 공공 도서 데이터 기반 AI 검색 시스템
+# Spring AI로 만드는 AI 도서 검색 서비스
 
-## 1. 프로젝트 개요
+> 키워드 검색에서 출발해 벡터 검색, RAG, Tool Calling까지 직접 구현하며 AI 백엔드 개발을 익히는 실습 교재입니다.
 
-### 프로젝트명
-`ai-library-platform`
+- 완성된 서비스: [https://library.java21.net/](https://library.java21.net/)
+- 소스 코드: [저장소 루트](../README.md)
+- 모르는 용어: [용어집](glossary.md)
 
-### 목적
-공공 도서 데이터를 활용하여 전통적인 검색 시스템이 AI 시스템(RAG · Vector · MCP)으로 진화하는 전체 흐름을 학습합니다.
+## 이 교재는 누구를 위한 것인가
 
-이 프로젝트는 단순히 AI 기능을 붙이는 것이 아니라 다음을 단계적으로 경험하는 것을 목표로 합니다.
+- Java와 Spring Boot(MVC, JPA)로 간단한 웹 서비스를 만들어 본 대학생과 신입 개발자
+- LLM, 임베딩, RAG 같은 말은 들어 봤지만 직접 서비스에 붙여 본 적은 없는 사람
+- "AI 기능을 붙였다"에서 그치지 않고, 왜 필요한지와 비용·성능 문제까지 설명할 수 있는 포트폴리오를 만들고 싶은 사람
 
-* 왜 AI가 필요한지
-* AI를 기존 백엔드 아키텍처에 어떻게 녹여 내는지
-* AI 도입 시 발생하는 성능·비용·운영 문제를 어떻게 다루는지
+수학이나 머신러닝 지식은 필요하지 않습니다. 필요한 개념은 Step 0과 각 문서에서 비유와 그림으로 설명합니다.
 
-> 핵심 메시지
-> AI는 처음부터 등장하지 않습니다. 데이터 → 검색 → 의미 → 생성 → 판단 → 도구 활용으로 진화합니다.
+## 이 교재로 만드는 것
 
-### 학습 가이드
-이 교재는 단순히 소스 코드를 제공하는 것이 아니라, 각 단계에서 무엇을(What), 어떻게(How), 왜(Why) 구현해야 하는지를 안내합니다.
-코드를 직접 작성하기 전에 해당 단계의 문서를 충분히 읽고, 제시된 학습 포인트를 통해 기술적 배경을 먼저 이해하는 것을 권장합니다.
+공공 도서 데이터 약 15만 건을 담은 도서 검색 서비스를 단계별로 키워 갑니다. 각 단계는 이전 단계의 한계에서 출발합니다.
 
----
+```mermaid
+flowchart LR
+    S0["Step 0<br/>개념·환경"] --> S1["Step 1<br/>키워드 검색"]
+    S1 -->|"뜻으로는 못 찾음"| S2["Step 2<br/>벡터·하이브리드 검색"]
+    S2 -->|"이유를 설명 못 함"| S3["Step 3<br/>RAG 추천"]
+    S3 -->|"느리고 비쌈"| S4["Step 4<br/>성능·비용 최적화"]
+    S4 -->|"웹 화면만으로는 부족"| S5["Step 5<br/>Telegram Bot·피드백"]
+    S5 -->|"모두에게 같은 결과"| S6["Step 6<br/>개인화"]
+    S6 -->|"DB 밖의 정보가 필요"| S7["Step 7<br/>Tool Calling"]
+    S7 -.->|"보너스"| S8["Step 8<br/>n8n 자동화"]
 
-## 2. 프로젝트 패키지 구조
-
-```
-src/main/java/net/java21/library
- ├─ batch.init          # 공공 데이터 적재 및 초기화
- ├─ batch.embedding     # 도서 임베딩 생성 스케줄러
- ├─ core.book           # 도서 도메인, 검색 전략, 캐시, 개인화
- ├─ core.review         # 리뷰 도메인, AI 요약
- ├─ core.config         # 공통 설정 (QueryDSL, AI, 캐시, Redis, RabbitMQ)
- ├─ ai                  # @Tool 기반 도구, Agent, 오케스트레이션
- ├─ external.opennaru   # 도서관정보나루 Open API 연동
- ├─ external.telegram   # Telegram Bot UI 및 피드백
- └─ front.web           # 웹 컨트롤러 및 화면 처리
+    classDef step fill:#EEF2FF,stroke:#4F46E5,color:#0F172A
+    classDef bonus fill:#F1F5F9,stroke:#64748B,color:#0F172A
+    class S0,S1,S2,S3,S4,S5,S6,S7 step
+    class S8 bonus
 ```
 
-### 각 패키지 역할
-
-* **net.java21.library.core.book**
-    * 도서 조회 및 상세 정보 처리
-    * 검색 엔진: Keyword, Vector, Hybrid, RAG (Strategy 패턴 적용)
-    * 벡터 유사도 기반 시맨틱 캐싱(Semantic Caching)
-    * 피드백 기반 개인화
-
-* **net.java21.library.core.review**
-    * 도서 리뷰 도메인 및 리포지토리
-    * AI 기반 리뷰 요약 (Map-Reduce 전략)
-
-* **net.java21.library.batch**
-    * 공공 CSV 데이터 파싱(Parsing) 및 적재(Load)
-    * 임베딩(Embedding) 생성 배치
-
-* **net.java21.library.ai**
-    * Spring AI `@Tool` 기반 도구 (`LibraryTools`, `InternalBookTools`)
-    * LLM 오케스트레이션 (`ToolBasedAiOrchestrationService`)
-
-* **net.java21.library.external**
-    * 도서관정보나루 Open API 클라이언트
-    * Telegram Bot 기반 검색 UI, 대화 관리 및 피드백 수집
-
-* **net.java21.library.front.web**
-    * 도서 검색 및 상세 페이지 UI 컨트롤러
-    * AI 질의 UI
-
-> 외부 Open API는 배치 또는 Tool(MCP)을 통해서만 접근하며,
-> 서비스 런타임 검색에서는 직접 호출하지 않습니다.
-
----
-
-## 3. 기술 스택
-
-* Java 21
-* Spring Boot 3.5
-* Spring AI 1.1.2
-* Spring Data JPA (기본 CRUD)
-* QueryDSL (동적 쿼리)
-* PostgreSQL + pgvector
-* LLM: Google Gemini, Ollama / 임베딩: BGE-M3
-* Caffeine, Redis, RabbitMQ
-* Telegram Bot API
-
----
-
-## 4. 전체 시스템 흐름 요약
-
-1. CSV 기반 데이터 적재
-2. 키워드 기반 검색 구현
-3. 검색 품질 및 성능 한계 체감
-4. 벡터 검색 도입
-5. RAG 기반 AI 응답 생성
-6. AI 성능·비용 튜닝
-7. Telegram Bot 기반 UI 구축
-8. 피드백 기반 개인화
-9. Tool(MCP) 기반 AI 도구 활용
-10. n8n 워크플로우 자동화
-
----
-
-## 5. 단계별 시나리오
-
-### Step 1 — 데이터 구축과 전통적 검색
-
-#### 주요 흐름
-
-* [01. 데이터 적재: 공공 도서 CSV 배치 적재](step-1/01.csv-batch-load.md)
-* [02. 기본 검색: LIKE 기반 동적 쿼리 구현](step-1/02.basic-search-implementation.md)
-* [03. 검색 UI: Thymeleaf와 Tabler 기반 화면 구축](step-1/03.search-ui.md)
-* [04. 성능 최적화: 인덱싱과 전문 검색(Full Text Search)](step-1/04.search-optimization.md)
-
-#### 학습 포인트
-
-* 데이터 구축(Corpus)과 이벤트 기반 아키텍처(EDA) 이해
-* QueryDSL을 활용한 타입 세이프(Type-safe) 동적 쿼리
-* RDBMS 검색의 성능 한계와 인덱싱(B-Tree, GIN) 전략
-
----
-
-### Step 2 — 검색의 진화: 벡터 검색(Vector Search)
-
-#### 주요 흐름
-
-* [01. 한계 체감: 키워드 검색의 품질 문제 분석](step-2/01.search-quality-limitations.md)
-* [02. 환경 구축: PostgreSQL pgvector 설정](step-2/02.pgvector-setup.md)
-* [03. 지식 수치화: 임베딩(Embedding) 생성 배치](step-2/03.embedding-generation.md)
-* [04. 의미 검색: 자연어 기반 벡터 검색 도입](step-2/04.natural-language-search.md)
-* [05. 하이브리드 검색: 키워드와 벡터의 결합](step-2/05.hybrid-search.md)
-
-#### 학습 포인트
-
-* **의미 기반 검색(Semantic Search)**: 키워드 매칭의 한계를 이해하고 벡터 공간에서의 유사도 검색 원리를 익힙니다.
-* **벡터 데이터베이스 활용**: PostgreSQL pgvector로 비정형 데이터(텍스트)를 수치화하여 저장하고 검색하는 실무 기법을 익힙니다.
-* **AI 모델 통합**: 외부 임베딩 모델 API를 백엔드 서비스와 연동하고 대량 데이터를 처리하는 배치 프로세스를 경험합니다.
-
----
-
-### Step 3 — RAG: AI가 답변을 생성하다
-
-#### 주요 흐름
-
-* [01. RAG 이해: Retrieval-Augmented Generation 개념과 구조](step-3/01.understanding-rag.md)
-* [02. 컨텍스트 구성: 벡터 검색 결과 기반 프롬프트 문맥화](step-3/02.context-construction.md)
-* [03. LLM 연동: 추천·요약·설명 생성](step-3/03.llm-integration.md)
-
-#### 학습 포인트
-
-* 환각(Hallucination) 문제
-* RAG의 필요성
-* 컨텍스트 품질의 중요성
-
----
-
-### Step 4 — AI 성능 튜닝
-
-#### 주요 흐름
-
-* [Step 4 개요](step-4/README.md)
-* [01. 성능과 비용: 응답 지연 및 비용 문제 인식](step-4/01.performance-cost.md)
-* [02. 최적화: Top-K 및 컨텍스트 길이 제한](step-4/02.topk-optimization.md)
-* [03. 시맨틱 캐싱: 비용 절감과 성능 향상](step-4/03.semantic-caching.md)
-* [04. 요약 전략과 리뷰 요약 실습](step-4/04.review-summarization.md)
-* [05. 리뷰 정보를 RAG 검색에 반영하기](step-4/05.review-rag-integration.md)
-
-#### 학습 포인트
-
-* AI 성능 문제는 설계 문제
-* 비용·속도·품질의 균형
-
----
-
-### Step 5 — Telegram Bot: 대화형 검색 UI
-
-#### 주요 흐름
-
-* [Step 5 개요](step-5/README.md)
-* [01. Telegram Bot 설정](step-5/01.telegram-bot-setup.md)
-* [02. Telegram을 통한 RAG 검색](step-5/02.rag-search-via-telegram.md)
-* [03. 사용자 피드백 수집](step-5/03.feedback-entity-repository.md)
-* [04. 피드백 활용: AI 개선 연계](step-5/04.feedback-ui-callback-handler.md)
-* [05. 피드백 루프 아키텍처](step-5/05.feedback-search-integration.md)
-* [06. 피드백 기반 검색 개선](step-5/06.llm-prompt-guidelines.md)
-
-#### 학습 포인트
-
-* **대화형 UI**: 텍스트 기반의 자연스러운 검색 경험
-* **컨텍스트 유지**: 이전 검색 기록 기반 후속 질문 처리
-* **사용자 피드백 루프**: 검색 품질 개선을 위한 피드백 수집
-
-> Step 5는 Step 1~4에서 구축한 하이브리드 검색 시스템을
-> Telegram Bot이라는 실용적인 UI로 제공하여 사용자 경험을 높입니다.
-
----
-
-### Step 6 — 개인화: 사용자 맞춤형 추천
-
-#### 주요 흐름
-
-* [Step 6 개요](step-6/README.md)
-* [01. 벡터 임베딩 기초: 임베딩의 이해와 필요성](step-6/01.vector-embedding-basics.md)
-* [02. 사용자 선호 벡터: 피드백 기반 선호도 학습](step-6/02.user-preference-vector.md)
-* [03. 개인화 랭킹: 사용자 맞춤형 도서 추천](step-6/03.personalized-ranking.md)
-* [04. 콜드 스타트와 최적화: 신규 사용자 및 성능 튜닝](step-6/04.cold-start-and-optimization.md)
-* [05. 통합 가이드: 개인화 시스템 실전 구현](step-6/05.integration-guide.md)
-
-#### 학습 포인트
-
-* 사용자 피드백 루프 구축
-* 벡터 공간에서의 사용자 프로파일링
-* 콜드 스타트 문제 해결
-* 개인화와 다양성의 균형
-
----
-
-### Step 7 — LLM 기반 오케스트레이션: 지능형 도서관 도우미
-
-#### 주요 흐름
-
-* [Step 7 개요](step-7/README.md)
-* [00. 이론: MCP, A2A, Agent 개념](step-7/00.theory.md)
-* [01. 개요 및 시나리오: LLM 오케스트레이션 소개](step-7/01.overview.md)
-* [02. 단일 Function: 도서 검색 Function 구현](step-7/02.single-function.md)
-* [03. 복수 Function: 여러 Function 조합 실행](step-7/03.multiple-functions.md)
-* [04. 외부 API 연동: 도서관정보나루 API 연동](step-7/04.external-api.md)
-* [05. @Tool 애노테이션: Spring AI 1.1.2 방식](step-7/05.tool-annotation.md)
-* [06. 실습 가이드: 단계별 실습 미션](step-7/06.practice-guide.md)
-
-#### 참고 자료
-
-* [Spring AI 1.1.2 A2A 구현 가능성 분석](step-7/A2A_FEASIBILITY_ANALYSIS.md)
-* [행정구역 코드 목록](step-7/region-codes.md)
-* [도서관정보나루 API 매뉴얼](step-7/도서관정보나루_API_Manual.md)
-
-#### 학습 포인트
-
-* **Function Calling(Tool Calling)**: LLM이 스스로 적절한 Function을 선택
-* **@Tool 애노테이션**: Spring AI 1.1.2의 간결한 Function 정의 방식
-* **Tool 기반 오케스트레이션**: 하나의 LLM이 여러 Tool을 조합해 복잡한 요청 처리 (A2A는 확장 방향으로 이론에서 다룸)
-* 도서관정보나루 API 17개 → 주요 Function 8개로 변환
-
-#### 구현된 컴포넌트
-
-**LibraryTools** (@Tool 기반, 8개 메서드):
-- `searchBooks` - 내부 DB 검색 후 도서관정보나루로 대체(Fallback)
-- `getLibrariesWithBook` - 대출 가능 도서관 조회
-- `searchLibraries` - 도서관 검색
-- `getBookDetail` - 도서 상세 정보
-- `getPopularBooks` - 인기 대출 도서 조회
-- `getHotTrendBooks` - 대출 급상승 도서 조회
-- `getRecommendedBooks` - 추천 도서 조회
-- `checkBookExists` - 도서 소장 여부 확인
-
-**InternalBookTools** (@Tool 기반, 3개 메서드):
-- `searchInternalBooks` - 내부 DB 하이브리드 검색
-- `getReviews` - 리뷰 조회
-- `checkLoanAvailability` - 대출 가능 여부 조회
-
-**ToolBasedAiOrchestrationService**:
-- @Tool 기반 오케스트레이션 서비스
-- `FunctionToolCallback.builder()` 방식 → `@Tool` 애노테이션 방식으로 전환
-- `.defaultTools()`로 도구 자동 등록
-
----
-
-### Step 8 — 워크플로우 자동화: n8n 연동 (보너스)
-
-#### 주요 흐름
-
-* [Step 8 개요](step-8/README.md)
-* [01. n8n 워크플로우 자동화 연동](step-8/01.n8n-integration.md)
-
-#### 학습 포인트
-
-* 노드 기반 워크플로우 자동화
-* Spring AI API와 외부 서비스(Slack 등) 연동
-
----
-
-## 6. MCP 확장 아이디어
-
-Step 7에서 구현한 `@Tool` 도구는 MCP(Model Context Protocol) 서버로 노출하여 외부 AI 클라이언트에서도 활용할 수 있습니다.
-
-* 벡터 검색 MCP
-* 외부 도서 정보 보강 MCP
-* 신규 도서 등록 MCP
-* 임베딩 배치 트리거 MCP
-* 검색 전략 선택 MCP
-
----
-
-## 7. 이 프로젝트로 배울 수 있는 것
-
-* AI 백엔드 시스템 설계 사고방식
-* RAG 실전 적용 구조
-* 벡터 검색과 임베딩 이해
-* AI 성능·비용 튜닝 포인트
-* Tool(MCP) 기반 도구 사용 패턴
-* Spring 기반 서비스에 AI 통합
-* 대화형 UI 구현 능력
-
----
-
-## 8. 최종 요약
-
-> 이 프로젝트는 공공 데이터를 출발점으로,
-> 검색 시스템이 어떻게 AI 시스템으로 진화하는지를
-> 데이터 → 의미 → 생성 → 판단 → 도구 활용의 흐름으로 경험하는 실습형 AI 백엔드 시나리오입니다.
+## 학습 방법
+
+번호가 붙은 문서는 모두 같은 순서로 구성되어 있습니다.
+
+| 섹션 | 하는 일 |
+|---|---|
+| 왜 필요한가 | 이전 단계의 한계를 실제 예시로 확인합니다. |
+| 핵심 개념 | 비유 → 정의 → 그림 순서로 개념을 잡습니다. |
+| 따라 하기 | 실제 소스 코드를 단계별로 구현하고 실행 결과를 확인합니다. |
+| 직접 해 보기 | 기본·도전 미션을 풉니다. 정답은 접어 두었습니다. |
+| 자주 하는 실수 | 증상 → 원인 → 해결 순서로 막히는 지점을 정리했습니다. |
+| 정리 · 확인 문제 | 핵심을 요약하고 스스로 점검합니다. |
+
+권장 순서는 다음과 같습니다.
+
+1. 각 단계의 README(개요)를 먼저 읽고 "이 단계를 마치면" 체크리스트를 확인합니다.
+2. 번호 순서대로 문서를 읽으며 따라 하기를 직접 실행합니다. 코드를 복사하기보다 직접 입력하고 로그를 확인하는 편이 훨씬 오래 남습니다.
+3. 확인 문제를 풀고, 실제 소스(`src/main/java/net/java21/library/...`)와 비교해 봅니다.
+
+## 커리큘럼
+
+| 단계 | 주제 | 핵심 개념 | 예상 시간 |
+|---|---|---|---|
+| [Step 0](step-0/README.md) | 시작하기 전에 | LLM, 토큰, 임베딩, RAG, Tool Calling, 개발 환경 | 3시간 |
+| [Step 1](step-1/README.md) | 데이터 구축과 전통적 검색 | 이벤트 기반 배치 적재, QueryDSL, 인덱스, 전문 검색 | 8시간 |
+| [Step 2](step-2/README.md) | 벡터 검색 | 임베딩, pgvector, 코사인 유사도, RRF 하이브리드 검색 | 8시간 |
+| [Step 3](step-3/README.md) | RAG | 환각, 컨텍스트 구성, ChatClient, 프롬프트 | 6시간 |
+| [Step 4](step-4/README.md) | 성능 최적화와 리뷰 시스템 | 토큰 비용, Top-K, 시맨틱 캐시, Map-Reduce 요약, RabbitMQ | 8.5시간 |
+| [Step 5](step-5/README.md) | Telegram Bot과 피드백 | Bot API, Callback, 피드백 데이터 설계 | 9.5시간 |
+| [Step 6](step-6/README.md) | 개인화 추천 | 사용자 선호 벡터, 재정렬, 콜드 스타트, 캐시 | 7시간 |
+| [Step 7](step-7/README.md) | Tool Calling 도서관 도우미 | Function Calling, `@Tool`, MCP, 외부 API 연동 | 13시간 |
+| [Step 8](step-8/README.md) | n8n 워크플로우 자동화 (보너스) | 노드 기반 자동화, Webhook | 4시간 |
+
+한 학기(15주) 수업이라면 Step 0~1을 2주, Step 2~6을 각 1~2주, Step 7을 2주, 남은 기간을 개인 프로젝트로 배분하는 구성을 권장합니다.
+
+## 전체 문서 목록
+
+### Step 0. 시작하기 전에
+- [01. AI 백엔드 개발을 위한 기초 개념](step-0/01.ai-basics.md)
+- [02. 개발 환경 준비](step-0/02.environment-setup.md)
+
+### Step 1. 데이터 구축과 전통적 검색
+- [01. 데이터 적재: 공공 도서 CSV 배치 적재](step-1/01.csv-batch-load.md)
+- [02. 기본 검색: LIKE 기반 동적 쿼리 구현](step-1/02.basic-search-implementation.md)
+- [03. 검색 UI: Thymeleaf와 Tabler 기반 화면 구축](step-1/03.search-ui.md)
+- [04. 성능 최적화: 인덱싱과 전문 검색](step-1/04.search-optimization.md)
+
+### Step 2. 벡터 검색
+- [01. 키워드 검색의 한계 체감하기](step-2/01.search-quality-limitations.md)
+- [02. pgvector 설정](step-2/02.pgvector-setup.md)
+- [03. 임베딩 생성 배치](step-2/03.embedding-generation.md)
+- [04. 자연어 검색](step-2/04.natural-language-search.md)
+- [05. 하이브리드 검색](step-2/05.hybrid-search.md)
+
+### Step 3. RAG
+- [01. RAG 이해: LLM의 환각을 검색으로 막기](step-3/01.understanding-rag.md)
+- [02. 컨텍스트 구축: 검색 결과를 LLM이 읽는 글로 바꾸기](step-3/02.context-construction.md)
+- [03. LLM 연동: ChatClient로 호출하고 응답 처리하기](step-3/03.llm-integration.md)
+
+### Step 4. 성능 최적화와 리뷰 시스템
+- [01. 성능과 비용](step-4/01.performance-cost.md)
+- [02. Top-K 최적화](step-4/02.topk-optimization.md)
+- [03. 시맨틱 캐싱](step-4/03.semantic-caching.md)
+- [04. 리뷰 요약 시스템](step-4/04.review-summarization.md)
+- [05. 리뷰 RAG 연동](step-4/05.review-rag-integration.md)
+
+### Step 5. Telegram Bot과 사용자 피드백 수집
+- [01. Telegram Bot 설정](step-5/01.telegram-bot-setup.md)
+- [02. Telegram으로 RAG 검색하기](step-5/02.rag-search-via-telegram.md)
+- [03. 피드백 데이터 계층 설계](step-5/03.feedback-entity-repository.md)
+- [04. 피드백 버튼과 Callback 처리](step-5/04.feedback-ui-callback-handler.md)
+- [05. 피드백 루프 완성: 관리자 API와 검색 연동](step-5/05.feedback-search-integration.md)
+- [06. 피드백 기반 검색 개선 설계](step-5/06.llm-prompt-guidelines.md)
+
+### Step 6. 피드백 기반 개인화 추천
+- [01. 취향을 벡터로 표현하기](step-6/01.vector-embedding-basics.md)
+- [02. 사용자 선호 벡터 계산하기](step-6/02.user-preference-vector.md)
+- [03. 검색 결과 개인화 재정렬](step-6/03.personalized-ranking.md)
+- [04. 콜드 스타트와 최적화](step-6/04.cold-start-and-optimization.md)
+- [05. 전체 흐름 복습: 개인화 검색 한눈에 보기](step-6/05.integration-guide.md)
+
+### Step 7. Tool Calling으로 만드는 도서관 도우미 AI
+- [00. Tool Calling, MCP, Agent, A2A 이론](step-7/00.theory.md)
+- [01. 개요 및 시나리오](step-7/01.overview.md)
+- [02. 단일 Function 구현: 도서 검색](step-7/02.single-function.md)
+- [03. 복수 Function 조합: 검색 + 리뷰](step-7/03.multiple-functions.md)
+- [04. 외부 API 연동: 대출 가능 도서관 조회](step-7/04.external-api.md)
+- [05. @Tool 애노테이션 방식](step-7/05.tool-annotation.md)
+- [06. 실습 가이드](step-7/06.practice-guide.md)
+- 부록: [A2A 구현 가능성 분석](step-7/A2A_FEASIBILITY_ANALYSIS.md) · [행정구역 코드 목록](step-7/region-codes.md) · [도서관 정보나루 API 매뉴얼](step-7/도서관정보나루_API_Manual.md)
+
+### Step 8. n8n 워크플로우 자동화 (보너스)
+- [01. n8n 워크플로우 자동화 연동](step-8/01.n8n-integration.md)
+
+### 참고
+- [용어집](glossary.md)
+- [문서 작성 템플릿](TEMPLATE.md)
+
+## 실습 환경 요약
+
+- Java 21, Spring Boot 3.5, Spring AI 1.1.2, Maven
+- PostgreSQL + pgvector (Docker로 실행 가능)
+- LLM: Google Gemini 또는 Ollama, 임베딩: BGE-M3
+- DB를 쓰는 테스트는 Testcontainers가 일회용 컨테이너를 띄우므로 Docker가 실행 중이어야 합니다.
+
+자세한 준비 과정은 [Step 0. 개발 환경 준비](step-0/02.environment-setup.md)를 따릅니다.

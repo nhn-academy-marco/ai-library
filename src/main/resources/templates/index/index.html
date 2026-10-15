@@ -150,19 +150,24 @@
         </div>
     </section>
 
+    <!-- 의미 검색을 할 수 없어 키워드 검색으로 대체한 경우 -->
+    <div th:if="${keywordFallback == true}" class="alert alert-warning app-fallback-notice" role="status">
+        의미 검색(임베딩) 서버에 연결할 수 없어 키워드 검색 결과를 대신 보여 드립니다. 잠시 후 다시 시도해 주세요.
+    </div>
+
     <!-- 목록 헤더 -->
     <div class="app-list-header">
         <div>
             <h2 class="app-list-title" th:text="${browseMode} ? '둘러보기' : '검색 결과'">둘러보기</h2>
             <div class="app-list-meta" th:if="${page != null}">
-                <th:block th:if="${rankedResult}">
+                <th:block th:if="${rankedResult == true && keywordFallback != true}">
                     <span class="app-ranked-note" data-bs-toggle="tooltip"
                           th:title="${isRag} ? '하이브리드 검색 상위 후보 중 AI가 관련 있다고 판단한 도서만 보여 줍니다.' : '키워드·의미 검색 상위 후보를 RRF로 합친 결과만 보여 줍니다. 전체 결과가 필요하면 키워드 검색을 사용하세요.'">
                         <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 9h.01"/><path d="M11 12h1v4h1"/></svg>
                         <span th:text="'관련도 상위 ' + ${page.totalElements} + '건'">관련도 상위 20건</span>
                     </span>
                 </th:block>
-                <th:block th:unless="${rankedResult}">
+                <th:block th:unless="${rankedResult == true && keywordFallback != true}">
                     총 <strong th:text="${#numbers.formatInteger(page.totalElements, 1, 'COMMA')}">0</strong>권
                 </th:block>
                 <span th:if="${searchTime != null && !hasAi}" class="ms-2" th:text="'· ' + ${searchTime} + 's'">· 0.5s</span>
@@ -210,7 +215,7 @@
     </div>
 
     <!-- 페이징: RAG는 AI가 고른 소수의 결과만 보여 주므로 페이지를 나누지 않습니다 -->
-    <th:block th:if="${browseMode == true || !isRag}">
+    <th:block th:if="${browseMode == true || !isRag || keywordFallback == true}">
         <div th:replace="~{fragments/pagination :: pagination(${page}, '/', ${request}, ${browseMode}, ${sort})}"></div>
     </th:block>
 

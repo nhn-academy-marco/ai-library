@@ -97,6 +97,7 @@ public class BookSearchController {
             BookSearchResult searchResult = bookSearchService.searchBooks(pageRequest, bookSearchRequest);
             books = searchResult.getBooks();
             model.addAttribute("aiRecommendations", searchResult.getAiResponse());
+            model.addAttribute("keywordFallback", searchResult.isKeywordFallback());
             model.addAttribute("searchTime", (System.currentTimeMillis() - startTime) / 1000.0);
         }
 

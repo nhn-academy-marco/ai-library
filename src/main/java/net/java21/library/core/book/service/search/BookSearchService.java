@@ -67,7 +67,16 @@ public class BookSearchService {
     public BookSearchResult searchBooks(Pageable pageable, BookSearchRequest request) {
         log.info("Searching books with request: {}, pageable: {}", request, pageable);
 
-        request = ensureEmbedding(request);
+        try {
+            request = ensureEmbedding(request);
+        } catch (RuntimeException e) {
+            // 임베딩 서버에 연결할 수 없으면 의미·하이브리드·RAG 검색이 모두 불가능하므로
+            // 오류 화면 대신 키워드 검색 결과로 대체합니다.
+            log.warn("Embedding unavailable for '{}'. Falling back to keyword search: {}", request.keyword(), e.getMessage());
+            BookSearchRequest keywordRequest = new BookSearchRequest(
+                    request.keyword(), request.isbn(), SearchType.KEYWORD, null, request.isWarmUp());
+            return BookSearchResult.keywordFallback(keywordSearchStrategy.search(pageable, keywordRequest).getBooks());
+        }
 
         SearchStrategy strategy = selectStrategy(request.searchType());
         return strategy.search(pageable, request);
