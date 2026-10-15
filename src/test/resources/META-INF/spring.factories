@@ -1,0 +1,2 @@
+# 모든 Spring Context 테스트에 일회용 컨테이너(PostgreSQL+pgvector, RabbitMQ)를 연결
+org.springframework.context.ApplicationContextInitializer=net.java21.library.support.TestcontainersInitializer

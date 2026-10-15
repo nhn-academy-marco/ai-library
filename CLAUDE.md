@@ -6,8 +6,8 @@
 
 - Java 21, Spring Boot 3.5, Spring AI 1.1.2, Maven (wrapper 없음 → `mvn` 사용)
 - 빌드: `mvn -q clean compile test-compile` (QueryDSL Q클래스가 `target/generated-sources`에 생성되므로 패키지 변경 후에는 `clean` 필요)
-- 테스트: `mvn test -Dtest='클래스명,...'`처럼 대상을 지정해 실행합니다.
-- 주의: `src/test/resources/application.properties`는 원격 개발 DB에 `ddl-auto=create-drop`으로 연결됩니다. `@SpringBootTest` 전체 컨텍스트 테스트(예: `AiLibraryApplicationTests`)는 DB 스키마를 지울 수 있으므로 명시적 요청 없이 실행하지 않습니다.
+- 테스트: `mvn test` 또는 `mvn test -Dtest='클래스명,...'`. LLM(Gemini/Ollama)·외부 API를 실제로 호출하는 테스트는 키와 네트워크가 있어야 통과합니다.
+- DB·RabbitMQ를 쓰는 Spring Context 테스트는 Testcontainers로 일회용 컨테이너(pgvector/pgvector:pg16, rabbitmq:3.13)에 연결됩니다. `support/TestcontainersInitializer`가 `src/test/resources/META-INF/spring.factories`로 모든 `@SpringBootTest`에 자동 적용되므로 Docker가 실행 중이어야 합니다. 테스트 설정에 원격 DB·운영 RabbitMQ 주소를 넣지 않습니다(2026-10-15 원격 `library_dev` 스키마가 `create-drop` 테스트로 지워진 사고가 있었음).
 - 실제 외부 API를 호출하는 테스트(`LibraryInfoNaruApiCallTest`)는 `LIBRARY_API_KEY`가 있어야 통과합니다.
 
 ## 비밀값
