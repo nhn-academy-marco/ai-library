@@ -47,4 +47,17 @@ class ReviewEventListenerTest {
         verify(reviewService).updateReviewSummary(bookId);
         verifyNoMoreInteractions(reviewService);
     }
+
+    @Test
+    @DisplayName("통계 갱신이 낙관적 락으로 충돌하면 다시 시도한다")
+    void retriesOnOptimisticLockConflict() {
+        Long bookId = 1L;
+        org.mockito.Mockito.doThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException("BookReviewSummary", bookId))
+                .doNothing()
+                .when(reviewService).updateReviewSummary(bookId);
+
+        reviewEventListener.handleReviewCreatedEvent(new ReviewCreatedEvent(bookId));
+
+        verify(reviewService, org.mockito.Mockito.times(2)).updateReviewSummary(bookId);
+    }
 }

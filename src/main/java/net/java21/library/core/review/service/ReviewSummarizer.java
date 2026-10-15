@@ -18,6 +18,25 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ReviewSummarizer {
 
+    /**
+     * 모든 요약 프롬프트가 공유하는 출력 형식.
+     * 화면은 ReviewSummaryFormatter로 이 네 항목을 나눠 표시하므로 형식을 바꾸면 함께 수정해야 합니다.
+     */
+    private static final String OUTPUT_FORMAT = """
+            [출력 형식]
+            아래 네 줄만 출력하세요. 각 줄은 항목 이름으로 시작하고 1~2문장으로 작성합니다.
+            [장점] ...
+            [단점] ...
+            [추천 대상] ...
+            [총평] ...
+
+            [규칙]
+            - 인사말, 서두("물론입니다", "작성해 드리겠습니다" 등), 제목을 쓰지 마세요.
+            - Markdown 기호(**, #, -, *)를 쓰지 마세요. 일반 텍스트만 출력하세요.
+            - 리뷰에 근거가 없는 내용은 쓰지 마세요. 해당 항목에 근거가 없으면 "리뷰에서 언급이 없습니다."라고 쓰세요.
+            - 공손한 합니다체(~입니다, ~합니다)를 사용하세요.
+            """;
+
     @Value("${app.review.map-chunk-size:10}")
     private int mapChunkSize;
 
@@ -44,14 +63,14 @@ public class ReviewSummarizer {
         for (int i = 0; i < chunks.size(); i++) {
             log.info("Map step: processing chunk {}/{}", i + 1, chunks.size());
             String mapPrompt = createMapPrompt(chunks.get(i));
-            String summary = chatModel.call(mapPrompt);
+            String summary = ReviewSummaryFormatter.clean(chatModel.call(mapPrompt));
             partialSummaries.add(summary);
         }
 
         // 2. Reduce 단계: 부분 요약들을 합쳐 최종 요약 생성
         log.info("Reduce step: combining {} partial summaries.", partialSummaries.size());
         String reducePrompt = createReducePrompt(partialSummaries);
-        String finalSummary = chatModel.call(reducePrompt);
+        String finalSummary = ReviewSummaryFormatter.clean(chatModel.call(reducePrompt));
 
         log.info("Successfully generated final review summary.");
         return finalSummary;
@@ -79,14 +98,14 @@ public class ReviewSummarizer {
         for (int i = 0; i < chunks.size(); i++) {
             log.info("Map step: processing new reviews chunk {}/{}", i + 1, chunks.size());
             String mapPrompt = createMapPrompt(chunks.get(i));
-            String summary = chatModel.call(mapPrompt);
+            String summary = ReviewSummaryFormatter.clean(chatModel.call(mapPrompt));
             partialSummaries.add(summary);
         }
 
         // 2. 기존 요약과 새 리뷰 요약본들을 병합
         log.info("Reduce step: merging existing summary with {} new partial summaries.", partialSummaries.size());
         String mergePrompt = createMergePrompt(existingSummary, partialSummaries);
-        String finalSummary = chatModel.call(mergePrompt);
+        String finalSummary = ReviewSummaryFormatter.clean(chatModel.call(mergePrompt));
 
         log.info("Successfully generated incremental summary.");
         return finalSummary;
@@ -111,11 +130,11 @@ public class ReviewSummarizer {
             [새로운 리뷰 요약본]
             %s
 
-            위 두 내용을 통합해서 전체 리뷰를 종합한 '최종 요약'을 작성해주세요.
-            기존 요약의 핵심 내용은 유지하면서, 새로운 정보를 추가해주세요.
-            항상 [장점], [단점], [총평]의 형식을 유지하여 답변하세요.
-            답변은 반드시 공손하고 친절한 어조(~입니다, ~하세요)를 사용하세요.
-            """, existingSummary != null ? existingSummary : "없음", newSummaries.toString());
+            위 두 내용을 통합해서 전체 리뷰를 종합한 요약을 작성하세요.
+            기존 요약의 핵심 내용은 유지하면서, 새로운 정보를 추가하세요.
+
+            %s
+            """, existingSummary != null ? existingSummary : "없음", newSummaries.toString(), OUTPUT_FORMAT);
     }
 
     private String createMapPrompt(List<String> reviews) {
@@ -126,11 +145,13 @@ public class ReviewSummarizer {
 
         return String.format("""
             다음은 특정 도서에 대한 독자 리뷰들입니다.
-            이 리뷰들에서 공통적으로 언급되는 [장점], [단점], [추천대상]을 각각 한 문장씩 요약하세요.
+            이 리뷰들에서 공통적으로 언급되는 내용을 요약하세요.
+
+            %s
 
             리뷰 리스트:
             %s
-            """, sb.toString());
+            """, OUTPUT_FORMAT, sb.toString());
     }
 
     private String createReducePrompt(List<String> partialSummaries) {
@@ -141,13 +162,13 @@ public class ReviewSummarizer {
 
         return String.format("""
             다음은 도서 리뷰들을 부분적으로 요약한 내용들입니다.
-            이 내용들을 종합하여 사용자가 이 책을 살지 말지 결정하는 데 도움이 되는 '최종 평판 요약'을 작성하세요.
-            항상 [장점], [단점], [총평]의 형식을 유지하여 답변하세요.
-            답변은 반드시 공손하고 친절한 어조(~입니다, ~하세요)를 사용하세요.
+            이 내용들을 종합하여 사용자가 이 책을 살지 말지 결정하는 데 도움이 되는 평판 요약을 작성하세요.
+
+            %s
 
             요약 데이터:
             %s
-            """, sb.toString());
+            """, OUTPUT_FORMAT, sb.toString());
     }
 
     public int getReduceThreshold() {

@@ -88,6 +88,31 @@ public class BookReviewSummary {
         this.rating5Count = rating5Count;
         this.lastReviewedAt = lastReviewedAt;
         this.updatedAt = LocalDateTime.now();
+        // 아직 요약에 반영되지 않은 리뷰가 있으면 다음 요약 대상으로 표시
+        if (reviewCount != null && reviewCount > currentLastSummarizedCount()) {
+            this.isSummaryDirty = true;
+        }
+    }
+
+    /**
+     * 요약 생성 결과를 반영하고 생성 중 표시를 해제합니다.
+     *
+     * <p>LLM 호출 중에 새 리뷰가 등록되었을 수 있으므로, 요약에 사용한 리뷰 수보다 현재 리뷰 수가 많으면
+     * 다음 요약 대상으로 남겨 둡니다.</p>
+     *
+     * @param summary          생성된 요약
+     * @param summarizedCount  요약에 사용한 리뷰 수
+     */
+    public void completeSummary(String summary, long summarizedCount) {
+        this.reviewSummary = summary;
+        this.lastSummarizedCount = summarizedCount;
+        this.isGenerating = false;
+        this.isSummaryDirty = this.reviewCount != null && this.reviewCount > summarizedCount;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    private long currentLastSummarizedCount() {
+        return lastSummarizedCount == null ? 0L : lastSummarizedCount;
     }
 
     public void updateSummary(String summary) {
