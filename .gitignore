@@ -40,3 +40,6 @@ build/
 
 ### Secrets ###
 secrets.properties
+
+### macOS ###
+.DS_Store
