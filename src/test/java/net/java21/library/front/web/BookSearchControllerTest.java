@@ -96,6 +96,25 @@ class BookSearchControllerTest {
     }
 
     @Test
+    @DisplayName("RAG: 하이브리드 목록 전체와 AI 추천 생성 중(aiPending) 상태를 모델에 담는다")
+    void index_rag_addsListAndPendingState() {
+        BookSearchRequest request = new BookSearchRequest("위로", null, SearchType.RAG, null);
+        List<BookSearchResponse> content = java.util.stream.LongStream.rangeClosed(1, PAGE_SIZE)
+                .mapToObj(i -> new BookSearchResponse(i, null, "책" + i, null, null, null, null, null, null, null))
+                .toList();
+        Page<BookSearchResponse> page = new PageImpl<>(content, PageRequest.of(0, PAGE_SIZE), 30);
+        when(bookSearchService.searchBooks(any(), eq(request)))
+                .thenReturn(new BookSearchResult(page, List.of(), 0L, false, true));
+
+        index(request, null, PageRequest.of(0, PAGE_SIZE));
+
+        assertThat((List<?>) model.getAttribute("books")).hasSize(PAGE_SIZE);
+        assertThat(((Page<?>) model.getAttribute("page")).getTotalElements()).isEqualTo(30);
+        assertThat(model.getAttribute("aiPending")).isEqualTo(true);
+        assertThat(model.getAttribute("aiRecommendations")).isEqualTo(List.of());
+    }
+
+    @Test
     @DisplayName("상세: 리뷰 요약을 정리한 텍스트와 항목 목록을 모델에 담는다")
     void view_addsCleanedSummaryAndSections() {
         BookViewResponse book = new BookViewResponse(1L, null, "제목", null, null, null,

@@ -3,6 +3,7 @@ package net.java21.library.core.book.service.search;
 import net.java21.library.core.book.domain.BrowseSort;
 
 import net.java21.library.core.book.domain.SearchType;
+import net.java21.library.core.book.dto.BookAiRecommendationResponse;
 import net.java21.library.core.book.dto.BookSearchRequest;
 import net.java21.library.core.book.dto.BookSearchResponse;
 import net.java21.library.core.book.dto.BookSearchResult;
@@ -38,11 +39,14 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 도서 검색 서비스
+ *
+ * <p>검색({@link #searchBooks})은 트랜잭션을 열지 않습니다. 트랜잭션은 DB를 실제로 조회하는 전략이 필요한 범위만큼 엽니다
+ * (키워드·벡터 전략은 메서드 단위, 하이브리드는 후보 조회 스레드마다). 바깥에서 커넥션을 쥔 채 하이브리드 병렬 조회가
+ * 커넥션을 2개 더 빌리거나, RAG 웜업이 LLM 응답을 기다리는 동안 커넥션을 붙잡지 않게 하기 위해서입니다.</p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class BookSearchService {
 
     private final BookRepository bookRepository;
@@ -66,9 +70,14 @@ public class BookSearchService {
      * @param request  검색 조건
      * @return 페이징된 도서 검색 결과
      */
-    @Transactional(readOnly = true)
     public BookSearchResult searchBooks(Pageable pageable, BookSearchRequest request) {
         log.info("Searching books with request: {}, pageable: {}", request, pageable);
+
+        // RAG는 목록을 하이브리드 결과 캐시와 공유하고 시맨틱 캐시 웜업에도 검색어를 넘기므로 같은 규칙으로 정규화합니다.
+        if (request.searchType() == SearchType.RAG) {
+            request = new BookSearchRequest(SearchResultCache.normalizeKeyword(request.keyword()), request.isbn(),
+                    request.searchType(), request.vector(), request.isWarmUp());
+        }
 
         // 키워드·벡터·하이브리드는 짧은 TTL 결과 캐시를 먼저 확인 (성능용 보조, 결정성은 정렬 규칙이 보장)
         if (searchResultCache.isCacheable(pageable, request)) {
@@ -117,7 +126,6 @@ public class BookSearchService {
      * @param chatId   사용자 chatId (개인화용)
      * @return 페이징된 도서 검색 결과 (개인화된 순위)
      */
-    @Transactional(readOnly = true)
     public BookSearchResult searchBooks(Pageable pageable, BookSearchRequest request, Long chatId) {
         log.info("Searching books with personalization for chatId: {}", chatId);
 
@@ -139,6 +147,25 @@ public class BookSearchService {
             ),
             result.getAiResponse()
         );
+    }
+
+    /**
+     * RAG 검색의 AI 추천을 시맨틱 캐시에서 조회합니다. LLM을 호출하지 않습니다(화면 폴링용).
+     *
+     * <p>검색어 임베딩은 임베딩 캐시에서 가져오므로 검색 직후의 폴링은 임베딩 서버를 다시 부르지 않습니다.</p>
+     *
+     * @param keyword 검색어
+     * @return 준비된 AI 추천, 아직 생성 중이면 empty
+     * @throws RuntimeException 임베딩 서버에 연결할 수 없는 경우
+     */
+    public Optional<List<BookAiRecommendationResponse>> findCachedRecommendations(String keyword) {
+        String normalized = SearchResultCache.normalizeKeyword(keyword);
+        if (normalized == null) {
+            return Optional.empty();
+        }
+        float[] vector = embeddingService.getEmbedding(normalized);
+        return ragSearchStrategy.findCachedRecommendations(
+                new BookSearchRequest(normalized, null, SearchType.RAG, vector, false));
     }
 
     private SearchStrategy selectStrategy(SearchType searchType) {
@@ -173,6 +200,7 @@ public class BookSearchService {
      * @return 도서 상세 정보
      * @throws BookNotFoundException 도서를 찾을 수 없는 경우
      */
+    @Transactional(readOnly = true)
     public BookViewResponse getBook(Long id) {
         log.info("Fetching book details for id: {}", id);
         return bookRepository.findById(id)
@@ -203,6 +231,7 @@ public class BookSearchService {
      * @param bookId 도서 ID
      * @return 요약된 리뷰 텍스트
      */
+    @Transactional(readOnly = true)
     public String getReviewSummary(Long bookId) {
         log.info("Fetching review summary for book id: {}", bookId);
         
@@ -225,6 +254,7 @@ public class BookSearchService {
      * @param bookId 도서 ID
      * @return 리뷰 요약 정보 엔티티
      */
+    @Transactional(readOnly = true)
     public Optional<BookReviewSummary> getReviewSummaryEntity(Long bookId) {
         return bookReviewSummaryRepository.findById(bookId);
     }

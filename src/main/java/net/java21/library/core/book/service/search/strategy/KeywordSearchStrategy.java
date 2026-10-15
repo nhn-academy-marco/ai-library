@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
@@ -32,6 +33,7 @@ public class KeywordSearchStrategy implements SearchStrategy {
      * @return 검색된 도서 목록을 포함한 BookSearchResult
      */
     @Override
+    @Transactional(readOnly = true)
     public BookSearchResult search(Pageable pageable, BookSearchRequest request) {
         log.info("[KEYWORD_STRATEGY] Request: keyword={}, isbn={}", request.keyword(), request.isbn());
         

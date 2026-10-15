@@ -79,11 +79,32 @@ class BookSearchTemplateTest {
         vars.put("sorts", BrowseSort.values());
         vars.put("books", books);
         vars.put("page", page);
+        vars.put("aiModels", AiModelInfo.of("ollama", "qwen2.5:latest", "gemini-2.0-flash", "bge-m3"));
         return vars;
     }
 
+    private static List<BookSearchResponse> books(int count) {
+        return java.util.stream.IntStream.rangeClosed(1, count)
+                .mapToObj(i -> book(i, "하이브리드 결과 " + i))
+                .toList();
+    }
+
+    private static BookAiRecommendationResponse recommendation(BookSearchResponse book, int relevance, String why) {
+        BookAiRecommendationResponse rec = new BookAiRecommendationResponse();
+        rec.setId(book.getId());
+        rec.setRelevance(relevance);
+        rec.setWhy(why);
+        rec.applyBook(book);
+        rec.setRrfScore(0.0328);
+        return rec;
+    }
+
+    private static int countOccurrences(String html, String token) {
+        return html.split(java.util.regex.Pattern.quote(token), -1).length - 1;
+    }
+
     @Test
-    @DisplayName("둘러보기: 정렬 탭과 sort를 유지하는 페이지 링크, 레이아웃(로고·교재·출처)을 렌더링한다")
+    @DisplayName("둘러보기: 정렬 탭과 sort를 유지하는 페이지 링크, 레이아웃(로고·GitHub·출처)과 사용 모델 안내를 렌더링한다")
     void index_browseMode() {
         List<BookSearchResponse> books = List.of(book(1L, "첫 번째 책"), book(2L, "두 번째 책"));
         Page<BookSearchResponse> page = new PageImpl<>(books, PageRequest.of(0, PAGE_SIZE), TOTAL_BOOKS);
@@ -97,11 +118,15 @@ class BookSearchTemplateTest {
         assertThat(html).contains("총 <strong>1,000</strong>권");
         assertThat(html).contains("app-book-grid", "첫 번째 책", "출판사 정보 없음 · 2023", "리뷰 7", "4.5");
         // 기본 검색 방식은 RAG
-        assertThat(html).containsPattern("id=\"st-rag\" value=\"RAG\" checked=\"checked\"");
+        assertThat(html).containsPattern("id=\"st-rag\" value=\"RAG\"[^>]*checked=\"checked\"");
         assertThat(html).contains("AI Library", "/css/app.css",
-                "https://github.com/nhn-academy-marco/ai-library/tree/main/docs",
+                "href=\"https://github.com/nhn-academy-marco/ai-library\" class=\"app-nav-link\" target=\"_blank\" rel=\"noopener\" aria-label=\"GitHub 저장소\"",
+                "<span class=\"d-none d-sm-inline\">GitHub</span>",
                 "https://www.data4library.kr/", "Spring AI 1.1.2");
-        assertThat(html).doesNotContain("관련도 상위");
+        assertThat(html).doesNotContain("관련도 상위", "tree/main/docs", "교재", "Demo", "app-nav-link active");
+        // 사용 모델 안내: 세그먼트 아래 안내와 RAG·벡터 카드
+        assertThat(html).contains("AI 추천 모델: Ollama · qwen2.5:latest / 임베딩: bge-m3",
+                "LLM Ollama · qwen2.5:latest", "임베딩 bge-m3");
     }
 
     @Test
@@ -117,31 +142,84 @@ class BookSearchTemplateTest {
 
         assertThat(html).contains("검색 결과", "관련도 상위 150건");
         assertThat(html).contains("searchType=HYBRID");
-        assertThat(html).containsPattern("id=\"st-hybrid\" value=\"HYBRID\" checked=\"checked\"");
+        assertThat(html).containsPattern("id=\"st-hybrid\" value=\"HYBRID\"[^>]*checked=\"checked\"");
         assertThat(html).doesNotContain("리뷰 많은 순", "app-ai-panel");
     }
 
     @Test
-    @DisplayName("AI 추천 결과: 그라데이션 패널, 'AI 추천' 배지, JS가 채울 rec-* 요소를 렌더링하고 페이징은 숨긴다")
-    void index_ragWithAiRecommendations() {
-        List<BookSearchResponse> books = List.of(book(1L, "위로의 책"));
-        Page<BookSearchResponse> page = new PageImpl<>(books, PageRequest.of(0, 1), 1);
-        BookAiRecommendationResponse rec = new BookAiRecommendationResponse();
-        rec.setId(1L);
-        rec.setRelevance(92);
-        rec.setWhy("지친 마음을 다독이는 에세이입니다.");
-        rec.setRrfScore(0.0328);
+    @DisplayName("RAG 캐시 적중: AI 추천 패널(사유·연관성·모델) 아래에 하이브리드 결과 전체(30건 중 24건)와 페이징을 렌더링한다")
+    void index_ragCacheHit_showsPanelAndFullHybridList() {
+        List<BookSearchResponse> all = books(30);
+        List<BookSearchResponse> firstPage = all.subList(0, PAGE_SIZE);
+        Page<BookSearchResponse> page = new PageImpl<>(firstPage, PageRequest.of(0, PAGE_SIZE), all.size());
         Map<String, Object> vars = indexVars(new BookSearchRequest("위로", null, SearchType.RAG, null),
-                false, true, books, page);
-        vars.put("aiRecommendations", List.of(rec));
-        vars.put("searchTime", 2.1);
+                false, true, firstPage, page);
+        vars.put("aiRecommendations", List.of(recommendation(all.get(0), 92, "지친 마음을 다독이는 에세이입니다.")));
+        vars.put("aiPending", false);
+        vars.put("searchTime", 0.2);
 
         String html = render("index/index", vars);
 
         assertThat(html).contains("app-ai-panel", "AI 추천", "92%", "지친 마음을 다독이는 에세이입니다.", "RRF 0.0328");
-        assertThat(html).contains("id=\"rec-cover-1\"", "id=\"rec-title-1\"", "id=\"rec-publisher-1\"");
-        assertThat(html).contains("관련도 상위 1건");
-        assertThat(html).doesNotContain("class=\"pagination\"");
+        assertThat(html).contains("qwen2.5:latest로 생성", "data-pending=\"false\"");
+        assertThat(html).contains("id=\"rec-cover-1\"", "<strong id=\"rec-title-1\">하이브리드 결과 1</strong>", "id=\"rec-isbn-1\">979115675921<");
+        assertThat(html).doesNotContain("AI가 후보를 검토하고 있습니다");
+        assertThat(html).contains("관련도 상위 30건");
+        assertThat(countOccurrences(html, "class=\"app-book-card\"")).isEqualTo(PAGE_SIZE);
+        assertThat(html).contains("class=\"pagination\"", "page=1&amp;isbn=&amp;keyword=%EC%9C%84%EB%A1%9C&amp;searchType=RAG");
+    }
+
+    @Test
+    @DisplayName("RAG 캐시 미스: 목록과 함께 'AI가 후보를 검토하고 있습니다' 로딩 상태와 폴링 정보(data-*)를 렌더링한다")
+    void index_ragPending_showsLoadingPanel() {
+        List<BookSearchResponse> all = books(30);
+        Page<BookSearchResponse> page = new PageImpl<>(all.subList(0, PAGE_SIZE), PageRequest.of(0, PAGE_SIZE), all.size());
+        Map<String, Object> vars = indexVars(new BookSearchRequest("위로가 되는 책", null, SearchType.RAG, null),
+                false, true, all.subList(0, PAGE_SIZE), page);
+        vars.put("aiRecommendations", List.of());
+        vars.put("aiPending", true);
+
+        String html = render("index/index", vars);
+
+        assertThat(html).contains("id=\"ai-panel\"", "AI가 후보를 검토하고 있습니다",
+                "data-pending=\"true\"", "data-keyword=\"위로가 되는 책\"", "data-endpoint=\"/api/recommendations\"");
+        assertThat(html).contains("AI 추천을 불러오지 못했습니다", "POLL_TIMEOUT_MS = 90000");
+        assertThat(countOccurrences(html, "class=\"app-book-card\"")).isEqualTo(PAGE_SIZE);
+        assertThat(html).contains("class=\"pagination\"");
+    }
+
+    @Test
+    @DisplayName("RAG 2페이지: 하이브리드 목록의 2페이지와 이전 페이지 링크를 렌더링한다")
+    void index_ragSecondPage_showsPagination() {
+        List<BookSearchResponse> all = books(30);
+        List<BookSearchResponse> secondPage = all.subList(PAGE_SIZE, all.size());
+        Page<BookSearchResponse> page = new PageImpl<>(secondPage, PageRequest.of(1, PAGE_SIZE), all.size());
+        Map<String, Object> vars = indexVars(new BookSearchRequest("위로", null, SearchType.RAG, null),
+                false, true, secondPage, page);
+        vars.put("aiRecommendations", List.of(recommendation(all.get(0), 92, "사유")));
+
+        String html = render("index/index", vars);
+
+        assertThat(countOccurrences(html, "class=\"app-book-card\"")).isEqualTo(6);
+        assertThat(html).contains("class=\"pagination\"", "page=0&amp;isbn=&amp;keyword=%EC%9C%84%EB%A1%9C&amp;searchType=RAG");
+        // 추천 패널은 목록 페이지와 관계없이 도서 정보를 직접 갖고 있으므로 2페이지에서도 제목이 나옵니다.
+        assertThat(html).contains("<strong id=\"rec-title-1\">하이브리드 결과 1</strong>");
+    }
+
+    @Test
+    @DisplayName("RAG 추천 준비됨(빈 목록): 추천할 도서가 없다는 안내를 보여 준다")
+    void index_ragReadyWithoutRecommendations() {
+        List<BookSearchResponse> all = books(3);
+        Page<BookSearchResponse> page = new PageImpl<>(all, PageRequest.of(0, PAGE_SIZE), all.size());
+        Map<String, Object> vars = indexVars(new BookSearchRequest("위로", null, SearchType.RAG, null),
+                false, true, all, page);
+        vars.put("aiRecommendations", List.of());
+        vars.put("aiPending", false);
+
+        String html = render("index/index", vars);
+
+        assertThat(html).contains("app-ai-panel", "추천할 만한 도서를 찾지 못했습니다");
+        assertThat(html).doesNotContain("AI가 후보를 검토하고 있습니다");
     }
 
     private static Map<String, Object> detailVars(BookViewResponse book, String summary,

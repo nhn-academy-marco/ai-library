@@ -96,7 +96,9 @@ public class BookSearchController {
         } else {
             BookSearchResult searchResult = bookSearchService.searchBooks(pageRequest, bookSearchRequest);
             books = searchResult.getBooks();
+            // RAG: 추천이 시맨틱 캐시에 있으면 함께 보여 주고, 없으면(aiPending) 화면이 /api/recommendations를 폴링합니다.
             model.addAttribute("aiRecommendations", searchResult.getAiResponse());
+            model.addAttribute("aiPending", searchResult.isAiPending());
             model.addAttribute("keywordFallback", searchResult.isKeywordFallback());
             model.addAttribute("searchTime", (System.currentTimeMillis() - startTime) / 1000.0);
         }

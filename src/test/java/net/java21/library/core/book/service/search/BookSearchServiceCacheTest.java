@@ -123,4 +123,19 @@ class BookSearchServiceCacheTest {
 
         verify(ragSearchStrategy, times(2)).search(any(), any());
     }
+
+    @Test
+    @DisplayName("AI 추천 폴링 조회는 정규화한 검색어의 임베딩으로 RAG 시맨틱 캐시만 조회한다")
+    void findCachedRecommendations_normalizesKeyword() {
+        when(embeddingService.getEmbedding("spring boot")).thenReturn(new float[]{0.1f});
+        when(ragSearchStrategy.findCachedRecommendations(any())).thenReturn(java.util.Optional.empty());
+
+        assertThat(bookSearchService.findCachedRecommendations(" spring  boot ")).isEmpty();
+
+        ArgumentCaptor<BookSearchRequest> captor = ArgumentCaptor.forClass(BookSearchRequest.class);
+        verify(ragSearchStrategy).findCachedRecommendations(captor.capture());
+        assertThat(captor.getValue().keyword()).isEqualTo("spring boot");
+        assertThat(captor.getValue().searchType()).isEqualTo(SearchType.RAG);
+        assertThat(captor.getValue().vector()).isNotNull();
+    }
 }

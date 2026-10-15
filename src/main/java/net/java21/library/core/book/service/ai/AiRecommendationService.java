@@ -147,17 +147,19 @@ public class AiRecommendationService {
             String jsonPart = rawResponse.replaceAll("```json", "").replaceAll("```", "").trim();
             List<BookAiRecommendationResponse> recommendations = objectMapper.readValue(jsonPart, new TypeReference<List<BookAiRecommendationResponse>>() {});
             
-            // 검색된 도서 리스트에서 유사도 및 RRF 점수 매핑
+            // 후보 도서에서 점수와 표시용 도서 정보를 채웁니다.
+            // 후보에 없는 ID(LLM이 지어낸 ID)는 다른 도서로 연결되지 않도록 버립니다.
+            List<BookAiRecommendationResponse> matched = new ArrayList<>();
             for (BookAiRecommendationResponse rec : recommendations) {
                 books.stream()
-                        .filter(b -> b.getId().equals(rec.getId()))
+                        .filter(b -> b.getId() != null && b.getId().equals(rec.getId()))
                         .findFirst()
-                        .ifPresent(b -> {
-                            rec.setSimilarity(b.getSimilarity());
-                            rec.setRrfScore(b.getRrfScore());
-                        });
+                        .ifPresentOrElse(b -> {
+                            rec.applyBook(b);
+                            matched.add(rec);
+                        }, () -> log.warn("[AI 추천] 후보에 없는 도서 ID를 제외합니다: {}", rec.getId()));
             }
-            return recommendations;
+            return matched;
         } catch (Exception e) {
             log.error("Failed to parse AI response: {}", rawResponse, e);
             return List.of();

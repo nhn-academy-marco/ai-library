@@ -189,6 +189,11 @@ a:hover { color: var(--app-primary-dark); }
     color: var(--app-muted);
     font-size: 0.8125rem;
 }
+.app-model-hint {
+    margin: 0.25rem 0 0;
+    color: var(--app-muted);
+    font-size: 0.75rem;
+}
 
 /* 검색 방식 비교 카드 */
 .app-methods { margin: 1.5rem 0 0.5rem; }
@@ -482,6 +487,19 @@ a:hover { color: var(--app-primary-dark); }
     font-size: 0.8125rem;
     font-weight: 600;
 }
+.app-ai-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.app-ai-model { color: var(--app-muted); font-size: 0.75rem; }
+.app-ai-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem 1.25rem;
+    border-top: 1px solid var(--app-border);
+    color: var(--app-muted);
+}
+.app-ai-status .spinner-border { width: 1.25rem; height: 1.25rem; color: var(--app-primary); flex: 0 0 auto; }
+.app-ai-status strong { color: var(--app-text); font-weight: 600; }
+.app-ai-status-text { display: flex; flex-direction: column; gap: 0.125rem; font-size: 0.875rem; }
 @media (max-width: 575.98px) {
     .app-ai-item { flex-wrap: wrap; }
     .app-ai-scores { flex-basis: auto; flex-direction: row; flex-wrap: wrap; }

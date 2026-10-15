@@ -12,6 +12,7 @@
 |---|---|
 | 데모 | [https://library.java21.net/](https://library.java21.net/) |
 | 교재 | [docs/index.md](docs/index.md) — Step 0~8, 용어집 |
+| ERD | [데이터 모델 (Crowfoot)](https://crowfoot.java21.net/share/3LZoyyvhkS2CiMAAlvGNkN) |
 | 외부 데이터 | [도서관 정보나루 Open API](https://www.data4library.kr/) (전국 공공도서관 소장·대출 정보) |
 
 ## 한눈에 보기
@@ -34,6 +35,8 @@
 임베딩 서버에 연결할 수 없으면 의미·하이브리드·AI 추천 검색은 키워드 검색 결과로 대체하고 화면에 안내합니다.
 
 ## 아키텍처
+
+데이터 모델(테이블과 관계)은 [ERD](https://crowfoot.java21.net/share/3LZoyyvhkS2CiMAAlvGNkN)에서 볼 수 있습니다.
 
 ### 시스템 구성
 

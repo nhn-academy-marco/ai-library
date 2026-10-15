@@ -10,7 +10,10 @@
 <div layout:fragment="content"
      th:with="searchType=${request.searchType().name()},
               isRag=${request.searchType().name() == 'RAG'},
-              hasAi=${aiRecommendations != null && !aiRecommendations.isEmpty()}">
+              hasAi=${aiRecommendations != null && !aiRecommendations.isEmpty()},
+              aiPendingNow=${aiPending == true},
+              showAiPanel=${browseMode != true && (aiRecommendations != null && !aiRecommendations.isEmpty() || aiPending == true
+                            || (request.searchType().name() == 'RAG' && keywordFallback != true && aiRecommendations != null))}">
 
     <!-- 히어로: 한 줄 소개 + 검색창 + 검색 방식 -->
     <section class="app-hero" th:classappend="${browseMode} ? '' : 'app-hero-compact'">
@@ -33,28 +36,28 @@
             </div>
 
             <div class="app-segment" role="radiogroup" aria-label="검색 방식">
-                <input type="radio" class="btn-check" name="searchType" id="st-keyword" value="KEYWORD" th:checked="${searchType == 'KEYWORD'}">
+                <input type="radio" class="btn-check" name="searchType" id="st-keyword" value="KEYWORD" data-example="스프링 부트" th:checked="${searchType == 'KEYWORD'}">
                 <label class="app-segment-item" for="st-keyword" data-bs-toggle="tooltip" data-bs-placement="bottom"
                        title="제목·저자·출판사·소개에 들어 있는 단어로 찾습니다. 전체 결과를 페이지로 넘길 수 있습니다.">
                     <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7v-1a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1v1"/><path d="M9 20h6"/><path d="M12 5v15"/></svg>
                     키워드
                 </label>
 
-                <input type="radio" class="btn-check" name="searchType" id="st-vector" value="VECTOR" th:checked="${searchType == 'VECTOR'}">
+                <input type="radio" class="btn-check" name="searchType" id="st-vector" value="VECTOR" data-example="자바와 스프링을 처음 배우는 사람을 위한 책" th:checked="${searchType == 'VECTOR'}">
                 <label class="app-segment-item" for="st-vector" data-bs-toggle="tooltip" data-bs-placement="bottom"
                        title="문장을 임베딩으로 바꿔 의미가 가까운 도서를 찾습니다.">
                     <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M18 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M18 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M7.5 7.5l9 9"/><path d="M8 6h8"/></svg>
                     의미(벡터)
                 </label>
 
-                <input type="radio" class="btn-check" name="searchType" id="st-hybrid" value="HYBRID" th:checked="${searchType == 'HYBRID'}">
+                <input type="radio" class="btn-check" name="searchType" id="st-hybrid" value="HYBRID" data-example="자바 스프링 기초" th:checked="${searchType == 'HYBRID'}">
                 <label class="app-segment-item" for="st-hybrid" data-bs-toggle="tooltip" data-bs-placement="bottom"
                        title="키워드 검색과 의미 검색의 순위를 RRF로 합쳐 상위 결과를 보여 줍니다.">
                     <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M7 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M7 8v8"/><path d="M8.5 7.5l6.5 3.5"/><path d="M8.5 16.5l6.5 -3.5"/></svg>
                     하이브리드
                 </label>
 
-                <input type="radio" class="btn-check" name="searchType" id="st-rag" value="RAG" th:checked="${searchType == 'RAG'}">
+                <input type="radio" class="btn-check" name="searchType" id="st-rag" value="RAG" data-example="java spring 기초도서 추천" th:checked="${searchType == 'RAG'}">
                 <label class="app-segment-item" for="st-rag" data-bs-toggle="tooltip" data-bs-placement="bottom"
                        title="하이브리드 검색 상위 후보를 AI가 검토해 추천 사유와 함께 골라 줍니다. (기본)">
                     <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm0 -12a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm-7 12a6 6 0 0 1 6 -6a6 6 0 0 1 -6 -6a6 6 0 0 1 -6 6a6 6 0 0 1 6 6z"/></svg>
@@ -62,6 +65,9 @@
                 </label>
             </div>
             <p class="app-segment-hint" id="search-type-hint" aria-live="polite"></p>
+            <p class="app-model-hint" id="rag-model-hint" th:if="${aiModels != null}"
+               th:attr="hidden=${searchType != 'RAG'} ? 'hidden' : null"
+               th:text="'AI 추천 모델: ' + ${aiModels.chatProvider} + ' · ' + ${aiModels.chatModel} + ' / 임베딩: ' + ${aiModels.embeddingModel}">AI 추천 모델: Ollama · qwen2.5:latest / 임베딩: bge-m3</p>
 
         </form>
     </section>
@@ -71,29 +77,29 @@
         <h2 class="app-list-title" id="methods-title">네 가지 검색 방식</h2>
         <p class="app-methods-lead">같은 질문도 검색 방식에 따라 결과가 달라집니다. 카드를 누르면 해당 방식과 예시 질문으로 검색창이 채워집니다.</p>
         <div class="app-methods-grid">
-            <button type="button" class="app-method-card" data-type="KEYWORD" data-example="토비의 스프링">
+            <button type="button" class="app-method-card" data-type="KEYWORD" data-example="스프링 부트">
                 <strong class="app-method-name">키워드 검색</strong>
                 <span class="app-method-how">제목·저자·출판사·소개에 들어 있는 단어를 PostgreSQL 전문 검색으로 찾습니다.</span>
                 <span class="app-method-good">잘 맞는 질문: 정확한 제목, 저자명</span>
                 <span class="app-method-meta"><span>AI 사용 안 함</span><span>전체 결과 페이징</span></span>
             </button>
-            <button type="button" class="app-method-card" data-type="VECTOR" data-example="마음이 지칠 때 위로가 되는 책">
+            <button type="button" class="app-method-card" data-type="VECTOR" data-example="자바와 스프링을 처음 배우는 사람을 위한 책">
                 <strong class="app-method-name">의미(벡터) 검색</strong>
                 <span class="app-method-how">문장을 BGE-M3 임베딩으로 바꾸고 pgvector에서 코사인 유사도가 가까운 도서를 찾습니다.</span>
                 <span class="app-method-good">잘 맞는 질문: 단어는 달라도 뜻이 같은 표현</span>
-                <span class="app-method-meta"><span>임베딩 모델 사용</span><span>유사도 순</span></span>
+                <span class="app-method-meta"><span th:text="${aiModels != null} ? '임베딩 ' + ${aiModels.embeddingModel} : '임베딩 모델 사용'">임베딩 모델 사용</span><span>유사도 순</span></span>
             </button>
-            <button type="button" class="app-method-card" data-type="HYBRID" data-example="자바 입문서">
+            <button type="button" class="app-method-card" data-type="HYBRID" data-example="자바 스프링 기초">
                 <strong class="app-method-name">하이브리드 검색</strong>
                 <span class="app-method-how">키워드 순위와 의미 순위를 RRF(Reciprocal Rank Fusion)로 합쳐 두 방식의 장점을 함께 씁니다.</span>
                 <span class="app-method-good">잘 맞는 질문: 키워드와 맥락이 섞인 질문</span>
                 <span class="app-method-meta"><span>임베딩 모델 사용</span><span>순위 결합(RRF)</span></span>
             </button>
-            <button type="button" class="app-method-card app-method-card-ai" data-type="RAG" data-example="개발 입문자에게 추천할 만한 스프링 책">
+            <button type="button" class="app-method-card app-method-card-ai" data-type="RAG" data-example="java spring 기초도서 추천">
                 <strong class="app-method-name">AI 추천 (RAG)</strong>
                 <span class="app-method-how">하이브리드 검색 상위 후보를 LLM이 읽고 질문에 맞는 책을 골라 추천 사유와 함께 보여 줍니다.</span>
                 <span class="app-method-good">잘 맞는 질문: "~한 사람에게 맞는 책" 같은 추천 요청</span>
-                <span class="app-method-meta"><span>LLM 사용</span><span>시맨틱 캐시</span></span>
+                <span class="app-method-meta"><span th:text="${aiModels != null} ? 'LLM ' + ${aiModels.chatProvider} + ' · ' + ${aiModels.chatModel} : 'LLM 사용'">LLM 사용</span><span>시맨틱 캐시</span></span>
             </button>
         </div>
     </section>
@@ -105,8 +111,11 @@
         <div class="text-muted small" id="loading-sub"></div>
     </div>
 
-    <!-- AI 추천 결과 -->
-    <section class="app-ai-panel" th:if="${hasAi}" aria-labelledby="ai-panel-title">
+    <!-- AI 추천 결과: 추천이 준비돼 있으면 바로 보여 주고, 생성 중이면(aiPending) JS가 /api/recommendations를 폴링해 채웁니다 -->
+    <section class="app-ai-panel" id="ai-panel" th:if="${showAiPanel}" aria-labelledby="ai-panel-title"
+             th:data-pending="${aiPendingNow}"
+             th:data-keyword="${request.keyword()}"
+             th:data-endpoint="@{/api/recommendations}">
         <div class="app-ai-header">
             <h2 class="app-ai-title" id="ai-panel-title">
                 <span class="app-ai-badge">
@@ -115,38 +124,60 @@
                 </span>
                 검색어에 맞춰 AI가 고른 도서
             </h2>
-            <span th:if="${searchTime != null}" class="app-badge" th:text="'소요 ' + ${searchTime} + 's'">소요 0.5s</span>
+            <span class="app-ai-meta">
+                <span th:if="${aiModels != null}" class="app-ai-model"
+                      th:text="${aiModels.chatModel} + '로 생성'">qwen2.5:latest로 생성</span>
+                <span th:if="${searchTime != null}" class="app-badge" th:text="'소요 ' + ${searchTime} + 's'">소요 0.5s</span>
+            </span>
         </div>
-        <div class="app-ai-legend">
+        <div class="app-ai-legend" id="ai-panel-legend" th:attr="hidden=${aiPendingNow} ? 'hidden' : null">
             <span class="app-badge app-badge-score" data-bs-toggle="tooltip" title="AI가 판단한 검색어와의 관련성 점수입니다.">연관성 %</span>
             <span class="app-badge" data-bs-toggle="tooltip" title="벡터 유사도: 검색어와 도서 내용의 의미가 얼마나 가까운지 나타냅니다.">일치율</span>
             <span class="app-badge" data-bs-toggle="tooltip" title="RRF(Reciprocal Rank Fusion): 키워드 검색과 벡터 검색 순위를 결합한 점수입니다.">RRF</span>
         </div>
-        <div th:each="rec : ${aiRecommendations}" class="app-ai-item">
-            <a th:href="@{/books/{id}(id=${rec.id})}" th:id="'rec-cover-' + ${rec.id}" class="app-ai-thumb" aria-label="도서 상세"></a>
-            <div class="app-ai-scores">
-                <span class="label">연관성</span>
-                <span class="app-ai-relevance" th:text="${rec.relevance != null ? rec.relevance + '%' : '-'}">90%</span>
-                <span th:if="${rec.similarity != null}" class="app-badge" th:text="${#numbers.formatPercent(rec.similarity, 1, 1)} + ' 일치'">95% 일치</span>
-                <span th:if="${rec.rrfScore != null}" class="app-badge" th:text="'RRF ' + ${#numbers.formatDecimal(rec.rrfScore, 1, 4)}">RRF 0.0333</span>
+        <div id="ai-panel-body" aria-live="polite">
+            <div th:if="${aiPendingNow}" class="app-ai-status" id="ai-panel-status" role="status">
+                <span class="spinner-border" aria-hidden="true"></span>
+                <span class="app-ai-status-text">
+                    <strong>AI가 후보를 검토하고 있습니다</strong>
+                    <span>아래 하이브리드 검색 결과를 먼저 보여 드리고, 추천이 준비되면 이 자리에 표시합니다. 처음 묻는 질문은 최대 1분 정도 걸릴 수 있으며, 같은 질문은 다음부터 바로 표시됩니다.</span>
+                </span>
             </div>
-            <div class="app-ai-body">
-                <a th:href="@{/books/{id}(id=${rec.id})}" class="text-reset">
-                    <strong th:id="'rec-title-' + ${rec.id}">도서 정보를 불러오는 중...</strong>
-                </a>
-                <p class="app-ai-why">
-                    <span class="app-ai-why-label">추천 사유</span>
-                    <span th:text="${!#strings.isEmpty(rec.why) ? rec.why : '추천 사유를 명확히 알 수 없습니다.'}">추천 사유</span>
-                </p>
-                <div class="small text-muted">
-                    <span class="me-2">출판사 <span th:id="'rec-publisher-' + ${rec.id}">-</span></span>
-                    <span class="me-2">출판일 <span th:id="'rec-date-' + ${rec.id}">-</span></span>
-                    <span>ISBN <span th:id="'rec-isbn-' + ${rec.id}">-</span></span>
+            <th:block th:unless="${aiPendingNow}">
+                <div th:each="rec : ${aiRecommendations}" class="app-ai-item">
+                    <a th:href="@{/books/{id}(id=${rec.id})}" th:id="'rec-cover-' + ${rec.id}" class="app-ai-thumb" aria-label="도서 상세">
+                        <th:block th:if="${rec.title != null}">
+                            <div th:replace="~{fragments/book-cover :: cover(${rec.title}, ${rec.authorName}, ${rec.imageUrl}, 'sm')}"></div>
+                        </th:block>
+                    </a>
+                    <div class="app-ai-scores">
+                        <span class="label">연관성</span>
+                        <span class="app-ai-relevance" th:text="${rec.relevance != null ? rec.relevance + '%' : '-'}">90%</span>
+                        <span th:if="${rec.similarity != null}" class="app-badge" th:text="${#numbers.formatPercent(rec.similarity, 1, 1)} + ' 일치'">95% 일치</span>
+                        <span th:if="${rec.rrfScore != null}" class="app-badge" th:text="'RRF ' + ${#numbers.formatDecimal(rec.rrfScore, 1, 4)}">RRF 0.0333</span>
+                    </div>
+                    <div class="app-ai-body">
+                        <a th:href="@{/books/{id}(id=${rec.id})}" class="text-reset">
+                            <strong th:id="'rec-title-' + ${rec.id}" th:text="${rec.title} ?: '도서 상세 보기'">도서 제목</strong>
+                        </a>
+                        <p class="app-ai-why">
+                            <span class="app-ai-why-label">추천 사유</span>
+                            <span th:text="${!#strings.isEmpty(rec.why) ? rec.why : '추천 사유를 명확히 알 수 없습니다.'}">추천 사유</span>
+                        </p>
+                        <div class="small text-muted">
+                            <span class="me-2">출판사 <span th:id="'rec-publisher-' + ${rec.id}" th:text="${rec.publisherName} ?: '-'">-</span></span>
+                            <span class="me-2">출판일 <span th:id="'rec-date-' + ${rec.id}" th:text="${rec.editionPublishDate} ?: '-'">-</span></span>
+                            <span>ISBN <span th:id="'rec-isbn-' + ${rec.id}" th:text="${rec.isbn} ?: '-'">-</span></span>
+                        </div>
+                    </div>
+                    <div class="app-ai-action">
+                        <a th:href="@{/books/{id}(id=${rec.id})}" class="btn btn-sm btn-outline-primary">상세보기</a>
+                    </div>
                 </div>
-            </div>
-            <div class="app-ai-action">
-                <a th:href="@{/books/{id}(id=${rec.id})}" class="btn btn-sm btn-outline-primary">상세보기</a>
-            </div>
+                <div th:if="${!hasAi}" class="app-ai-status" role="status">
+                    <span class="app-ai-status-text">AI가 검토한 후보 중 추천할 만한 도서를 찾지 못했습니다. 아래 검색 결과를 참고해 주세요.</span>
+                </div>
+            </th:block>
         </div>
     </section>
 
@@ -162,7 +193,7 @@
             <div class="app-list-meta" th:if="${page != null}">
                 <th:block th:if="${rankedResult == true && keywordFallback != true}">
                     <span class="app-ranked-note" data-bs-toggle="tooltip"
-                          th:title="${isRag} ? '하이브리드 검색 상위 후보 중 AI가 관련 있다고 판단한 도서만 보여 줍니다.' : '키워드·의미 검색 상위 후보를 RRF로 합친 결과만 보여 줍니다. 전체 결과가 필요하면 키워드 검색을 사용하세요.'">
+                          th:title="${isRag} ? '하이브리드 검색과 같은 결과입니다. 위 AI 추천은 이 중 상위 후보를 AI가 검토해 고른 도서입니다.' : '키워드·의미 검색 상위 후보를 RRF로 합친 결과만 보여 줍니다. 전체 결과가 필요하면 키워드 검색을 사용하세요.'">
                         <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 9h.01"/><path d="M11 12h1v4h1"/></svg>
                         <span th:text="'관련도 상위 ' + ${page.totalElements} + '건'">관련도 상위 20건</span>
                     </span>
@@ -170,7 +201,7 @@
                 <th:block th:unless="${rankedResult == true && keywordFallback != true}">
                     총 <strong th:text="${#numbers.formatInteger(page.totalElements, 1, 'COMMA')}">0</strong>권
                 </th:block>
-                <span th:if="${searchTime != null && !hasAi}" class="ms-2" th:text="'· ' + ${searchTime} + 's'">· 0.5s</span>
+                <span th:if="${searchTime != null && !showAiPanel}" class="ms-2" th:text="'· ' + ${searchTime} + 's'">· 0.5s</span>
             </div>
         </div>
         <nav th:if="${browseMode}" class="app-sort-tabs" aria-label="정렬">
@@ -214,44 +245,124 @@
         <th:block th:unless="${browseMode}">검색 결과가 없습니다. 다른 검색어나 검색 방식을 시도해 보세요.</th:block>
     </div>
 
-    <!-- 페이징: RAG는 AI가 고른 소수의 결과만 보여 주므로 페이지를 나누지 않습니다 -->
-    <th:block th:if="${browseMode == true || !isRag || keywordFallback == true}">
-        <div th:replace="~{fragments/pagination :: pagination(${page}, '/', ${request}, ${browseMode}, ${sort})}"></div>
-    </th:block>
+    <!-- 페이징: RAG도 아래 목록은 하이브리드 검색 결과 전체이므로 페이지를 나눕니다 -->
+    <div th:replace="~{fragments/pagination :: pagination(${page}, '/', ${request}, ${browseMode}, ${sort})}"></div>
 
     <script th:inline="javascript">
         document.addEventListener('DOMContentLoaded', function () {
-            const recommendations = /*[[${aiRecommendations}]]*/ [];
-            const books = /*[[${books}]]*/ [];
+            // AI 추천 폴링: 캐시 미스면 백그라운드에서 추천을 만드는 동안 짧은 간격으로 준비 여부를 확인합니다.
+            const POLL_INTERVAL_MS = 1500;
+            const POLL_TIMEOUT_MS = 90000; // 로컬 LLM(CPU)은 추천 생성에 30~60초가 걸릴 수 있어 넉넉히 기다립니다
+            const aiPanel = document.getElementById('ai-panel');
+            const aiPanelBody = document.getElementById('ai-panel-body');
 
-            if (recommendations && recommendations.length > 0) {
-                recommendations.forEach(rec => {
-                    const book = books.find(b => b.id === rec.id);
-                    if (!book) {
+            function el(tag, className, text) {
+                const node = document.createElement(tag);
+                if (className) node.className = className;
+                if (text !== undefined && text !== null) node.textContent = text;
+                return node;
+            }
+
+            function bookLink(id, className, child) {
+                const link = el('a', className);
+                link.href = '/books/' + encodeURIComponent(id);
+                if (child) link.appendChild(child);
+                return link;
+            }
+
+            function metaItem(label, value, last) {
+                const wrap = el('span', last ? '' : 'me-2', label + ' ');
+                wrap.appendChild(el('span', null, value || '-'));
+                return wrap;
+            }
+
+            function renderRecommendation(rec) {
+                const item = el('div', 'app-ai-item');
+
+                const thumb = bookLink(rec.id, 'app-ai-thumb');
+                thumb.id = 'rec-cover-' + rec.id;
+                thumb.setAttribute('aria-label', '도서 상세');
+                if (rec.title && window.BookCover) {
+                    BookCover.render(thumb, { title: rec.title, author: rec.authorName, imageUrl: rec.imageUrl, size: 'sm' });
+                }
+                item.appendChild(thumb);
+
+                const scores = el('div', 'app-ai-scores');
+                scores.appendChild(el('span', 'label', '연관성'));
+                scores.appendChild(el('span', 'app-ai-relevance', rec.relevance != null ? rec.relevance + '%' : '-'));
+                if (rec.similarity != null) {
+                    scores.appendChild(el('span', 'app-badge', (rec.similarity * 100).toFixed(1) + '% 일치'));
+                }
+                if (rec.rrfScore != null) {
+                    scores.appendChild(el('span', 'app-badge', 'RRF ' + Number(rec.rrfScore).toFixed(4)));
+                }
+                item.appendChild(scores);
+
+                const body = el('div', 'app-ai-body');
+                body.appendChild(bookLink(rec.id, 'text-reset', el('strong', null, rec.title || '도서 상세 보기')));
+                const why = el('p', 'app-ai-why');
+                why.appendChild(el('span', 'app-ai-why-label', '추천 사유'));
+                why.appendChild(el('span', null, rec.why ? rec.why : '추천 사유를 명확히 알 수 없습니다.'));
+                body.appendChild(why);
+                const meta = el('div', 'small text-muted');
+                meta.appendChild(metaItem('출판사', rec.publisherName));
+                meta.appendChild(metaItem('출판일', rec.editionPublishDate));
+                meta.appendChild(metaItem('ISBN', rec.isbn, true));
+                body.appendChild(meta);
+                item.appendChild(body);
+
+                const action = el('div', 'app-ai-action');
+                action.appendChild(bookLink(rec.id, 'btn btn-sm btn-outline-primary', document.createTextNode('상세보기')));
+                item.appendChild(action);
+                return item;
+            }
+
+            function showAiMessage(message) {
+                aiPanelBody.replaceChildren();
+                const status = el('div', 'app-ai-status');
+                status.setAttribute('role', 'status');
+                status.appendChild(el('span', 'app-ai-status-text', message));
+                aiPanelBody.appendChild(status);
+            }
+
+            function showRecommendations(recommendations) {
+                if (!recommendations.length) {
+                    showAiMessage('AI가 검토한 후보 중 추천할 만한 도서를 찾지 못했습니다. 아래 검색 결과를 참고해 주세요.');
+                    return;
+                }
+                aiPanelBody.replaceChildren();
+                recommendations.forEach(function (rec) { aiPanelBody.appendChild(renderRecommendation(rec)); });
+                const legend = document.getElementById('ai-panel-legend');
+                if (legend) legend.hidden = false;
+            }
+
+            if (aiPanel && aiPanelBody && aiPanel.dataset.pending === 'true' && aiPanel.dataset.keyword) {
+                const startedAt = Date.now();
+                const pollUrl = aiPanel.dataset.endpoint + '?keyword=' + encodeURIComponent(aiPanel.dataset.keyword);
+                const failMessage = 'AI 추천을 불러오지 못했습니다. 잠시 후 다시 검색해 주세요.';
+
+                const scheduleNext = function () {
+                    if (Date.now() - startedAt >= POLL_TIMEOUT_MS) {
+                        showAiMessage(failMessage);
                         return;
                     }
-                    const titleEl = document.getElementById('rec-title-' + rec.id);
-                    if (titleEl) titleEl.textContent = book.title;
-
-                    const publisherEl = document.getElementById('rec-publisher-' + rec.id);
-                    if (publisherEl) publisherEl.textContent = book.publisherName || '-';
-
-                    const dateEl = document.getElementById('rec-date-' + rec.id);
-                    if (dateEl) dateEl.textContent = book.editionPublishDate || '-';
-
-                    const isbnEl = document.getElementById('rec-isbn-' + rec.id);
-                    if (isbnEl) isbnEl.textContent = book.isbn || '-';
-
-                    const coverEl = document.getElementById('rec-cover-' + rec.id);
-                    if (coverEl && window.BookCover) {
-                        BookCover.render(coverEl, {
-                            title: book.title,
-                            author: book.authorName,
-                            imageUrl: book.imageUrl,
-                            size: 'sm'
-                        });
-                    }
-                });
+                    setTimeout(poll, POLL_INTERVAL_MS);
+                };
+                const poll = function () {
+                    fetch(pollUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' })
+                        .then(function (res) { return res.ok ? res.json() : null; })
+                        .then(function (data) {
+                            if (data && data.status === 'ready') {
+                                showRecommendations(data.recommendations || []);
+                            } else if (data && data.status === 'unavailable') {
+                                showAiMessage(failMessage);
+                            } else {
+                                scheduleNext();
+                            }
+                        })
+                        .catch(scheduleNext);
+                };
+                setTimeout(poll, POLL_INTERVAL_MS);
             }
 
             // 검색 방식 안내: 선택한 방식의 설명을 세그먼트 아래에 표시
@@ -260,8 +371,17 @@
             function updateSearchTypeHint() {
                 const checked = document.querySelector('input[name="searchType"]:checked');
                 const label = checked ? document.querySelector('label[for="' + checked.id + '"]') : null;
+                // 검색 방식에 맞는 예시 문장을 검색창 안내 문구로 보여 줍니다.
+                const keywordField = document.getElementById('keyword');
+                if (keywordField && checked && checked.dataset.example) {
+                    keywordField.placeholder = '예: ' + checked.dataset.example + ' (ISBN도 검색할 수 있습니다)';
+                }
                 if (hintEl && label) {
                     hintEl.textContent = label.getAttribute('title') || label.getAttribute('data-bs-original-title') || '';
+                }
+                const modelHint = document.getElementById('rag-model-hint');
+                if (modelHint) {
+                    modelHint.hidden = !(checked && checked.value === 'RAG');
                 }
             }
             typeRadios.forEach(function (radio) { radio.addEventListener('change', updateSearchTypeHint); });
@@ -292,11 +412,7 @@
                     if (!keyword) {
                         return;
                     }
-                    const selected = searchForm.querySelector('input[name="searchType"]:checked');
-                    if (selected && selected.value === 'RAG') {
-                        document.getElementById('loading-message').textContent = 'AI가 도서를 고르고 추천 사유를 작성하고 있습니다...';
-                        document.getElementById('loading-sub').textContent = '이 과정은 수 초가 걸릴 수 있습니다.';
-                    }
+                    // RAG도 목록을 먼저 보여 주고 AI 추천은 화면에서 이어서 채우므로 같은 안내를 씁니다.
                     document.getElementById('loading-overlay').style.display = 'flex';
                 });
             }
