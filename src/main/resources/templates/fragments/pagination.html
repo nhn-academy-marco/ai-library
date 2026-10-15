@@ -8,29 +8,34 @@
   공통 페이징 프래그먼트
   - page: org.springframework.data.domain.Page 객체
   - baseUrl: 이동할 베이스 URL (예: '/')
-  - requestParams: 검색 조건 등 쿼리 파라미터 맵 (예: ${request})
+  - request: 검색 조건 (BookSearchRequest)
+  - browse: true면 검색어 없는 둘러보기 → 정렬(sort)만 유지, false면 검색 조건(keyword, isbn, searchType)을 유지
+  - sort: 둘러보기 정렬 기준 (BrowseSort)
 -->
-<div th:fragment="pagination(page, baseUrl, request)" th:if="${page != null && page.totalPages > 0}" class="d-flex mt-4 justify-content-center">
+<div th:fragment="pagination(page, baseUrl, request, browse, sort)" th:if="${page != null && page.totalPages > 0}" class="d-flex mt-4 justify-content-center">
     <ul class="pagination">
         <!-- 이전 페이지 -->
         <li class="page-item" th:classappend="${!page.hasPrevious()} ? 'disabled'">
-            <a class="page-link" th:href="@{${baseUrl}(page=${page.number - 1}, isbn=${request.isbn()}, keyword=${request.keyword()}, searchType=${request.searchType()})}" tabindex="-1">
+            <a class="page-link" th:href="${browse} ? @{${baseUrl}(page=${page.number - 1}, sort=${sort})} : @{${baseUrl}(page=${page.number - 1}, isbn=${request.isbn()}, keyword=${request.keyword()}, searchType=${request.searchType()})}" tabindex="-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 6l-6 6l6 6" /></svg>
-                prev
+                <span class="d-none d-sm-inline">이전</span>
             </a>
         </li>
 
-        <!-- 페이지 번호 (10개 단위 블록) -->
-        <li th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
-            th:if="${i >= (page.number / 10) * 10 && i < (page.number / 10 + 1) * 10}"
-            class="page-item" th:classappend="${i == page.number} ? 'active'">
-            <a class="page-link" th:href="@{${baseUrl}(page=${i}, isbn=${request.isbn()}, keyword=${request.keyword()}, searchType=${request.searchType()})}" th:text="${i + 1}">1</a>
-        </li>
+        <!-- 페이지 번호 (10개 단위 블록, 전체 페이지가 많아도 현재 블록만 순회) -->
+        <th:block th:with="blockStart=${(page.number / 10) * 10}, blockEnd=${T(java.lang.Math).min(page.totalPages, (page.number / 10 + 1) * 10) - 1}">
+        <th:block th:if="${blockStart <= blockEnd}">
+            <li th:each="i : ${#numbers.sequence(blockStart, blockEnd)}"
+                class="page-item" th:classappend="${i == page.number} ? 'active'">
+                <a class="page-link" th:href="${browse} ? @{${baseUrl}(page=${i}, sort=${sort})} : @{${baseUrl}(page=${i}, isbn=${request.isbn()}, keyword=${request.keyword()}, searchType=${request.searchType()})}" th:text="${i + 1}">1</a>
+            </li>
+        </th:block>
+        </th:block>
 
         <!-- 다음 페이지 -->
         <li class="page-item" th:classappend="${!page.hasNext()} ? 'disabled'">
-            <a class="page-link" th:href="@{${baseUrl}(page=${page.number + 1}, isbn=${request.isbn()}, keyword=${request.keyword()}, searchType=${request.searchType()})}">
-                next
+            <a class="page-link" th:href="${browse} ? @{${baseUrl}(page=${page.number + 1}, sort=${sort})} : @{${baseUrl}(page=${page.number + 1}, isbn=${request.isbn()}, keyword=${request.keyword()}, searchType=${request.searchType()})}">
+                <span class="d-none d-sm-inline">다음</span>
                 <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
             </a>
         </li>

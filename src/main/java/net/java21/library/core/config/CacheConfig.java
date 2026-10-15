@@ -1,5 +1,6 @@
 package net.java21.library.core.config;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
@@ -23,6 +24,7 @@ import java.util.concurrent.TimeUnit;
  *   <li>도서 검색 캐시: 30분 TTL, 최대 500개</li>
  *   <li>도서관 API 캐시: 60분 TTL, 최대 1000개</li>
  *   <li>리뷰 캐시: 30분 TTL, 최대 500개</li>
+ *   <li>표지 조회 이력(ISBN): 7일 TTL, 최대 100,000개</li>
  * </ul>
  */
 @EnableCaching
@@ -52,6 +54,14 @@ public class CacheConfig {
 
     @Value("${cache.review.max-size:500}")
     private int reviewMaxSize;
+
+    @Value("${cache.cover-lookup.ttl.days:7}")
+    private int coverLookupTtlDays;
+
+    @Value("${cache.cover-lookup.max-size:100000}")
+    private int coverLookupMaxSize;
+
+    public static final String COVER_LOOKUP_CACHE = "coverLookupCache";
 
     /**
      * 메인 CacheManager
@@ -123,5 +133,20 @@ public class CacheConfig {
             .maximumSize(personalizationMaxSize)
             .recordStats()); // 통계 활성화
         return cacheManager;
+    }
+
+    /**
+     * 표지 보강을 위해 이미 조회한 ISBN 이력
+     *
+     * <p>도서관정보나루 API 일일 호출 한도를 보호하기 위해, 결과(표지 유무)와 관계없이
+     * 한 번 조회한 ISBN은 TTL 동안 다시 조회하지 않습니다.
+     * Spring Cache 추상화 대신 원자적 putIfAbsent가 필요해 Caffeine Cache를 직접 빈으로 등록합니다.</p>
+     */
+    @Bean(COVER_LOOKUP_CACHE)
+    public Cache<String, Boolean> coverLookupCache() {
+        return Caffeine.newBuilder()
+            .expireAfterWrite(coverLookupTtlDays, TimeUnit.DAYS)
+            .maximumSize(coverLookupMaxSize)
+            .build();
     }
 }

@@ -55,11 +55,7 @@ public class RrfService {
             } else {
                 // 키워드 결과에 이미 존재하는 경우, 벡터 검색에서 추출된 유사도(Similarity) 정보를 보존하여 업데이트합니다.
                 BookSearchResponse existing = bookMap.get(b.getId());
-                bookMap.put(b.getId(), new BookSearchResponse(
-                        existing.getId(), existing.getIsbn(), existing.getTitle(), existing.getVolumeTitle(),
-                        existing.getAuthorName(), existing.getPublisherName(), existing.getPrice(),
-                        existing.getEditionPublishDate(), existing.getImageUrl(), existing.getBookContent(), b.getSimilarity()
-                ));
+                bookMap.put(b.getId(), copyOf(existing, b.getSimilarity(), existing.getRrfScore()));
             }
         }
 
@@ -69,15 +65,22 @@ public class RrfService {
                 .map(entry -> {
                     Long id = entry.getKey();
                     BookSearchResponse original = bookMap.get(id);
-                    Double rrfScore = entry.getValue();
                     // 최종 필드에 RRF 점수를 포함하여 반환
-                    return new BookSearchResponse(
-                            original.getId(), original.getIsbn(), original.getTitle(), original.getVolumeTitle(),
-                            original.getAuthorName(), original.getPublisherName(), original.getPrice(),
-                            original.getEditionPublishDate(), original.getImageUrl(), original.getBookContent(), original.getSimilarity(),
-                            rrfScore
-                    );
+                    return copyOf(original, original.getSimilarity(), entry.getValue());
                 })
                 .toList();
+    }
+
+    /**
+     * 원본 DTO를 복사하면서 유사도와 RRF 점수만 바꿉니다. 리뷰 정보(평점·리뷰 수·요약)는 그대로 유지합니다.
+     */
+    private static BookSearchResponse copyOf(BookSearchResponse source, Double similarity, Double rrfScore) {
+        return new BookSearchResponse(
+                source.getId(), source.getIsbn(), source.getTitle(), source.getVolumeTitle(),
+                source.getAuthorName(), source.getPublisherName(), source.getPrice(),
+                source.getEditionPublishDate(), source.getImageUrl(), source.getBookContent(),
+                similarity, rrfScore,
+                source.getAverageRating(), source.getReviewCount(), source.getReviewSummary()
+        );
     }
 }

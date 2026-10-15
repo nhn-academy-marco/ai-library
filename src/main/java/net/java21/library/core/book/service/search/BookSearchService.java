@@ -1,5 +1,7 @@
 package net.java21.library.core.book.service.search;
 
+import net.java21.library.core.book.domain.BrowseSort;
+
 import net.java21.library.core.book.domain.SearchType;
 import net.java21.library.core.book.dto.BookSearchRequest;
 import net.java21.library.core.book.dto.BookSearchResponse;
@@ -24,6 +26,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -139,6 +142,21 @@ public class BookSearchService {
         return bookRepository.findById(id)
                 .map(BookViewResponse::from)
                 .orElseThrow(() -> new BookNotFoundException(id));
+    }
+
+    /**
+     * 검색어 없이 정해진 기준으로 도서를 둘러봅니다.
+     *
+     * <p>검색 전략은 관련도 순위를 매기기 위해 상위 후보만 다루므로, 검색어가 없는 첫 화면에는 맞지 않습니다.
+     * 둘러보기는 정렬 기준이 고정되어 있어 새로고침해도 같은 목록이 나오고 전체 페이지를 넘길 수 있습니다.</p>
+     *
+     * @param pageable 페이지 정보
+     * @param sort     정렬 기준
+     * @return 도서 목록
+     */
+    @Transactional(readOnly = true)
+    public Page<BookSearchResponse> browseBooks(Pageable pageable, BrowseSort sort) {
+        return bookRepository.browse(pageable, sort == null ? BrowseSort.RECENT : sort);
     }
 
     /**

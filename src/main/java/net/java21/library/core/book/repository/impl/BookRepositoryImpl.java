@@ -1,5 +1,6 @@
 package net.java21.library.core.book.repository.impl;
 
+import net.java21.library.core.book.domain.BrowseSort;
 import net.java21.library.core.book.domain.SearchType;
 import net.java21.library.core.book.domain.QBook;
 import net.java21.library.core.book.dto.BookSearchRequest;
@@ -9,6 +10,7 @@ import net.java21.library.core.review.domain.QBookReviewSummary;
 import net.java21.library.core.review.domain.BookReviewSummary;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.dsl.NumberTemplate;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
@@ -98,6 +100,92 @@ public class BookRepositoryImpl implements BookRepositoryCustom {
                 .fetchOne();
 
         return new PageImpl<>(bookSearchResponseList, pageable, totalCount);
+    }
+
+    @Override
+    public Page<BookSearchResponse> browse(Pageable pageable, BrowseSort sort) {
+        List<BookSearchResponse> books = sort == BrowseSort.POPULAR
+                ? fetchPopular(pageable)
+                : fetchRecent(pageable);
+        attachReviewInfo(books);
+
+        Long totalCount = sort == BrowseSort.POPULAR
+                ? queryFactory.select(bookReviewSummary.count())
+                        .from(bookReviewSummary)
+                        .where(bookReviewSummary.reviewCount.gt(0L))
+                        .fetchOne()
+                : queryFactory.select(book.count()).from(book).fetchOne();
+
+        return new PageImpl<>(books, pageable, totalCount == null ? 0 : totalCount);
+    }
+
+    private List<BookSearchResponse> fetchRecent(Pageable pageable) {
+        return queryFactory
+                .select(bookResponseProjection())
+                .from(book)
+                .orderBy(book.editionPublishDate.desc().nullsLast(), book.id.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+    }
+
+    private List<BookSearchResponse> fetchPopular(Pageable pageable) {
+        // BookReviewSummary는 Book과 연관관계 없이 bookId만 가지므로 연관관계 없는 조인(theta join)을 사용
+        OrderSpecifier<?>[] order = {
+                bookReviewSummary.reviewCount.desc(),
+                bookReviewSummary.averageRating.desc(),
+                book.id.desc()
+        };
+        return queryFactory
+                .select(bookResponseProjection())
+                .from(bookReviewSummary)
+                .join(book).on(book.id.eq(bookReviewSummary.bookId))
+                .where(bookReviewSummary.reviewCount.gt(0L))
+                .orderBy(order)
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+    }
+
+    private com.querydsl.core.types.ConstructorExpression<BookSearchResponse> bookResponseProjection() {
+        return Projections.constructor(
+                BookSearchResponse.class,
+                book.id,
+                book.isbn,
+                book.title,
+                book.volumeTitle,
+                book.authorName,
+                book.publisherName,
+                book.price,
+                book.editionPublishDate,
+                book.imageUrl,
+                book.bookContent
+        );
+    }
+
+    /**
+     * 조회한 도서에 평점·리뷰 수·리뷰 요약을 채웁니다. (N+1 방지를 위해 IN 절로 한 번에 조회)
+     */
+    private void attachReviewInfo(List<BookSearchResponse> books) {
+        if (books.isEmpty()) {
+            return;
+        }
+        List<Long> bookIds = books.stream().map(BookSearchResponse::getId).toList();
+        Map<Long, BookReviewSummary> reviewMap = queryFactory
+                .selectFrom(bookReviewSummary)
+                .where(bookReviewSummary.bookId.in(bookIds))
+                .fetch()
+                .stream()
+                .collect(Collectors.toMap(BookReviewSummary::getBookId, s -> s));
+
+        books.forEach(response -> {
+            BookReviewSummary summary = reviewMap.get(response.getId());
+            if (summary != null) {
+                response.setAverageRating(summary.getAverageRating());
+                response.setReviewCount(summary.getReviewCount());
+                response.setReviewSummary(summary.getReviewSummary());
+            }
+        });
     }
 
     @Override

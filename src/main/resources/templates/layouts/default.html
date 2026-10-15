@@ -3,32 +3,46 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title layout:title-pattern="$LAYOUT_TITLE | $CONTENT_TITLE">AI Library</title>
+    <title layout:title-pattern="$CONTENT_TITLE | $LAYOUT_TITLE">AI Library</title>
     <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
 
     <!-- Tabler Core -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css">
-    <style>
-        @import url('https://rsms.me/inter/inter.css');
-        :root {
-            --tblr-font-sans-serif: 'Inter var', -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif;
-        }
-        body {
-            font-feature-settings: "cv03", "cv04", "cv11";
-        }
-    </style>
+    <!-- 도서 표지(생성 표지·이미지 실패 대체): img onerror보다 먼저 로드되도록 head에 둡니다 -->
+    <link rel="stylesheet" th:href="@{/css/book-cover.css}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <script th:src="@{/js/book-cover.js}"></script>
 </head>
 <body>
 <div class="page">
-    <header class="navbar navbar-expand-md navbar-light d-print-none">
+    <header class="navbar navbar-expand app-navbar d-print-none">
         <div class="container-xl">
-            <h1 class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
-                <a href="/">
-                    AI Library
+            <a th:href="@{/}" class="app-brand" aria-label="AI Library 홈">
+                <span class="app-brand-mark" aria-hidden="true">
+                    <!-- 펼친 책 + 스파크 -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 18.5a9 9 0 0 1 9 0a9 9 0 0 1 9 0"/>
+                        <path d="M3 7.5a9 9 0 0 1 9 0a9 9 0 0 1 5 -1.2"/>
+                        <path d="M3 7.5v11"/>
+                        <path d="M12 7.5v11"/>
+                        <path d="M21 12v6.5"/>
+                        <path d="M19 2.5l.6 1.4l1.4 .6l-1.4 .6l-.6 1.4l-.6 -1.4l-1.4 -.6l1.4 -.6z" fill="currentColor"/>
+                    </svg>
+                </span>
+                <span>AI <span class="app-brand-accent">Library</span></span>
+            </a>
+            <nav class="ms-auto d-flex align-items-center gap-1" aria-label="주요 메뉴">
+                <a th:href="@{/}" class="app-nav-link active">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/></svg>
+                    Demo
                 </a>
-            </h1>
+                <a href="https://github.com/nhn-academy-marco/ai-library/tree/main/docs" class="app-nav-link" target="_blank" rel="noopener">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 4h11a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-11a1 1 0 0 1 -1 -1v-14a1 1 0 0 1 1 -1m3 0v18"/><path d="M13 8l2 0"/><path d="M13 12l2 0"/></svg>
+                    교재
+                </a>
+            </nav>
         </div>
     </header>
     <div class="page-wrapper">
@@ -39,18 +53,16 @@
                 </div>
             </div>
         </div>
-        <footer class="footer footer-transparent d-print-none">
-            <div class="container-xl">
-                <div class="row text-center align-items-center flex-row-reverse">
-                    <div class="col-12 col-lg-auto mt-3 mt-lg-0">
-                        <ul class="list-inline list-inline-dots mb-0">
-                            <li class="list-inline-item">
-                                Copyright &copy; 2026
-                                <a href="." class="link-secondary">marco</a>.
-                                All rights reserved.
-                            </li>
-                        </ul>
-                    </div>
+        <footer class="app-footer d-print-none">
+            <div class="container-xl app-footer-row">
+                <div>
+                    데이터 출처: 공공 도서 데이터 ·
+                    <a href="https://www.data4library.kr/" target="_blank" rel="noopener">도서관 정보나루 Open API</a>
+                </div>
+                <div>
+                    Built with Spring AI 1.1.2 ·
+                    <a href="https://github.com/nhn-academy-marco/ai-library" target="_blank" rel="noopener">GitHub</a>
+                    · &copy; 2026 marco
                 </div>
             </div>
         </footer>
@@ -60,10 +72,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/js/tabler.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl)
-        })
+        if (!window.bootstrap) {
+            return;
+        }
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+            new bootstrap.Tooltip(el);
+        });
     });
 </script>
 </body>

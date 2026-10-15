@@ -90,6 +90,31 @@ public class Book {
         this.embedding = embedding;
     }
 
+    /**
+     * 표지 이미지가 있는지 확인합니다.
+     *
+     * @return 표지 이미지 URL이 비어 있지 않으면 true
+     */
+    public boolean hasCoverImage() {
+        return imageUrl != null && !imageUrl.isBlank();
+    }
+
+    /**
+     * 표지 이미지가 비어 있을 때만 외부에서 찾은 표지 URL로 보강합니다.
+     *
+     * <p>이미 표지가 있으면 덮어쓰지 않습니다(CSV 원본 데이터 우선).</p>
+     *
+     * @param coverImageUrl 보강할 표지 이미지 URL
+     * @return 실제로 변경했으면 true
+     */
+    public boolean fillMissingCoverImage(String coverImageUrl) {
+        if (hasCoverImage() || coverImageUrl == null || coverImageUrl.isBlank()) {
+            return false;
+        }
+        this.imageUrl = coverImageUrl;
+        return true;
+    }
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = OffsetDateTime.now();

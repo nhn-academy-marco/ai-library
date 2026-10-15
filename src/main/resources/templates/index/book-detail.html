@@ -3,12 +3,7 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layouts/default}">
 <head>
-    <title th:text="${book.title} + ' - 도서 상세'">도서 상세</title>
-    <style>
-        .book-detail-img { max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .info-label { font-weight: 600; color: #667085; width: 100px; display: inline-block; }
-        .book-content { white-space: pre-wrap; line-height: 1.6; color: #1d2939; }
-    </style>
+    <title th:text="${book.title}">도서 상세</title>
 </head>
 <body>
 
@@ -16,7 +11,7 @@
     <div class="page-header d-print-none mb-4">
         <div class="row align-items-center">
             <div class="col">
-                <div class="page-pretitle">Book Details</div>
+                <div class="page-pretitle">도서 상세</div>
                 <h2 class="page-title" th:text="${book.title}">도서 제목</h2>
             </div>
             <div class="col-auto ms-auto d-print-none">
@@ -39,43 +34,23 @@
         <!-- 왼쪽: 이미지 및 기본 정보 -->
         <div class="col-lg-4">
             <div class="card">
-                <div class="card-body text-center p-4 bg-light-lt">
-                    <img th:if="${book.imageUrl != null && !book.imageUrl.isEmpty()}" 
-                         th:src="${book.imageUrl}" 
-                         class="book-detail-img mb-3" alt="도서 이미지">
-                    <div th:unless="${book.imageUrl != null && !book.imageUrl.isEmpty()}" class="py-5 text-secondary">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-photo-off mb-2" width="64" height="64" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                            <path d="M15 8h.01" />
-                            <path d="M7 3h10a3 3 0 0 1 3 3v10m-1 3h-12a3 3 0 0 1 -3 -3v-12a3 3 0 0 1 3 -3" />
-                            <path d="M3 3l18 18" />
-                            <path d="M4 15l4 -4c.928 -.893 2.072 -.893 3 0l5 5" />
-                            <path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l2 2" />
-                        </svg>
-                        <div>이미지 없음</div>
-                    </div>
+                <div class="app-detail-cover">
+                    <div th:replace="~{fragments/book-cover :: cover(${book.title}, ${book.authorName}, ${book.imageUrl}, 'lg')}"></div>
                 </div>
                 <div class="card-body border-top">
-                    <div class="mb-3">
-                        <span class="info-label">저자</span>
-                        <span th:text="${book.authorName}">저자명</span>
-                    </div>
-                    <div class="mb-3">
-                        <span class="info-label">출판사</span>
-                        <span th:text="${book.publisherName}">출판사명</span>
-                    </div>
-                    <div class="mb-3">
-                        <span class="info-label">출판일</span>
-                        <span th:text="${book.editionPublishDate}">2021-01-01</span>
-                    </div>
-                    <div class="mb-3">
-                        <span class="info-label">ISBN</span>
-                        <span th:text="${book.isbn}">ISBN</span>
-                    </div>
-                    <div class="mb-0">
-                        <span class="info-label">가격</span>
-                        <span th:text="${#numbers.formatDecimal(book.price, 0, 'COMMA', 0, 'POINT')} + '원'">10,000원</span>
-                    </div>
+                    <dl class="app-info-list">
+                        <dt>저자</dt>
+                        <dd th:text="${!#strings.isEmpty(book.authorName) ? book.authorName : '-'}">저자명</dd>
+                        <dt>출판사</dt>
+                        <dd th:text="${!#strings.isEmpty(book.publisherName) ? book.publisherName : '-'}">출판사명</dd>
+                        <dt>출간일</dt>
+                        <dd th:text="${book.editionPublishDate != null ? book.editionPublishDate : (book.firstPublishDate != null ? book.firstPublishDate : '-')}">2021-01-01</dd>
+                        <dt>ISBN</dt>
+                        <dd th:text="${!#strings.isEmpty(book.isbn) ? book.isbn : '-'}">ISBN</dd>
+                        <dt>가격</dt>
+                        <dd th:if="${book.price != null}" th:text="${#numbers.formatDecimal(book.price, 0, 'COMMA', 0, 'POINT')} + '원'">10,000원</dd>
+                        <dd th:unless="${book.price != null}" class="app-info-empty">가격 정보 없음</dd>
+                    </dl>
                 </div>
             </div>
         </div>
@@ -99,8 +74,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="card-footer text-muted small">
-                    최종 수정일: <span th:text="${#temporals.format(book.updatedAt != null ? book.updatedAt : book.createdAt, 'yyyy-MM-dd HH:mm:ss')}">2021-01-01 00:00:00</span>
+                <div class="card-footer text-muted small" th:if="${book.updatedAt != null || book.createdAt != null}">
+                    최종 수정일: <span th:text="${#temporals.format(book.updatedAt != null ? book.updatedAt : book.createdAt, 'yyyy-MM-dd HH:mm')}">2021-01-01 00:00</span>
                 </div>
             </div>
 
@@ -112,12 +87,12 @@
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-auto">
-                            <div class="h1 mb-0" th:text="${bookSummary.averageRating}">4.50</div>
+                            <div class="h1 mb-0" th:text="${bookSummary.averageRating != null ? #numbers.formatDecimal(bookSummary.averageRating, 1, 2) : '-'}">4.50</div>
                             <div class="text-muted">평균 평점</div>
                         </div>
                         <div class="col">
                             <div th:each="i : ${#numbers.sequence(5, 1)}" class="row align-items-center g-2 mb-1">
-                                <div class="col-auto small" style="width: 30px;" th:text="${i} + '점'">5점</div>
+                                <div class="col-auto small app-rating-bar-label" th:text="${i} + '점'">5점</div>
                                 <div class="col">
                                     <div class="progress progress-sm">
                                         <div class="progress-bar bg-primary" 
@@ -125,7 +100,7 @@
                                              role="progressbar"></div>
                                     </div>
                                 </div>
-                                <div class="col-auto small text-muted" style="width: 30px;" 
+                                <div class="col-auto small text-muted app-rating-bar-label" 
                                      th:text="${i == 5 ? bookSummary.rating5Count : (i == 4 ? bookSummary.rating4Count : (i == 3 ? bookSummary.rating3Count : (i == 2 ? bookSummary.rating2Count : bookSummary.rating1Count)))}">0</div>
                             </div>
                         </div>
@@ -133,35 +108,33 @@
                 </div>
             </div>
 
-            <!-- AI 리뷰 요약 섹션 추가 -->
-            <div class="card mt-4 border-primary">
-                <div class="card-status-top bg-primary"></div>
-                <div class="card-header bg-primary-lt">
-                    <h3 class="card-title text-primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-stars me-2" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                            <path d="M17.8 19.817l-2.172 1.138a.392 .392 0 0 1 -.568 -.41l.415 -2.411l-1.752 -1.707a.397 .397 0 0 1 .22 -.677l2.421 -.352l1.083 -2.193a.397 .397 0 0 1 .71 0l1.083 2.193l2.421 .352a.398 .398 0 0 1 .22 .677l-1.752 1.707l.415 2.411a.393 .393 0 0 1 -.568 .41l-2.172 -1.138z"></path>
-                            <path d="M6.2 19.817l-2.172 1.138a.392 .392 0 0 1 -.568 -.41l.415 -2.411l-1.752 -1.707a.397 .397 0 0 1 .22 -.677l2.421 -.352l1.083 -2.193a.397 .397 0 0 1 .71 0l1.083 2.193l2.421 .352a.398 .398 0 0 1 .22 .677l-1.752 1.707l.415 2.411a.393 .393 0 0 1 -.568 .41l-2.172 -1.138z"></path>
-                            <path d="M12 9.817l-2.172 1.138a.392 .392 0 0 1 -.568 -.41l.415 -2.411l-1.752 -1.707a.397 .397 0 0 1 .22 -.677l2.421 -.352l1.083 -2.193a.397 .397 0 0 1 .71 0l1.083 2.193l2.421 .352a.398 .398 0 0 1 .22 .677l-1.752 1.707l.415 2.411a.393 .393 0 0 1 -.568 .41l-2.172 -1.138z"></path>
-                        </svg>
+            <!-- AI 독자 평판 요약: [장점]/[단점]/[추천 대상]/[총평] 항목이 있으면 정의 목록으로, 없으면 정리된 텍스트로 -->
+            <div class="card mt-4 app-summary-card">
+                <div class="card-header">
+                    <h3 class="card-title d-flex align-items-center gap-2">
+                        <span class="app-ai-badge">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm0 -12a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm-7 12a6 6 0 0 1 6 -6a6 6 0 0 1 -6 -6a6 6 0 0 1 -6 6a6 6 0 0 1 6 6z"/></svg>
+                            AI
+                        </span>
                         AI 독자 평판 요약
                     </h3>
                 </div>
                 <div class="card-body">
-                    <div class="book-content" th:text="${reviewSummary}">
+                    <dl class="app-summary-list" th:if="${reviewSummarySections != null && !reviewSummarySections.isEmpty()}">
+                        <th:block th:each="section : ${reviewSummarySections}">
+                            <dt th:text="${section.label}">장점</dt>
+                            <dd th:text="${section.text}">요약 내용</dd>
+                        </th:block>
+                    </dl>
+                    <div class="book-content"
+                         th:unless="${reviewSummarySections != null && !reviewSummarySections.isEmpty()}"
+                         th:text="${!#strings.isEmpty(reviewSummary) ? reviewSummary : '아직 등록된 리뷰가 없습니다.'}">
                         AI가 리뷰를 분석 중입니다...
                     </div>
                 </div>
-                <div class="card-footer bg-light-lt small">
-                    <span class="text-muted">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-info-circle me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                            <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                            <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"></path>
-                            <path d="M12 9h.01"></path>
-                            <path d="M11 12h1v4h1"></path>
-                        </svg>
-                        이 요약은 실제 독자들의 리뷰를 바탕으로 AI가 생성한 정보입니다.
-                    </span>
+                <div class="card-footer small text-muted">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 9h.01"/><path d="M11 12h1v4h1"/></svg>
+                    이 요약은 실제 독자들의 리뷰를 바탕으로 AI가 생성한 정보입니다.
                 </div>
             </div>
 
@@ -254,7 +227,7 @@
                         <li class="page-item" th:classappend="${reviewPage.first} ? 'disabled'">
                             <a class="page-link" th:href="@{/books/{id}(id=${book.id}, page=${reviewPage.number - 1})}" tabindex="-1" aria-disabled="true">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M15 12l-9 0"></path><path d="M15 12l-4 4"></path><path d="M15 12l-4 -4"></path></svg>
-                                prev
+                                이전
                             </a>
                         </li>
                         <li th:each="pageNumber : ${#numbers.sequence(0, reviewPage.totalPages - 1)}" 
@@ -263,7 +236,7 @@
                         </li>
                         <li class="page-item" th:classappend="${reviewPage.last} ? 'disabled'">
                             <a class="page-link" th:href="@{/books/{id}(id=${book.id}, page=${reviewPage.number + 1})}">
-                                next
+                                다음
                                 <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M9 12l9 0"></path><path d="M9 12l-4 4"></path><path d="M9 12l-4 -4"></path></svg>
                             </a>
                         </li>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+</head>
+<body>
+
+<!--
+  도서 표지 프래그먼트
+  - title, author: 생성 표지에 표시할 제목·저자
+  - imageUrl: 표지 이미지 URL (비어 있으면 생성 표지, 로딩 실패 시 book-cover.js가 생성 표지로 교체)
+  - size: 'sm' | 'md' | 'lg'
+  팔레트 번호는 제목의 String.hashCode()로 정하며, book-cover.js의 paletteIndex()와 같은 값을 냅니다.
+-->
+<div th:fragment="cover(title, author, imageUrl, size)"
+     class="book-cover"
+     th:classappend="'book-cover-' + ${size}"
+     th:attr="data-title=${title}, data-author=${author}">
+    <img th:if="${!#strings.isEmpty(imageUrl)}"
+         th:src="${imageUrl}"
+         th:alt="${title} + ' 표지'"
+         class="book-cover-img"
+         loading="lazy"
+         decoding="async"
+         referrerpolicy="no-referrer"
+         onerror="BookCover.fallback(this)">
+    <div th:if="${#strings.isEmpty(imageUrl)}"
+         class="book-cover-generated"
+         th:classappend="'book-cover-p' + ${title != null ? (title.hashCode() % 8 + 8) % 8 : 0}"
+         role="img"
+         th:attr="aria-label=${title} + ' 표지'">
+        <div class="book-cover-title" th:text="${title}">도서 제목</div>
+        <div class="book-cover-author" th:if="${!#strings.isEmpty(author)}" th:text="${author}">저자</div>
+    </div>
+</div>
+
+</body>
+</html>
