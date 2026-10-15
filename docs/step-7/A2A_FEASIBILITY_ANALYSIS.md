@@ -2,7 +2,7 @@
 
 ## 개요
 
-본 문서는 현재 step-7 코드를 분석하고 Spring AI 1.1.2 기반으로 A2A(Agent-to-Agent) 아키텍처를 구현하는 것의 **가능성과 마이그레이션 경로**를 상세히 분석합니다.
+본 문서는 현재 step-7 코드를 분석하고 Spring AI 1.1.2 기반으로 A2A(Agent-to-Agent) 아키텍처를 구현하는 것의 가능성과 마이그레이션 경로를 분석합니다.
 
 ---
 
@@ -126,7 +126,7 @@ Spring AI 1.1.2는 다음과 같은 멀티 에이전트 패턴을 지원합니�
 - **특징**:
   - Main Agent가 Sub Agent들을 Function으로 등록
   - Parallel/Sequential 실행 가능
-  - **현재 step-7과 가장 유사한 패턴**
+  - 현재 step-7과 가장 유사한 패턴
 
 ### 2.2 Spring AI 1.1.2 핵심 API
 
@@ -134,7 +134,7 @@ Spring AI 1.1.2는 다음과 같은 멀티 에이전트 패턴을 지원합니�
 ```java
 ChatClient chatClient = ChatClient.builder(chatModel)
     .defaultToolCallbacks(agent1Tool, agent2Tool)  // Agent 등록
-    .defaultAdvisors(new PromptChatMemoryAdvisor()) // Chat Memory
+    .defaultAdvisors(PromptChatMemoryAdvisor.builder(chatMemory).build()) // Chat Memory
     .build();
 ```
 
@@ -156,7 +156,7 @@ FunctionToolCallback<AgentRequest, AgentResponse> agentTool =
 
 ## 3. A2A 구현 가능성 평가
 
-### 3.1 가능성: ✅ **매우 높음(HIGHLY FEASIBLE)**
+### 3.1 가능성: 매우 높음(HIGHLY FEASIBLE)
 
 **이유:**
 
@@ -219,7 +219,7 @@ Chat Memory와 Prompt Enhancement를 추가합니다.
 ChatClient chatClient = ChatClient.builder(chatModel)
     .defaultToolCallbacks(bookAgentTool, libraryAgentTool, loanAgentTool)
     .defaultAdvisors(
-        new PromptChatMemoryAdvisor(chatMemory),  // 대화 기록 유지
+        PromptChatMemoryAdvisor.builder(chatMemory).build(),  // 대화 기록 유지
         new SimpleLoggerAdvisor()                 // 로깅
     )
     .build();
@@ -277,15 +277,16 @@ public class AiOrchestrationService {
     private final ChatModel chatModel;
     private final QueryParserAgent queryParserAgent;
     private final List<Agent> agents;  // 모든 Agent 주입
+    private final ChatMemory chatMemory;  // 자동 구성된 ChatMemory Bean
 
     public String ask(String userMessage) {
         // 1. QueryParserAgent로 쿼리 파싱
         ParsedQuery parsed = queryParserAgent.parse(userMessage);
 
         // 2. Agent들을 Function Tool로 변환
-        List<FunctionToolCallback<AgentRequest, AgentResponse>> agentTools =
+        List<ToolCallback> agentTools =
             agents.stream()
-                .map(agent -> FunctionToolCallback.builder(
+                .map(agent -> (ToolCallback) FunctionToolCallback.<AgentRequest, AgentResponse>builder(
                         agent.getName(),
                         req -> agent.execute(AgentRequest.from(parsed, req))
                     )
@@ -297,7 +298,7 @@ public class AiOrchestrationService {
         // 3. ChatClient 생성 (Agent Tools 등록)
         ChatClient chatClient = ChatClient.builder(chatModel)
             .defaultToolCallbacks(agentTools)
-            .defaultAdvisors(new PromptChatMemoryAdvisor(chatMemory))
+            .defaultAdvisors(PromptChatMemoryAdvisor.builder(chatMemory).build())
             .build();
 
         // 4. LLM 호출
@@ -351,7 +352,7 @@ public class BookAgent implements Agent {
 
 ### 6.1 필요성
 
-**분산 환경에서의 A2A**를 위해 Nacos를 활용할 수 있습니다:
+분산 환경에서의 A2A를 위해 Nacos를 활용할 수 있습니다.
 
 - **Service Discovery**: Agent 동적 검색
 - **Configuration Management**: Agent 설정 중앙화
@@ -381,7 +382,7 @@ public AgentResponse invokeRemoteAgent(String agentName, AgentRequest request) {
 }
 ```
 
-**주의:** 단일 애플리케이션 내에서는 Nacos 없이도 A2A 가능
+> **주의**: 단일 애플리케이션 내에서는 Nacos 없이도 A2A를 구현할 수 있습니다.
 
 ---
 
@@ -390,19 +391,19 @@ public AgentResponse invokeRemoteAgent(String agentName, AgentRequest request) {
 ### 7.1 점진적 마이그레이션
 
 **Phase 1: 기존 패턴 유지 + Agent Tools**
-- ✅ 현재 FunctionToolCallback 패턴 유지
-- ✅ 기존 LibraryFunctions를 Agent로 대체
-- ✅ 최소한의 변경으로 A2A 도입
+- 현재 FunctionToolCallback 패턴 유지
+- 기존 LibraryFunctions를 Agent로 대체
+- 최소한의 변경으로 A2A 도입
 
 **Phase 2: Advisor 체인 추가**
-- ✅ ChatMemoryAdvisor로 대화 기록 유지
-- ✅ LoggingAdvisor로 디버깅 개선
-- ✅ CustomAdvisor로 비즈니스 로직 강화
+- PromptChatMemoryAdvisor로 대화 기록 유지
+- SimpleLoggerAdvisor로 디버깅 개선
+- CustomAdvisor로 비즈니스 로직 강화
 
 **Phase 3: 복잡한 Orchestration**
-- ✅ Multi-Agent Collaboration
-- ✅ Sequential/Parallel Execution
-- ✅ 선택사항: Nacos 통합
+- Multi-Agent Collaboration
+- Sequential/Parallel Execution
+- 선택사항: Nacos 통합
 
 ### 7.2 코드 변경 최소화
 
@@ -442,7 +443,7 @@ return chatClient.prompt()
 | AiOrchestrationService 수정 | AiOrchestrationService.java | 2시간 | 보통 |
 | 단위 테스트 작성 | AgentTest.java | 3시간 | 보통 |
 | 통합 테스트 | IntegrationTest.java | 2시간 | 쉬움 |
-| **합계** | | **~10시간** | **보통** |
+| 합계 | | 약 10시간 | 보통 |
 
 ### 8.2 선택 작업 (Phase 2~3)
 
@@ -458,17 +459,17 @@ return chatClient.prompt()
 
 ### 9.1 요약
 
-1. **가능성**: ✅ **매우 높음**
+1. **가능성**: 매우 높음
    - Spring AI 1.1.2로 A2A 구현 가능
    - 현재 코드가 이미 Function Calling 패턴 사용
    - Agent 인터페이스 이미 존재
 
-2. **마이그레이션 난이도**: **보통(Medium)**
+2. **마이그레이션 난이도**: 보통(Medium)
    - 핵심 패턴 유지 가능
    - 점진적 마이그레이션 가능
    - 예상 작업량: ~10시간
 
-3. **권장 방식**: **Coordinator Agent Pattern**
+3. **권장 방식**: Coordinator Agent Pattern
    - MainAgent (AiOrchestrationService)가 코디네이터 역할
    - 각 전문 Agent를 Function Tool로 등록
    - LLM이 자동으로 Agent 선택 및 실행
@@ -493,11 +494,11 @@ return chatClient.prompt()
 
 | 기능 | Spring AI 1.1.2 | Spring AI 1.0.0 | 비고 |
 |------|-----------------|-----------------|------|
-| ChatClient API | ✅ | ✅ | 1.1.2 개선됨 |
-| FunctionToolCallback.builder() | ✅ | ❌ | 1.1.2 신규 |
-| PromptChatMemoryAdvisor | ✅ | ✅ | |
-| ReAct Agent Pattern | ✅ | ✅ | |
-| Flow/Graph Agent | ❌ | ❌ | 1.2.0 예정 |
+| ChatClient API | 지원 | 지원 | 1.1.2 개선됨 |
+| FunctionToolCallback.builder() | 지원 | 지원 | 1.0.0-M6부터 제공 |
+| PromptChatMemoryAdvisor | 지원 | 지원 | 1.1.2에서는 `builder(chatMemory)`로 생성 |
+| ReAct Agent Pattern | 지원 | 지원 | |
+| Flow/Graph Agent | 미지원 | 미지원 | 1.2.0 예정 |
 | Nacos Integration | 수동 | 수동 | |
 
 **결론**: Spring AI 1.1.2는 A2A 구현에 충분한 기능을 제공함
@@ -508,34 +509,34 @@ return chatClient.prompt()
 
 ### 현재 코드의 장점
 
-1. ✅ **이미 다중 LLM 사용**
+1. **이미 다중 LLM 사용**
    - QueryParserAgent (llama3-korean-blossom)
    - MainAgent (qwen2.5)
 
-2. ✅ **이미 Agent 인터페이스 구조**
+2. **이미 Agent 인터페이스 구조**
    - Agent.java 인터페이스
    - BookAgent, LibraryAgent, LoanAgent 등
 
-3. ✅ **이미 Function Calling 패턴**
+3. **이미 Function Calling 패턴**
    - FunctionToolCallback.builder() 사용
    - ChatClient.defaultToolCallbacks() 사용
 
 ### 추가 필요한 부분
 
-1. ⚠️ **Agent 간 직접 통신**
+1. **Agent 간 직접 통신**
    - 현재: MainAgent가 LibraryFunctions 호출
    - 개선: Agent가 다른 Agent를 직접 호출
 
-2. ⚠️ **Chat Memory**
+2. **Chat Memory**
    - 현재: Stateless
    - 개선: 대화 기록 유지
 
-3. ⚠️ **Multi-Step Collaboration**
+3. **Multi-Step Collaboration**
    - 현재: 단일 LLM 호출
    - 개선: 여러 Agent가 협력하여 복잡한 작업 처리
 
 ---
 
 **문서 버전**: 1.0
-**작성일**: 2025-03-05
+**작성일**: 2026-03-06
 **Spring AI 버전**: 1.1.2

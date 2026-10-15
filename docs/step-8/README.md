@@ -2,7 +2,7 @@
 
 ## 학습 개요
 
-Step 7에서 구현한 **Spring AI Function Calling 시스템**을 n8n과 연동하여 복잡한 워크플로우를 시각화하고 자동화합니다. 코드 없이 노드 기반으로 AI 시스템을 확장하고 운영하는 방법을 배웁니다.
+Step 7에서 구현한 Spring AI Function Calling 시스템을 n8n과 연동하여 복잡한 워크플로우를 시각화하고 자동화합니다. 코드 없이 노드 기반으로 AI 시스템을 확장하고 운영하는 방법을 배웁니다.
 
 ## 학습 목표
 
@@ -33,9 +33,9 @@ Step 7에서 구현한 **Spring AI Function Calling 시스템**을 n8n과 연동
 
 ### Step 7 완료 필수
 
-- ✅ Spring AI Function Calling 구현
-- ✅ ChatClient 설정 완료
-- ✅ HTTP API 엔드포인트 노출
+- [ ] Spring AI Function Calling 구현
+- [ ] ChatClient 설정 완료
+- [ ] HTTP API 엔드포인트 노출
 
 ### 기술 스택
 
@@ -50,7 +50,7 @@ Step 7에서 구현한 **Spring AI Function Calling 시스템**을 n8n과 연동
 
 ### [01. n8n 연동 가이드](./01.n8n-integration.md)
 
-**난이도**: ⭐⭐⭐⭐ (고급) | **예상 시간**: 4시간+ | **보너스 미션**
+난이도: 고급 | 예상 시간: 4시간 이상 | 보너스 미션
 
 **내용**:
 1. n8n이란 무엇인가

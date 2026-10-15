@@ -2,7 +2,7 @@
 
 ## 학습 개요
 
-Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Function Calling(Tool Calling)을 통해 **지능형 도서관 도우미 AI**로 통합합니다. 사용자의 자연어 질문 한 번으로 도서 검색부터 리뷰 확인, 대출 가능 여부까지 LLM이 스스로 필요한 API를 선택하고 호출하는 AI 시스템을 구현합니다.
+Step 6까지 구현한 검색, 추천, 개인화 시스템을 Spring AI Function Calling(Tool Calling)을 통해 **지능형 도서관 도우미 AI**로 통합합니다. 사용자의 자연어 질문 한 번으로 도서 검색부터 리뷰 확인, 대출 가능 여부까지 LLM이 스스로 필요한 API를 선택하고 호출하는 AI 시스템을 구현합니다.
 
 ## 학습 목표
 
@@ -12,7 +12,7 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
    - MCP(Model Context Protocol) 이해
 
 2. **Function Calling 구현**
-   - 7개 도서관정보나루 API를 Function으로 변환
+   - 8개 도서관정보나루 API를 Function으로 변환
    - 타입 안전한 Request/Response DTO 설계
    - ChatClient에 Function 등록
 
@@ -111,7 +111,7 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 
 ### 2. 도서관정보나루 API 활용
 
-**17개 API → 8개 주요 Function으로 변환:**
+17개 API를 8개 주요 Function으로 변환합니다.
 
 | Function | API | 설명 | 구현 위치 |
 |----------|-----|------|----------|
@@ -147,46 +147,45 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 
 ### 핵심 컴포넌트
 
-**두 가지 오케스트레이션 방식이 공존합니다:**
+두 가지 오케스트레이션 방식이 공존합니다.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    사용자 질문                          │
-│  "토비의 스프링 광주 도서관에서 빌릴까?"              │
+│  "토비의 스프링 광주 도서관에서 빌릴까?"                │
 └───────────────────┬─────────────────────────────────────┘
                     │
-         ┌──────────┴──────────┐
-         │                     │
-         ↓                     ↓
-┌──────────────────┐   ┌─────────────────────────────────┐
-│  단일 Agent 방식  │   │     A2A 방식 (기존 유지)        │
-│                  │   │                                 │
-│ AiLibraryAssistant│   │  AiOrchestrationService        │
-│   Service        │   │  - QueryParserAgent             │
-│                  │   │  - BookAgent                    │
-│ 3개 Function     │   │  - ReviewAgent                  │
-│  - BookSearch    │   │  - LoanAgent                    │
-│  - GetReviews    │   │  - LibraryAgent                 │
-│  - CheckLoan     │   │  - RecommendationAgent          │
-└──────────────────┘   └─────────────────────────────────┘
-         │                           │
-         └──────────┬────────────────┘
-                    │
-                    ↓
-┌─────────────────────────────────────────────────────────┐
-│         LibraryFunctions (8개 Function)                  │
-│  ┌─────────────────┬─────────────────┬───────────────┐  │
-│  │  searchBooks    │ getLibrariesWith │ searchLibraries │  │
-│  │                 │ Book             │               │  │
-│  ├─────────────────┼─────────────────┼───────────────┤  │
-│  │ getBookDetail   │ getPopularBooks  │ getHotTrend   │  │
-│  │                 │                 │ Books         │  │
-│  ├─────────────────┴─────────────────┼───────────────┤  │
-│  │ getRecommendedBooks              │checkBookExists │  │
-│  └───────────────────────────────────┴───────────────┘  │
-└───────────────────┬─────────────────────────────────────┘
-                    │
-                    ↓
+         ┌──────────┴──────────────────┐
+         │                             │
+         ↓                             ↓
+┌──────────────────────┐   ┌──────────────────────────────┐
+│  단일 Agent 방식      │   │  A2A 방식 (Telegram 기본)    │
+│                      │   │                              │
+│ AiLibraryAssistant   │   │  AiOrchestrationService      │
+│   Service            │   │  - QueryParserAgent          │
+│                      │   │    (쿼리 파싱·엔티티 추출)   │
+│ 3개 Function         │   │  - LLM이 Function 선택·실행  │
+│  - BookSearch        │   │                              │
+│  - GetReviews        │   │                              │
+│  - CheckLoan         │   │                              │
+│    Availability      │   │                              │
+└──────────┬───────────┘   └──────────────┬───────────────┘
+           │                              │
+           ↓                              ↓
+┌──────────────────────┐   ┌──────────────────────────────┐
+│ BookSearchService    │   │ LibraryFunctions (8개)       │
+│ ReviewService        │   │  searchBooks                 │
+│ (내부 DB)            │   │  getLibrariesWithBook        │
+│                      │   │  searchLibraries             │
+│ LoanCheckFunction ───┼─┐ │  getBookDetail               │
+└──────────────────────┘ │ │  getPopularBooks             │
+                         │ │  getHotTrendBooks            │
+                         │ │  getRecommendedBooks         │
+                         │ │  checkBookExists             │
+                         │ └──────────────┬───────────────┘
+                         │                │
+                         └───────┬────────┘
+                                 ↓
 ┌─────────────────────────────────────────────────────────┐
 │          LibraryInfoNaruApiClient (17개 API)            │
 │  - 도서관정보나루 API 직접 호출                         │
@@ -197,29 +196,30 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 
 **Telegram Bot**:
 ```java
-// 일반 메시지: AiOrchestrationService (A2A) 호출
+// 일반 메시지: AiOrchestrationService (A2A) 호출 (LibraryTelegramBot.handleAiAgentSearch)
 String aiResponse = aiOrchestrationService.ask(keyword);
 
-// /ai 명령어: AiLibraryAssistantService (단일 Agent) 호출 가능
+// 단일 Agent 방식으로 바꾸려면: AiLibraryAssistantService 호출
+// (LibraryTelegramBot에 주입되어 있지만 현재 호출하는 명령어는 없음)
 String aiResponse = aiLibraryAssistantService.ask(keyword);
 ```
 
 ### 코드 간소화 효과
 
-**참고**: Step 7에서는 기존 AiOrchestrationService(A2A 패턴)를 유지하면서 새로운 단일 Agent 방식(AiLibraryAssistantService)을 추가했습니다.
+**참고**: Step 7에서는 기존 AiOrchestrationService를 Function Calling 방식으로 단순화하고, 새로운 단일 Agent 방식(AiLibraryAssistantService)을 추가했습니다.
 
 | 파일 | Step 6 | Step 7 | 변화 |
 |------|--------|--------|------|
-| AiOrchestrationService | 760줄 | 유지 | A2A 패턴 유지 |
-| AiLibraryAssistantService | 0줄 | 120줄 | **새로 추가** (단일 Agent) |
-| BookSearchFunction | 0줄 | 80줄 | **새로 추가** |
-| ReviewFunction | 0줄 | 80줄 | **새로 추가** |
-| LoanCheckFunction | 0줄 | 140줄 | **새로 추가** |
-| LibraryFunctions | 0줄 | 355줄 | **새로 추가** |
-| 결과 | 수동 Agent 선택 | LLM 자율 선택 + A2A 유지 | **확장** |
+| AiOrchestrationService | 약 450줄 | 약 200줄 | 단순화 (QueryParserAgent + LibraryFunctions) |
+| AiLibraryAssistantService | 0줄 | 약 120줄 | 새로 추가 (단일 Agent) |
+| BookSearchFunction | 0줄 | 약 80줄 | 새로 추가 |
+| ReviewFunction | 0줄 | 약 80줄 | 새로 추가 |
+| LoanCheckFunction | 0줄 | 약 140줄 | 새로 추가 |
+| LibraryFunctions | 0줄 | 약 370줄 | 새로 추가 |
+| 결과 | 수동 Agent 선택 | LLM 자율 선택 | 확장 |
 
 **두 가지 방식 공존**:
-1. **AiOrchestrationService**: A2A 패턴, 여러 전문 Agent 조합 (기존 방식 유지)
+1. **AiOrchestrationService**: QueryParserAgent로 쿼리를 파싱한 뒤 LLM이 LibraryFunctions(8개)를 선택·실행 (Telegram 일반 메시지 처리)
 2. **AiLibraryAssistantService**: 단일 Agent, FunctionToolCallback 방식 (새로 추가)
 
 ---
@@ -229,7 +229,7 @@ String aiResponse = aiLibraryAssistantService.ask(keyword);
 ```
 Phase 1: Function 정의 (1시간)
 ├─ LibraryFunctions 클래스 생성
-├─ 7개 Function<Request, Response> 구현
+├─ 8개 Function<Request, Response> 구현
 ├─ DTO 정의 (Request/Response)
 └─ LibraryInfoNaruApiClient 연동
 
@@ -255,9 +255,10 @@ Phase 3: 실전 테스트 (1시간)
 ### 핵심 기술
 - **Spring AI 1.1.2**: Function Calling 프레임워크
   - FunctionToolCallback.builder() 방식 (기존 방식)
-  - @Tool 애노테이션 방식 (새로운 권장 방식, 2025년 3월 구현 완료)
+  - @Tool 애노테이션 방식 (새로운 권장 방식, 2026년 3월 구현 완료)
 - **Java 21**: Record, Lambda
-- **Ollama (qwen2.5:latest)**: Local LLM (Function Calling 지원)
+- **Ollama (qwen2.5:latest)**: 자체 호스팅 LLM (Function Calling 지원, `spring.ai.selected-model=ollama`)
+- **Gemini 2.0 Flash**: `spring.ai.selected-model=gemini`로 전환 가능
 
 ### Function 등록 방식 (두 가지 지원)
 
@@ -266,11 +267,10 @@ Phase 3: 실전 테스트 (1시간)
 - 순환 의존성 방지를 위해 서비스 내부에서 FunctionToolCallback 생성
 - ChatClient를 매번 새로 생성하여 FunctionToolCallback 등록
 
-**방식 2: @Tool 애노테이션** (권장, Spring AI 1.1.2+)
+**방식 2: @Tool 애노테이션** (권장, Spring AI 1.0부터 지원, 이 프로젝트는 1.1.2)
 - 애노테이션 기반으로 간결한 코드
 - @ToolParam으로 파라미터 설명 직접 제공
-- Spring이 자동으로 @Tool 메서드 스캔 및 등록
-- `defaultTools()`로 자동 등록 가능
+- `defaultTools(도구 객체)`에 객체를 넘기면 그 안의 @Tool 메서드를 찾아 자동 등록
 
 ### 활용 기술 (Step 1~6)
 - **Spring Boot**: 웹 프레임워크
@@ -283,10 +283,10 @@ Phase 3: 실전 테스트 (1시간)
 
 | 단계 | 내용 | 시간 |
 |------|------|------|
-| **이론 학습** | Function Calling, LLM 오케스트레이션 | 30분 |
-| **Phase 1** | Function 정의 | 1시간 |
-| **Phase 2** | LLM 오케스트레이션 | 1시간 |
-| **Phase 3** | 테스트 및 디버깅 | 30분 |
+| 이론 학습 | Function Calling, LLM 오케스트레이션 | 30분 |
+| Phase 1 | Function 정의 | 1시간 |
+| Phase 2 | LLM 오케스트레이션 | 1시간 |
+| Phase 3 | 테스트 및 디버깅 | 30분 |
 | **총계** | | **3시간** |
 
 ---
@@ -347,7 +347,7 @@ Phase 3: 실전 테스트 (1시간)
 - 테스트 방법
 
 ### [03. 복수 Function 조합](./03.multiple-functions.md)
-- 7개 Function 구현
+- 리뷰 조회 Function(ReviewFunction) 구현
 - Function 조합 실행
 - 데이터 전달
 
@@ -369,9 +369,9 @@ Phase 3: 실전 테스트 (1시간)
 
 ---
 
-## 구현 완료 상태 (2025년 3월 6일)
+## 구현 완료 상태 (2026년 3월 6일)
 
-### ✅ 구현된 컴포넌트
+### 구현된 컴포넌트
 
 **LibraryTools** (`ai/function/LibraryTools.java`)
 - Spring AI 1.1.2 @Tool 애노테이션 기반
@@ -388,23 +388,23 @@ Phase 3: 실전 테스트 (1시간)
 - `.defaultTools()`로 자동 등록
 - 기존 AiOrchestrationService(A2A)와 병행 운영
 
-### 🔧 기존 코드 유지
+### 기존 코드 유지
 
 **기존 FunctionToolCallback 방식 유지**:
-- `LibraryFunctions.java` - 8개 FunctionToolCallback 메서드
+- `LibraryFunctions.java` - 8개 `Function<Request, Response>` 메서드 (AiOrchestrationService에서 FunctionToolCallback으로 감싸 등록)
 - `AiOrchestrationService.java` - A2A 패턴 오케스트레이션
 - `BookSearchFunction.java`, `ReviewFunction.java`, `LoanCheckFunction.java`
 
-### 📝 두 방식 비교
+### 두 방식 비교
 
 | 특징 | FunctionToolCallback.builder() | @Tool 애노테이션 |
 |------|------------------------------|------------------|
-| 코드 간결성 | ⚠️ Builder 패턴으로 코드 길어짐 | ✅ 애노테이션으로 간결 |
-| 파라미터 설명 | ⚠️ DTO 클래스 필요 | ✅ @ToolParam으로 직접 설명 |
-| 자동 등록 | ❌ 수동 등록 필요 | ✅ Spring 자동 스캔 |
-| 순환 의존성 | ✅ 프로그래밍 방식으로 회피 가능 | ⚠️ Bean 주입 시 주의 필요 |
+| 코드 간결성 | Builder 패턴으로 코드가 길어짐 | 애노테이션으로 간결 |
+| 파라미터 설명 | DTO 클래스 필요 | @ToolParam으로 직접 설명 |
+| 등록 방식 | Tool마다 builder로 수동 생성 | `defaultTools(객체)`로 @Tool 메서드 일괄 등록 |
+| 순환 의존성 | 프로그래밍 방식으로 회피 가능 | Bean 주입 시 주의 필요 |
 
-### 🎯 선택 가이드
+### 선택 가이드
 
 **FunctionToolCallback.builder() 사용**:
 - 순환 의존성 문제가 있는 경우

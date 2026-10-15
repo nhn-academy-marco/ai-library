@@ -13,7 +13,7 @@ Step 4에서는 RAG 시스템의 **성능 문제**를 해결하고, **사용자 
 ### Part 1: 성능 최적화
 - RAG 시스템에서 발생하는 성능 문제의 원인 이해
 - 토큰이 비용과 속도에 미치는 영향 파악
-- **실제 구현된 최적화 기술 2가지** 학습
+- 실제 구현된 최적화 기술 2가지 학습
   - 시맨틱 캐싱: 반복 질문의 낭비를 제거
   - Top-K 최적화: 토큰 폭발을 방지
 
@@ -26,33 +26,33 @@ Step 4에서는 RAG 시스템의 **성능 문제**를 해결하고, **사용자 
 
 ## 문서 구성
 
-### 🚀 Part 1: 성능 최적화 (01~03)
+### Part 1: 성능 최적화 (01~03)
 
 AI 서비스의 3대 문제(느린 응답, 높은 비용, 품질 vs 비용 딜레마)를 해결하는 기술
 
 | 문서 | 주제 | 설명 | 구현 상태 |
 |------|------|------|----------|
-| **01** | [성능과 비용](./01.performance-cost.md) | RAG 시스템의 성능 문제와 해결책 개요 | ✅ 개념 학습 |
-| **02** | [Top-K 최적화](./02.topk-optimization.md) | Retrieval K와 Rerank K 분리, RRF 필터링 | ✅ 완전 구현 |
-| **03** | [시맨틱 캐싱](./03.semantic-caching.md) | 코사인 유사도 기반 캐싱, Redis 활용 | ✅ 완전 구현 |
+| 01 | [성능과 비용](./01.performance-cost.md) | RAG 시스템의 성능 문제와 해결책 개요 | 개념 학습 |
+| 02 | [Top-K 최적화](./02.topk-optimization.md) | Retrieval K와 Rerank K 분리, RRF 필터링 | 구현 완료 |
+| 03 | [시맨틱 캐싱](./03.semantic-caching.md) | 코사인 유사도 기반 캐싱, 이벤트 기반 웜업, Caffeine 로컬 캐시 | 구현 완료 |
 
 **학습 순서 추천:** 01 → 02 → 03
 
 **핵심 성과:**
-- 비용: 97.5% 절감 ($60,000/월 → $1,500/월)
+- 비용: 97.5% 절감 ($60,000/월 → $1,500/월, 사용자 100만 명 × 하루 2회 검색 기준)
 - 속도: 20~30배 향상 (캐시 Hit 시 3초 → 0.1초)
 - 품질: 유지 또는 향상
 
 ---
 
-### 📊 Part 2: 리뷰 시스템 (04~05)
+### Part 2: 리뷰 시스템 (04~05)
 
 사용자 리뷰를 수집하고 AI 추천에 활용하는 시스템
 
 | 문서 | 주제 | 설명 | 구현 상태 |
 |------|------|------|----------|
-| **04** | [리뷰 요약 시스템](./04.review-summarization.md) | RabbitMQ로 리뷰 수집, AI가 요약 생성 | ✅ 완전 구현 |
-| **05** | [리뷰 RAG 연동](./05.review-rag-integration.md) | 리뷰 정보를 RAG 검색에 반영 | ✅ 완전 구현 |
+| 04 | [리뷰 요약 시스템](./04.review-summarization.md) | RabbitMQ로 리뷰 수집, AI가 요약 생성 | 구현 완료 |
+| 05 | [리뷰 RAG 연동](./05.review-rag-integration.md) | 리뷰 정보를 RAG 검색에 반영 | 구현 완료 |
 
 **학습 순서 추천:** 04 → 05
 
@@ -64,7 +64,7 @@ AI 서비스의 3대 문제(느린 응답, 높은 비용, 품질 vs 비용 딜�
 
 **05 문서에서 배우는 내용:**
 - 리뷰 정보를 DTO에 추가하여 검색 결과에 포함
-- N+1 문제를 방지하는 LEFT JOIN 조회
+- N+1 문제를 방지하는 IN 절 일괄 조회
 - LLM 프롬프트에 리뷰 정보를 반영하여 추천 품질 향상
 
 ---
@@ -90,7 +90,7 @@ Step 4에 오기 전에:
 
 3. 03.semantic-caching.md 학습
    - 시맨틱 캐싱 구현 분석
-   - Redis 캐시 활용
+   - Caffeine 로컬 캐시와 TTL 활용
 
 4. 실습 미션 수행
    - 다양한 K 값 테스트
@@ -120,13 +120,13 @@ Step 4에 오기 전에:
 
 ## 실제 프로젝트 구현 상태
 
-### ✅ 완전 구현 (01~05)
+### 완전 구현 (01~05)
 
 | 기술 | 구현 위치 | 핵심 설정 |
 |------|----------|----------|
 | Top-K 최적화 | `RagSearchStrategy.java` | Retrieval K=100, Rerank K=5 |
 | 시맨틱 캐싱 | `SemanticCacheService.java` | 유사도 0.98, TTL 30분 |
-| Redis 캐시 | `redis.properties` | `s4.java21.net:6379` |
+| 로컬 캐시 | `CacheConfig.java` | Caffeine, TTL 30분, 최대 500개 |
 | 리뷰 요약 | `BookReviewSummary.java` | RabbitMQ 비동기 처리 |
 
 **실제 코드 확인:**
@@ -153,7 +153,7 @@ src/main/java/.../AiRecommendationService.java
 ### 성능 최적화 효과
 
 ```
-[최적화 전]
+[최적화 전] (사용자 100만 명 × 하루 2회, Gemini 2.0 Flash 기준)
 - 월 비용: $60,000
 - 응답 시간: 3초
 - 사용자 만족: 낮음 (느림)
@@ -184,7 +184,7 @@ src/main/java/.../AiRecommendationService.java
 - [ ] 02: RRF 점수 기반 필터링을 구현할 수 있다
 - [ ] 02: Stream API로 Top-K를 선택할 수 있다
 - [ ] 03: 코사인 유사도를 이해한다
-- [ ] 03: Redis 캐시를 활용할 수 있다
+- [ ] 03: 캐시 TTL과 만료 처리를 이해한다
 - [ ] 03: 시맨틱 캐싱의 장단점을 안다
 
 ### Part 2 완료 기준 (선택)
@@ -195,7 +195,7 @@ src/main/java/.../AiRecommendationService.java
 - [ ] 04: Map-Reduce와 Incremental 요약의 차이를 안다
 - [ ] 05: 리뷰 정보를 DTO에 추가할 수 있다
 - [ ] 05: LLM 프롬프트를 수정하여 리뷰를 반영할 수 있다
-- [ ] 05: N+1 문제를 방지하는 LEFT JOIN을 이해한다
+- [ ] 05: IN 절 일괄 조회로 N+1 문제를 방지하는 방법을 이해한다
 
 ---
 
@@ -212,19 +212,17 @@ src/main/java/.../AiRecommendationService.java
 
 **A:** 05 문서에 설명된 모든 기능이 완전 구현되어 있습니다.
 - BookSearchResponse에 평점/리뷰 수/리뷰 요약 필드 추가
-- Repository에서 LEFT JOIN으로 N+1 문제 방지
+- Repository에서 IN 절 일괄 조회로 N+1 문제 방지
 - AiRecommendationService 프롬프트에 리뷰 정보 반영
 - 리뷰 정보를 통해 추가로 10~20% 추천 품질 향상 기대
 
 ### Q3: Redis가 없으면 캐싱을 학습할 수 없나요?
 
-**A:** Redis를 설치하거나 Docker로 실행하면 됩니다.
+**A:** 학습할 수 있습니다. 시맨틱 캐시는 애플리케이션 메모리(`InMemoryBookSearchCacheRepository`)와 Caffeine 로컬 캐시에 저장되므로 Redis 없이도 동작합니다.
+`RedisConfig`는 `spring.data.redis.host`가 설정된 경우에만 `RedisTemplate`을 등록합니다. Redis를 직접 실험해 보고 싶다면 Docker로 실행할 수 있습니다.
 ```bash
 # Docker로 Redis 실행
 docker run -d -p 6379:6379 redis:latest
-
-# 또는 프로젝트의 Redis 서버 연결
-# redis.properties 확인
 ```
 
 ### Q4: Top-K 값은 어떻게 결정하나요?

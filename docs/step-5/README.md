@@ -2,7 +2,7 @@
 
 ## 학습 개요
 
-이번 Step에서는 **Telegram Bot을 통한 사용자 피드백 수집 시스템**을 구축합니다. 사용자가 검색 결과에 대해 만족하는지 아니면 불만족하는지를 피드백으로 수집하고, 이를 통해 검색 품질을 분석할 수 있는 기반을 마련합니다.
+이번 Step에서는 Telegram Bot을 통한 사용자 피드백 수집 시스템을 구축합니다. 사용자가 검색 결과에 대해 만족하는지 아니면 불만족하는지를 피드백으로 수집하고, 이를 통해 검색 품질을 분석할 수 있는 기반을 마련합니다.
 
 ## 학습 목표
 
@@ -148,13 +148,12 @@ Client → 서버에 요청: "메시지 왔어?"
 → 효율적인 실시간 통신
 ```
 
-**LibraryTelegramBot 설정** (`application.properties`)
+**LibraryTelegramBot 설정** (`telegram.properties`)
 ```properties
-# Telegram Bot Token
-spring.ai.genai.api-key=${TELEGRAM_BOT_TOKEN}
-
-# Long Polling 대기 시간 (초)
-telegram.bot.poll-interval=5
+# Telegram Bot 활성화 여부, Token, 사용자명
+telegram.bot.enabled=true
+telegram.bot.token=${TELEGRAM_BOT_TOKEN}
+telegram.bot.username=your_bot_username
 ```
 
 #### 메시지 처리 우선순위
@@ -175,8 +174,8 @@ hasMessage() && hasText()? ─YES──→ [Command 분기]
 ```
 
 **왜 우선순위가 중요한가?**
-- Callback Query는 **즉시 응답**해야 함 (사용자 경험)
-- 일반 메시지는 **조금 늦게 처리**되어도 무방
+- Callback Query는 즉시 응답해야 함 (사용자 경험)
+- 일반 메시지는 조금 늦게 처리되어도 무방
 
 ### 2. Inline Keyboard와 Callback Query
 
@@ -399,7 +398,7 @@ feedbackScore = (goodCount - badCount) / totalCount
 
 ## 구현 완료 현황
 
-### Phase 1: 데이터 계층 ✅
+### Phase 1: 데이터 계층
 
 | 컴포넌트 | 파일명 | 설명 |
 |----------|--------|------|
@@ -407,7 +406,7 @@ feedbackScore = (goodCount - badCount) / totalCount
 | Repository | `SearchFeedbackRepository.java` | 데이터 접근 인터페이스 |
 | Enum | `FeedbackType.java` | GOOD(+1), BAD(-1) |
 
-### Phase 2: 비즈니스 계층 ✅
+### Phase 2: 비즈니스 계층
 
 | 컴포넌트 | 파일명 | 설명 |
 |----------|--------|------|
@@ -416,7 +415,7 @@ feedbackScore = (goodCount - badCount) / totalCount
 | DTO | `FeedbackRequest.java` | 요청 DTO (record) |
 | DTO | `FeedbackStats.java` | 통계 DTO (record) |
 
-### Phase 3: UI 계층 ✅
+### Phase 3: UI 계층
 
 | 컴포넌트 | 파일명 | 설명 |
 |----------|--------|------|
@@ -424,14 +423,14 @@ feedbackScore = (goodCount - badCount) / totalCount
 | Handler | `CallbackQueryHandler.java` | Callback 처리 |
 | Bot | `LibraryTelegramBot.java` | Telegram Bot 메인 클래스 |
 
-### Phase 4: 관리자 API ✅
+### Phase 4: 관리자 API
 
 | 컴포넌트 | 파일명 | 설명 |
 |----------|--------|------|
 | Controller | `FeedbackAdminController.java` | REST API |
 | Test | `FeedbackAdminControllerTest.java` | API 테스트 |
 
-### 추가 구현 기능 ✅
+### 추가 구현 기능
 
 | 기능 | 파일명 | 설명 |
 |------|--------|------|
@@ -487,12 +486,12 @@ public CallbackQueryHandler(
 
 ## 다음 단계
 
-### Step 5 완료 항목 ✅
+### Step 5 완료 항목
 
-1. **Telegram Bot 기본 설정** - Bot 토큰 발급, Long Polling 설정
-2. **RAG 검색 연동** - AI 추천 사유 생성
-3. **피드백 수집 시스템** - Inline Keyboard, Callback 처리, DB 저장
-4. **관리자 API** - 통계 조회, CSV 내보내기
+1. Telegram Bot 기본 설정 - Bot 토큰 발급, Long Polling 설정
+2. RAG 검색 연동 - AI 추천 사유 생성
+3. 피드백 수집 시스템 - Inline Keyboard, Callback 처리, DB 저장
+4. 관리자 API - 통계 조회, CSV 내보내기
 
 ### [Step 6: 개인화 추천 시스템](../step-6/README.md)
 
