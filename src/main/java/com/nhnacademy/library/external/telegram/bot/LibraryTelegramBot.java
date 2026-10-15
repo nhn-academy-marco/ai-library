@@ -45,7 +45,7 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
     private final TelegramKeyboardFactory keyboardFactory;
     private final FeedbackService feedbackService;
     private final AiLibraryAssistantService aiLibraryAssistantService; // Step 7 단일 Agent
-    private final AiOrchestrationService aiOrchestrationService; // Step 7 A2A Orchestrator
+    private final AiOrchestrationService aiOrchestrationService; // Step 7 Tool 기반 Orchestrator
 
     public LibraryTelegramBot(TelegramBotProperties properties, DefaultBotOptions options,
                               BookSearchService bookSearchService,
@@ -171,7 +171,7 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
     }
 
     /**
-     * AI Agent 검색 처리 (Step 7 A2A)
+     * AI Agent 검색 처리 (Step 7 Tool 기반 오케스트레이션)
      * <p>
      * AI Agent(Orchestrator)가 복잡한 요청을 처리하고 필요에 따라 전문 Agent를 호출합니다.
      * 도서 검색, 리뷰 조회, 대출 가능 확인, 도서관 검색 등을 자동으로 수행합니다.
@@ -182,22 +182,22 @@ public class LibraryTelegramBot extends TelegramLongPollingBot {
      */
     private void handleAiAgentSearch(Update update, String keyword) {
         Long chatId = update.getMessage().getChatId();
-        log.info("[Telegram] AI Agent(A2A) search for: {}, chatId: {}", keyword, chatId);
+        log.info("[Telegram] AI Agent(Tool orchestration) search for: {}, chatId: {}", keyword, chatId);
 
         try {
             // 1. 최근 검색어 저장 (피드백용)
             callbackQueryHandler.setRecentQuery(chatId, keyword);
 
-            // 2. AI Orchestrator 호출 (A2A 패턴)
+            // 2. AI Orchestrator 호출 (Tool 기반 오케스트레이션)
             String aiResponse = aiOrchestrationService.ask(keyword);
 
             // 3. Telegram으로 응답 전송
             sendSimpleMessage(chatId, aiResponse);
 
-            log.info("[Telegram] AI Agent(A2A) search completed for: {}, chatId: {}", keyword, chatId);
+            log.info("[Telegram] AI Agent(Tool orchestration) search completed for: {}, chatId: {}", keyword, chatId);
 
         } catch (Exception e) {
-            log.error("[Telegram] AI Agent(A2A) search failed for: {}, chatId: {}", keyword, chatId, e);
+            log.error("[Telegram] AI Agent(Tool orchestration) search failed for: {}, chatId: {}", keyword, chatId, e);
             sendSimpleMessage(chatId, "검색 중 오류가 발생했습니다. 다시 시도해주세요.");
         }
     }

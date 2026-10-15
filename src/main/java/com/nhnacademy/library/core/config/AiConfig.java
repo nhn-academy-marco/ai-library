@@ -21,7 +21,7 @@ import java.time.Duration;
  * </p>
  * <ul>
  *   <li><b>llama3-korean-blossom</b>: QueryParserAgent용 (한국어 쿼리 파싱)</li>
- *   <li><b>qwen2.5:latest</b>: AiOrchestrationService용 (A2A 오케스트레이션, Function Calling)</li>
+ *   <li><b>qwen2.5:latest</b>: AiOrchestrationService용 (Tool 기반 오케스트레이션, Function Calling)</li>
  * </ul>
  */
 @Configuration
@@ -29,9 +29,6 @@ public class AiConfig {
 
     @Value("${spring.ai.ollama.base-url}")
     private String ollamaBaseUrl;
-
-    @Value("${spring.ai.ollama.chat.options.duration:300}")
-    private int duration;
 
     @Bean
     @Primary
@@ -68,7 +65,7 @@ public class AiConfig {
     /**
      * qwen2.5 ChatClient
      * <p>
-     * AiOrchestrationService용: A2A 오케스트레이션과 Function Calling에 특화된 모델
+     * AiOrchestrationService용: Tool 기반 오케스트레이션과 Function Calling에 특화된 모델
      * </p>
      */
     @Bean
@@ -97,7 +94,7 @@ public class AiConfig {
     /**
      * 기본 ChatClient
      * <p>
-     * Step 7: qwen2.5를 기본으로 사용 (A2A 오케스트레이션용)
+     * Step 7: qwen2.5를 기본으로 사용 (Tool 기반 오케스트레이션용)
      * </p>
      */
     @Bean

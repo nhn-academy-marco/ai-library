@@ -4,14 +4,9 @@ import com.nhnacademy.library.core.book.dto.BookSearchResponse;
 import com.nhnacademy.library.core.book.repository.BookRepository;
 import com.nhnacademy.library.core.book.service.personalization.PersonalizationService;
 import com.nhnacademy.library.core.book.util.VectorUtils;
-import com.nhnacademy.library.external.telegram.dto.FeedbackType;
-import com.nhnacademy.library.external.telegram.entity.SearchFeedback;
-import com.nhnacademy.library.external.telegram.repository.SearchFeedbackRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -31,20 +26,6 @@ import java.util.stream.Collectors;
 public class PersonalizationServiceImpl implements PersonalizationService {
 
     /**
-     * 개인화 적용 최소 피드백 수
-     * <p>피드백이 이 수보다 적으면 콜드 스타트로 간주하여 개인화를 적용하지 않습니다.</p>
-     */
-    @Value("${app.personalization.min-feedback-count:3}")
-    private int minFeedbackCount;
-
-    /**
-     * 선호도 계산에 사용할 최대 피드백 수
-     * <p>최신 피드백부터 이 수만큼만 사용하여 선호도를 계산합니다.</p>
-     */
-    @Value("${app.personalization.max-feedback-count:20}")
-    private int maxFeedbackCount;
-
-    /**
      * 개인화 점수 가중치
      * <p>최종 점수 = RRF 점수 + (코사인 유사도 × 이 가중치)</p>
      */
@@ -52,50 +33,12 @@ public class PersonalizationServiceImpl implements PersonalizationService {
     private double personalizationWeight;
 
     private final BookRepository bookRepository;
-    private final SearchFeedbackRepository feedbackRepository;
+    private final UserPreferenceVectorCalculator userPreferenceVectorCalculator;
 
     @Override
-    @Cacheable(
-        value = "userPreferenceVectors",
-        key = "#chatId",
-        unless = "#result == null",
-        cacheManager = "personalizationCacheManager"
-    )
     public float[] calculateUserPreferenceVector(Long chatId) {
-        log.info("[PERSONALIZATION] Calculating preference vector for chatId: {}", chatId);
-
-        // 1. GOOD 피드백만 추출 (최신순)
-        List<Long> likedBookIds = getLikedBookIds(chatId);
-
-        // 2. 콜드 스타트 체크
-        if (likedBookIds.size() < minFeedbackCount) {
-            log.info("[PERSONALIZATION] Cold start for chatId: {} (feedback count: {})",
-                chatId, likedBookIds.size());
-            return null;
-        }
-
-        // 3. 임베딩 조회
-        List<float[]> embeddings = bookRepository.findEmbeddingsByIds(likedBookIds);
-
-        if (embeddings.isEmpty()) {
-            log.warn("[PERSONALIZATION] No embeddings found for chatId: {}", chatId);
-            return null;
-        }
-
-        // 4. 임베딩 수와 피드백 수가 다른 경우 로깅 (임베딩이 없는 도서가 있을 수 있음)
-        if (embeddings.size() < likedBookIds.size()) {
-            log.debug("[PERSONALIZATION] Some books have no embedding: {}/{}",
-                embeddings.size(), likedBookIds.size());
-        }
-
-        // 5. 평균 벡터 계산
-        float[][] embeddingArray = embeddings.toArray(new float[0][]);
-        float[] preferenceVector = VectorUtils.averageVector(embeddingArray);
-
-        log.info("[PERSONALIZATION] Preference vector calculated for chatId: {} (based on {} books)",
-            chatId, embeddings.size());
-
-        return preferenceVector;
+        // 캐시가 적용되도록 별도 빈(프록시)을 통해 호출
+        return userPreferenceVectorCalculator.calculate(chatId);
     }
 
     @Override
@@ -104,7 +47,7 @@ public class PersonalizationServiceImpl implements PersonalizationService {
         Long chatId
     ) {
         // 1. 선호도 벡터 조회
-        float[] preferenceVector = calculateUserPreferenceVector(chatId);
+        float[] preferenceVector = userPreferenceVectorCalculator.calculate(chatId);
 
         // 2. 선호도 벡터가 없으면 기존 결과 반환
         if (preferenceVector == null) {
@@ -119,15 +62,13 @@ public class PersonalizationServiceImpl implements PersonalizationService {
             .map(BookSearchResponse::getId)
             .collect(Collectors.toList());
 
-        // BookRepository의 findEmbeddingsByIds 사용 (한 번의 쿼리로 모든 임베딩 조회)
-        List<float[]> embeddings = bookRepository.findEmbeddingsByIds(bookIds);
+        // IN 쿼리 결과는 입력 순서를 보장하지 않으므로 (id, embedding) 쌍으로 조회
+        List<Object[]> rows = bookRepository.findIdAndEmbeddingsByIds(bookIds);
 
         // bookId와 임베딩을 매핑 (Map 생성)
         Map<Long, float[]> embeddingMap = new HashMap<>();
-        for (int i = 0; i < bookIds.size(); i++) {
-            if (i < embeddings.size()) {
-                embeddingMap.put(bookIds.get(i), embeddings.get(i));
-            }
+        for (Object[] row : rows) {
+            embeddingMap.put((Long) row[0], (float[]) row[1]);
         }
 
         // 4. 각 도서별 코사인 유사도 계산 및 최종 점수 계산 (메모리 상에서 처리)
@@ -149,8 +90,10 @@ public class PersonalizationServiceImpl implements PersonalizationService {
                 response.setSimilarity(similarity);
                 response.setRrfScore(finalScore);
 
-                log.debug("[PERSONALIZATION] Book: {}, Similarity: {:.4f}, Final Score: {:.4f}",
-                    response.getTitle(), similarity, finalScore);
+                if (log.isDebugEnabled()) {
+                    log.debug("[PERSONALIZATION] Book: {}, Similarity: {}, Final Score: {}",
+                        response.getTitle(), String.format("%.4f", similarity), String.format("%.4f", finalScore));
+                }
 
                 return response;
             })
@@ -163,30 +106,7 @@ public class PersonalizationServiceImpl implements PersonalizationService {
     }
 
     @Override
-    @CacheEvict(
-        value = "userPreferenceVectors",
-        key = "#chatId",
-        cacheManager = "personalizationCacheManager"
-    )
     public void evictUserPreferenceCache(Long chatId) {
-        log.info("[PERSONALIZATION] Cache evicted for chatId: {}", chatId);
-    }
-
-    /**
-     * 사용자가 좋아한 도서 ID 목록을 추출합니다.
-     *
-     * <p>GOOD 피드백만 필터링하고 중복을 제거하며,
-     * 최신 피드백 순으로 제한된 수만큼 반환합니다.</p>
-     *
-     * @param chatId 사용자 chatId
-     * @return 좋아한 도서 ID 목록
-     */
-    private List<Long> getLikedBookIds(Long chatId) {
-        return feedbackRepository.findByChatIdOrderByCreatedAtDesc(chatId).stream()
-            .filter(feedback -> feedback.getType() == FeedbackType.GOOD)
-            .map(SearchFeedback::getBookId)
-            .distinct() // 중복 제거
-            .limit(maxFeedbackCount)
-            .collect(Collectors.toList());
+        userPreferenceVectorCalculator.evict(chatId);
     }
 }

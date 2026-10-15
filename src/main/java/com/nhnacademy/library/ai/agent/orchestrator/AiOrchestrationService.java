@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 /**
  * AI Orchestration Service (MainAgent) - Function Calling 스타일
  * <p>
- * Spring AI 1.1.3 Function Calling 패턴을 따라 LLM이 스스로 도구를 선택하고 실행합니다.
+ * Spring AI 1.1.2 Function Calling 패턴을 따라 LLM이 스스로 도구를 선택하고 실행합니다.
  * </p>
  *
  * <p><b>아키텍처:</b></p>

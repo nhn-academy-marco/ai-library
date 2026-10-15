@@ -1,5 +1,6 @@
 package com.nhnacademy.library.external.telegram.service;
 
+import com.nhnacademy.library.core.book.service.personalization.PersonalizationService;
 import com.nhnacademy.library.external.telegram.dto.FeedbackRequest;
 import com.nhnacademy.library.external.telegram.dto.FeedbackStats;
 import com.nhnacademy.library.external.telegram.entity.SearchFeedback;
@@ -21,6 +22,7 @@ import java.util.List;
 public class FeedbackServiceImpl implements FeedbackService {
 
     private final SearchFeedbackRepository searchFeedbackRepository;
+    private final PersonalizationService personalizationService;
 
     @Override
     @Transactional
@@ -35,7 +37,12 @@ public class FeedbackServiceImpl implements FeedbackService {
             request.type()
         );
 
-        return searchFeedbackRepository.save(feedback);
+        SearchFeedback saved = searchFeedbackRepository.save(feedback);
+
+        // 새 피드백이 다음 검색의 선호도 벡터에 반영되도록 캐시 무효화
+        personalizationService.evictUserPreferenceCache(chatId);
+
+        return saved;
     }
 
     @Override

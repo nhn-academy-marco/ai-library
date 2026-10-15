@@ -43,7 +43,7 @@ public interface PersonalizationService {
      * 선호도 벡터 캐시를 무효화합니다.
      *
      * <p>사용자가 새로운 피드백을 남긴 경우,
-     * 캐시를 삭제하여 다음 검색时 재계산되도록 합니다.</p>
+     * 캐시를 삭제하여 다음 검색 시 재계산되도록 합니다.</p>
      *
      * @param chatId 사용자 chatId
      */

@@ -29,4 +29,16 @@ public interface BookRepository extends JpaRepository<Book, Long>, BookRepositor
      */
     @Query("SELECT b.embedding FROM Book b WHERE b.id IN :bookIds AND b.embedding IS NOT NULL")
     List<float[]> findEmbeddingsByIds(@Param("bookIds") List<Long> bookIds);
+
+    /**
+     * 도서 ID 목록으로 (도서 ID, 임베딩 벡터) 쌍을 조회합니다.
+     *
+     * <p>IN 쿼리 결과는 입력 순서를 보장하지 않으므로,
+     * 결과를 도서 ID 기준으로 매핑해야 할 때 사용합니다.</p>
+     *
+     * @param bookIds 도서 ID 목록
+     * @return [0]: 도서 ID(Long), [1]: 임베딩 벡터(float[])
+     */
+    @Query("SELECT b.id, b.embedding FROM Book b WHERE b.id IN :bookIds AND b.embedding IS NOT NULL")
+    List<Object[]> findIdAndEmbeddingsByIds(@Param("bookIds") List<Long> bookIds);
 }

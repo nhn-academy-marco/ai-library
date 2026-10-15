@@ -43,7 +43,6 @@ public class BookEmbeddingService {
                 validBooks.add(book);
                 combinedTexts.add(combinedText);
             } else {
-                log.warn("Skipping book ID: {} due to empty combined text after preprocessing.", book.getId());
                 // 제목 조차 없는 경우 (최소한의 정보 부족)
                 log.warn("Skipping book ID: {} due to empty title and content after preprocessing.", book.getId());
             }

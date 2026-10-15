@@ -13,13 +13,13 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ReviewAiSummeryEventListener {
+public class ReviewAiSummaryEventListener {
 
     private final ReviewSummaryQueueService queueService;
 
     @Async
     @EventListener
-    public void handleReviewAiSummeryEvent(ReviewAiSummaryEvent event) {
+    public void handleReviewAiSummaryEvent(ReviewAiSummaryEvent event) {
         log.info("Received ReviewAiSummaryEvent for book id: {}", event.bookId());
         boolean enqueued = queueService.enqueue(event.bookId());
         if (enqueued) {

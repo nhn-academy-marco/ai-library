@@ -2,7 +2,7 @@ package com.nhnacademy.library.batch.init.event.listener;
 
 import com.nhnacademy.library.batch.init.event.BookParsedEvent;
 import com.nhnacademy.library.batch.init.event.BookParsingCompleteEvent;
-import com.nhnacademy.library.batch.init.parser.BooKParser;
+import com.nhnacademy.library.batch.init.parser.BookParser;
 import com.nhnacademy.library.batch.init.dto.BookRawData;
 import com.nhnacademy.library.batch.init.properties.InitProperties;
 import com.nhnacademy.library.batch.init.service.BookBatchService;
@@ -22,7 +22,7 @@ import java.util.List;
 public class BookParsingEventListener {
 
     private final InitProperties initProperties;
-    private final BooKParser bookParser;
+    private final BookParser bookParser;
     private final List<BookRawData> buffer = new ArrayList<>();
     private final BookBatchService bookbatchService;
 

@@ -37,7 +37,8 @@ public class ReviewSummaryQueueProcessor {
         } catch (Exception e) {
             log.error("Failed to process summary task for book {}: {}",
                     task.getBookId(), e.getMessage(), e);
-            throw e; // RabbitMQ 재시도 또는 DLQ로 이동
+            // spring.rabbitmq.listener.simple.retry 설정에 따라 재시도, 소진 시 DLQ로 이동 (RabbitMQConfig 참고)
+            throw e;
         } finally {
             // 중복 추적 Map에서 제거
             queueService.removePending(task.getBookId());

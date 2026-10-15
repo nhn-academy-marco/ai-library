@@ -2,7 +2,7 @@ package com.nhnacademy.library.batch.init.parser.impl;
 
 import com.nhnacademy.library.batch.init.event.BookParsedEvent;
 import com.nhnacademy.library.batch.init.event.BookParsingCompleteEvent;
-import com.nhnacademy.library.batch.init.parser.BooKParser;
+import com.nhnacademy.library.batch.init.parser.BookParser;
 import com.nhnacademy.library.batch.init.dto.BookRawData;
 import com.nhnacademy.library.batch.init.properties.InitProperties;
 import io.micrometer.common.util.StringUtils;
@@ -27,7 +27,7 @@ import java.time.format.DateTimeFormatter;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class CsvBookParser implements BooKParser {
+public class CsvBookParser implements BookParser {
     private final InitProperties initProperties;
     private static final String DEFAULT_DATE_FORMAT_NO_LINE = "yyyyMMdd";
     private static final String CSV_HEADER_SEQ = "SEQ_NO";

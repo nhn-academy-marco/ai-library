@@ -21,13 +21,15 @@ public class BookReviewRepositoryCustomImpl implements BookReviewRepositoryCusto
     public List<BookReview> findNewReviewsAfterId(Long bookId, Long lastSummarizedCount) {
         QBookReview bookReview = QBookReview.bookReview;
 
+        // 리뷰 ID는 전체 도서에 걸쳐 증가하므로 도서별 리뷰 개수와 비교할 수 없음.
+        // 도서별 리뷰를 ID 오름차순으로 정렬한 뒤, 이미 요약된 개수만큼 건너뛴다(offset).
+        long offset = lastSummarizedCount != null ? Math.max(lastSummarizedCount, 0L) : 0L;
+
         return jpaQueryFactory
                 .selectFrom(bookReview)
-                .where(
-                        bookReview.book.id.eq(bookId)
-                                .and(bookReview.id.gt(lastSummarizedCount))
-                )
+                .where(bookReview.book.id.eq(bookId))
                 .orderBy(bookReview.id.asc())
+                .offset(offset)
                 .fetch();
     }
 }
