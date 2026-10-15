@@ -46,12 +46,34 @@ jobs:
           target: "~/library"
           rm: false
 
+      # 비밀값은 GitHub Secrets에서 받아 서버의 ~/library/secrets.properties 로 생성 (권한 600)
+      # 애플리케이션은 spring.config.import 로 이 파일을 읽습니다.
       - name: run-script
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LIBRARY_API_KEY: ${{ secrets.LIBRARY_API_KEY }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         with:
           host: ${{ secrets.SSH_IP }}
           username: ${{ secrets.SSH_ID}}
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT }}
           script_stop: true
-          script: "./library/startup.sh"
+          envs: DB_PASSWORD,GEMINI_API_KEY,LIBRARY_API_KEY,RABBITMQ_PASSWORD,REDIS_PASSWORD,TELEGRAM_BOT_TOKEN
+          script: |
+            mkdir -p ~/library
+            umask 077
+            {
+              printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
+              printf 'GEMINI_API_KEY=%s\n' "$GEMINI_API_KEY"
+              printf 'LIBRARY_API_KEY=%s\n' "$LIBRARY_API_KEY"
+              printf 'RABBITMQ_PASSWORD=%s\n' "$RABBITMQ_PASSWORD"
+              printf 'REDIS_PASSWORD=%s\n' "$REDIS_PASSWORD"
+              printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
+            } > ~/library/secrets.properties
+            chmod 600 ~/library/secrets.properties
+            ./library/startup.sh
