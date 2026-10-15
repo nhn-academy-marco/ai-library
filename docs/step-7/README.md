@@ -1,430 +1,137 @@
-# Step 7: LLM 기반 오케스트레이션 - 도서관 도우미 AI
+# Step 7. Tool Calling으로 만드는 도서관 도우미 AI
 
-## 학습 개요
+> LLM이 사용자의 질문을 읽고 도서 검색, 리뷰 조회, 대출 가능 도서관 조회 같은 Java 메서드를 스스로 골라 호출하게 만듭니다. Step 1~6에서 만든 기능을 하나의 대화형 도우미로 묶는 단계입니다.
 
-Step 6까지 구현한 검색, 추천, 개인화 시스템을 Spring AI Function Calling(Tool Calling)을 통해 **지능형 도서관 도우미 AI**로 통합합니다. 사용자의 자연어 질문 한 번으로 도서 검색부터 리뷰 확인, 대출 가능 여부까지 LLM이 스스로 필요한 API를 선택하고 호출하는 AI 시스템을 구현합니다.
+## 이 단계에서 만드는 것
 
-## 학습 목표
+Telegram Bot에 자연어로 질문하면 LLM이 필요한 도구(Tool)를 골라 실행하고, 그 결과를 모아 한 번에 답합니다.
 
-1. **LLM 기반 오케스트레이션 이론**
-   - 수동 오케스트레이션 vs LLM 자율 오케스트레이션
-   - Function Calling 개념과 Spring AI 구현
-   - MCP(Model Context Protocol) 이해
+```text
+사용자: 토비의 스프링 광주에서 빌릴 수 있어?
 
-2. **Function Calling 구현**
-   - 8개 도서관정보나루 API를 Function으로 변환
-   - 타입 안전한 Request/Response DTO 설계
-   - ChatClient에 Function 등록
+Bot:  *도서 검색 결과*
 
-3. **LLM 자율 오케스트레이션**
-   - LLM이 필요한 Function을 스스로 선택
-   - 여러 Function 조합 실행
-   - 결과 종합 및 자연어 응답
-
----
-
-## 전체 커리큘럼에서의 위치
-
-### Step 1~6: 기반 구축
-
-| Step | 주요 내용 | 성과 |
-|------|----------|------|
-| Step 1 | 데이터 구축, 전통적 검색 | 기본 검색 시스템 |
-| Step 2 | 벡터 검색, 하이브리드 검색 | 의미 기반 검색 |
-| Step 3 | RAG 기반 AI 추천 | AI 추천 엔진 |
-| Step 4 | 성능 최적화, 캐싱 | 빠른 응답 속도 |
-| Step 5 | Telegram Bot, 피드백 | 사용자 인터페이스 |
-| Step 6 | 개인화 추천 시스템 | 맞춤형 추천 |
-
-### Step 7: LLM 기반 오케스트레이션 (현재)
-
-**기존 방식 (Step 6까지 - 수동 Agent 선택)**:
-```
-사용자: "토비의 스프링 광주 도서관에서 빌릴까?"
-   ↓
-[MainAgent] 키워드 매칭으로 Agent 선택
-   - BOOK → BookAgent
-   - LOAN → LoanAgent
-   - LIBRARY → LibraryAgent
-   ↓
-[개발자 hardcode 로직] 결과 종합
-   ↓
-사용자: 파편화된 결과
+      1. *토비의 스프링 3.1* (ISBN: 978...)
+      저자: 이일민 | 출판사: 에이콘출판
+      대출 가능한 도서관:
+      ✅ ○○도서관 (코드: xxxxx)
+      ...
 ```
 
-**새로운 방식 (Step 7 - LLM 자율 오케스트레이션)**:
-```
-사용자: "토비의 스프링 광주 도서관에서 빌릴까?"
-   ↓
-[LLM] 질문 분석 → 필요한 Function 자동 선택
-   ↓
-[searchBooks Function] → 도서 검색 (ISBN 확보)
-[getLibrariesWithBook Function] → 광주(29) 지역 대출 가능 도서관 조회
-   ↓
-[LLM] 결과 종합 → 자연스러운 한국어 답변
-```
+위 응답 형식은 `AiOrchestrationService`의 시스템 프롬프트가 정한 Telegram용 형식이고, 실제 도서관 목록은 도서관정보나루 API 응답에 따라 달라집니다.
 
----
+동작 흐름은 다음과 같습니다.
 
-## LLM 기반 오케스트레이션이란?
+```mermaid
+sequenceDiagram
+    actor U as 사용자
+    participant B as TelegramBot
+    participant O as AiOrchestrationService
+    participant P as QueryParserAgent
+    participant L as LLM
+    participant T as LibraryFunctions
 
-### 정의
-
-> **LLM 기반 오케스트레이션** = LLM이 사용자의 질문을 이해하고 스스로 필요한 Function(도구)을 선택하여 시스템을 제어하는 AI 패턴
-
-### 핵심 특징
-
-1. **자율성**: LLM이 스스로 함수 선택(개발자 하드코딩 제거)
-2. **유연성**: 복잡한 질문도 동적으로 처리
-3. **확장성**: 새로운 Function 추가가 쉬움
-
-### 시나리오 예시
-
-```
-❌ 기존 방식 (Step 6 - 수동 Agent 선택)
-사용자: "토비의 스프링 3.1 광주 도서관에서 빌리려고 하는데 추천해줘"
-  → [개발자가 if-else로 Agent 선택]
-  → BOOK, LOAN, LIBRARY, RECOMMENDATION Agent 실행
-  → 결과가 파편화됨
-
-✅ LLM 기반 오케스트레이션 (Step 7)
-사용자: "토비의 스프링 3.1 광주 도서관에서 빌리려고 하는데 추천해줘"
-  → [LLM이 질문 분석]
-  → 1. searchBooks("토비의 스프링 3.1") → ISBN 확보
-  → 2. getLibrariesWithBook(isbn, region="29") → 광주 대출 가능 도서관
-  → 3. getRecommendedBooks(isbn, "mania") → 마니아 추천
-  → [LLM이 결과 종합] 자연스러운 답변
+    U->>B: 토비의 스프링 광주에서 빌릴 수 있어?
+    B->>O: ask(message)
+    O->>P: parse(message)
+    P-->>O: bookName, regionName, regionCode=24
+    O->>L: 시스템 프롬프트 + 질문 + Tool 목록 3개
+    L-->>O: SearchBooks 호출 요청
+    O->>T: searchBooks()
+    T-->>O: 도서 목록과 ISBN
+    O->>L: Tool 실행 결과 전달
+    L-->>O: 필요하면 SearchLibraries, CheckBookExists 호출 요청
+    O->>L: Tool 실행 결과 전달
+    L-->>O: 최종 답변(텍스트)
+    O-->>B: 답변
+    B-->>U: 메시지 전송
 ```
 
----
+## 왜 이 단계가 필요한가
 
-## 왜 LLM 기반 오케스트레이션인가?
+Step 6까지 만든 기능은 각각 따로 동작합니다. 검색은 `/search`, 리뷰는 웹 화면, 대출 가능 여부는 별도 API 호출처럼 사용자가 기능을 하나씩 찾아 써야 했습니다. "토비의 스프링, 광주에서 빌릴 수 있어?" 같은 질문에 답하려면 검색 → ISBN 확보 → 지역 도서관 조회를 순서대로 엮어야 하는데, 이 조합을 질문마다 `if-else`로 짜는 것은 현실적이지 않습니다.
 
-### 1. 기존 한계 극복
+Step 7은 이 조합을 LLM에게 맡깁니다. 개발자는 "어떤 도구가 있고 각각 무엇을 하는지"만 알려 주고, 어떤 도구를 어떤 순서로 부를지는 LLM이 질문을 보고 결정합니다. 이 기능을 **Tool Calling**(Function Calling)이라고 합니다.
 
-| 기존 방식의 문제 | LLM 오케스트레이션 해결 |
-|-----------------|---------------------|
-| 키워드 매칭만 가능 | 의도 이해 후 Function 선택 |
-| 복잡한 if-else 로직 | LLM이 스스로 판단 |
-| 새로운 Agent 추가 시 코드 수정 | Function만 추가하면 자동 인식 |
-| 파편화된 결과 | LLM이 자연스럽게 종합 |
+이 프로젝트의 구조는 하나의 LLM이 여러 Tool을 골라 조합하는 **Tool 기반 오케스트레이션**입니다. 여러 Agent가 서로 메시지를 주고받는 A2A(Agent-to-Agent)는 확장 방향으로 [00. 이론](./00.theory.md)에서 소개합니다.
 
-### 2. 도서관정보나루 API 활용
+## 문서 구성
 
-17개 API를 8개 주요 Function으로 변환합니다.
+| 순서 | 문서 | 내용 | 예상 시간 |
+|---|---|---|---|
+| 00 | [Tool Calling, MCP, Agent, A2A 이론](./00.theory.md) | 네 개념의 차이와 이 프로젝트의 위치 | 1시간 |
+| 01 | [개요 및 시나리오](./01.overview.md) | 도서관 도우미 AI의 목표, 시나리오, 코드 구성 | 30분 |
+| 02 | [단일 Function 구현: 도서 검색](./02.single-function.md) | `BookSearchFunction`과 `FunctionToolCallback`으로 첫 Tool 등록 | 1.5시간 |
+| 03 | [복수 Function 조합: 검색 + 리뷰](./03.multiple-functions.md) | 두 Tool을 등록하고 LLM이 순서대로 호출하는 과정 이해 | 1.5시간 |
+| 04 | [외부 API 연동: 대출 가능 여부 조회](./04.external-api.md) | 도서관정보나루 API를 Tool로 감싸기 | 2시간 |
+| 05 | [@Tool 애노테이션 방식](./05.tool-annotation.md) | `@Tool`, `@ToolParam`과 `defaultTools()`로 간결하게 등록 | 1.5시간 |
+| 06 | [실습 가이드](./06.practice-guide.md) | 단계별 실습 미션과 테스트 시나리오 | 2시간 |
 
-| Function | API | 설명 | 구현 위치 |
-|----------|-----|------|----------|
-| `searchBooks` | srchBooks | 도서 검색 (내부 DB → API Fallback) | LibraryFunctions |
-| `getLibrariesWithBook` | libSrchByBook | 대출 가능 도서관 조회 | LibraryFunctions |
-| `searchLibraries` | libSrch | 도서관 검색 | LibraryFunctions |
-| `getBookDetail` | srchDtlList | 도서 상세 정보 | LibraryFunctions |
-| `getPopularBooks` | loanItemSrch | 인기 대출 도서 | LibraryFunctions |
-| `getHotTrendBooks` | hotTrend | 대출 급상승 도서 | LibraryFunctions |
-| `getRecommendedBooks` | recommandList | 추천 도서 | LibraryFunctions |
-| `checkBookExists` | bookExist | 도서 소장 여부 확인 | LibraryFunctions |
+부록
 
-**AiLibraryAssistantService용 Function**:
+| 문서 | 내용 |
+|---|---|
+| [A2A 구현 가능성 분석](./A2A_FEASIBILITY_ANALYSIS.md) | Spring AI 1.1.2로 A2A 구조를 만들 때의 검토 내용 |
+| [행정구역 코드 목록](./region-codes.md) | 도서관정보나루 API의 지역 코드(예: 11=서울, 24=광주) |
+| [도서관정보나루 API 매뉴얼](./도서관정보나루_API_Manual.md) | 외부 API 요청·응답 명세 |
 
-| Function | 설명 | 구현 위치 |
-|----------|------|----------|
-| `BookSearch` | 내부 DB 도서 검색 | BookSearchFunction |
-| `GetReviews` | 리뷰 조회 | ReviewFunction |
-| `CheckLoanAvailability` | 대출 가능 확인 | LoanCheckFunction |
+## 코드 구성: 세 가지 구현과 실제 연결 상태
 
-### 3. 교육적 가치
+이 단계의 코드는 학습 순서에 따라 세 가지 서비스로 나뉩니다. 세 서비스 모두 구현돼 있지만, **실제로 Telegram Bot에 연결된 것은 `AiOrchestrationService` 하나**입니다.
 
-**학습할 수 있는 기술**:
-- Spring AI Function Calling
-- LLM 기반 시스템 설계
-- 타입 안전한 Function 설계
-- Tool 기반 오케스트레이션 패턴 (단일 LLM + 여러 Tool 조합)
-- 프롬프트 엔지니어링
+| 서비스 | Tool 등록 방식 | 등록된 Tool | 호출하는 곳 |
+|---|---|---|---|
+| `AiLibraryAssistantService` | `FunctionToolCallback.builder()` | `BookSearch`, `GetReviews`, `CheckLoanAvailability` (3개) | 없음 (Bot에 주입만 됨, 02~04 실습용) |
+| `AiOrchestrationService` | `QueryParserAgent` + `FunctionToolCallback.builder()` | `SearchBooks`, `SearchLibraries`, `GetLibrariesWithBook`, `CheckBookExists` (4개, `LibraryFunctions`의 메서드를 감쌈) | `LibraryTelegramBot`의 일반 메시지와 `/ai` 명령 |
+| `ToolBasedAiOrchestrationService` | `QueryParserAgent` + `@Tool` + `defaultTools()` | `LibraryTools` 8개 + `InternalBookTools` 3개 | 없음 (05 실습용, 구현만 됨) |
 
----
+```mermaid
+flowchart LR
+    TG["LibraryTelegramBot<br/>일반 메시지, /ai"] --> AO["AiOrchestrationService"]
+    TG -.->|"/search"| RAG["RAG 검색<br/>Step 5"]
+    AO --> QP["QueryParserAgent<br/>도서명, 지역 추출"]
+    AO --> LF["LibraryFunctions<br/>SearchBooks, SearchLibraries,<br/>CheckBookExists"]
+    LF --> API["LibraryInfoNaruApiClient<br/>도서관정보나루"]
+    LF --> DB["BookSearchService<br/>내부 DB"]
 
-## 구현 아키텍처
+    AS["AiLibraryAssistantService<br/>02~04 실습"]:::idle
+    TB["ToolBasedAiOrchestrationService<br/>05 실습, @Tool 11개"]:::idle
 
-### 핵심 컴포넌트
-
-두 가지 오케스트레이션 방식이 공존합니다. 두 방식 모두 단일 LLM이 여러 Tool을 조합하는 Tool 기반 오케스트레이션이며, 여러 Agent가 서로 통신하는 A2A는 확장 방향으로 [00. 이론](./00.theory.md)에서 다룹니다.
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    사용자 질문                          │
-│  "토비의 스프링 광주 도서관에서 빌릴까?"                │
-└───────────────────┬─────────────────────────────────────┘
-                    │
-         ┌──────────┴──────────────────┐
-         │                             │
-         ↓                             ↓
-┌──────────────────────┐   ┌──────────────────────────────┐
-│  단일 Agent 방식      │   │  Tool 기반 오케스트레이션    │
-│                      │   │  (Telegram 기본)             │
-│                      │   │                              │
-│ AiLibraryAssistant   │   │  AiOrchestrationService      │
-│   Service            │   │  - QueryParserAgent          │
-│                      │   │    (쿼리 파싱·엔티티 추출)   │
-│ 3개 Function         │   │  - LLM이 Function 선택·실행  │
-│  - BookSearch        │   │                              │
-│  - GetReviews        │   │                              │
-│  - CheckLoan         │   │                              │
-│    Availability      │   │                              │
-└──────────┬───────────┘   └──────────────┬───────────────┘
-           │                              │
-           ↓                              ↓
-┌──────────────────────┐   ┌──────────────────────────────┐
-│ BookSearchService    │   │ LibraryFunctions (8개)       │
-│ ReviewService        │   │  searchBooks                 │
-│ (내부 DB)            │   │  getLibrariesWithBook        │
-│                      │   │  searchLibraries             │
-│ LoanCheckFunction ───┼─┐ │  getBookDetail               │
-└──────────────────────┘ │ │  getPopularBooks             │
-                         │ │  getHotTrendBooks            │
-                         │ │  getRecommendedBooks         │
-                         │ │  checkBookExists             │
-                         │ └──────────────┬───────────────┘
-                         │                │
-                         └───────┬────────┘
-                                 ↓
-┌─────────────────────────────────────────────────────────┐
-│          LibraryInfoNaruApiClient (17개 API)            │
-│  - 도서관정보나루 API 직접 호출                         │
-└─────────────────────────────────────────────────────────┘
+    classDef idle fill:#F1F5F9,stroke:#94A3B8,color:#0F172A,stroke-dasharray: 4 4
 ```
 
-### 사용 방식
+점선 박스는 구현은 돼 있지만 현재 어디서도 호출하지 않는 서비스입니다. 02~05의 실습을 마친 뒤 `LibraryTelegramBot.handleAiAgentSearch()`의 호출 대상을 바꾸면 각 방식을 Telegram에서 직접 비교할 수 있습니다.
 
-**Telegram Bot**:
-```java
-// 일반 메시지: AiOrchestrationService (Tool 기반 오케스트레이션) 호출 (LibraryTelegramBot.handleAiAgentSearch)
-String aiResponse = aiOrchestrationService.ask(keyword);
+LLM은 `spring.ai.selected-model`(기본 설정 파일 값은 `ollama`, 모델 `qwen2.5:latest`)로 고르며, `gemini`로 바꾸면 Gemini 2.0 Flash를 씁니다.
 
-// 단일 Agent 방식으로 바꾸려면: AiLibraryAssistantService 호출
-// (LibraryTelegramBot에 주입되어 있지만 현재 호출하는 명령어는 없음)
-String aiResponse = aiLibraryAssistantService.ask(keyword);
-```
+## 이 단계를 마치면
 
-### 코드 간소화 효과
+- [ ] Tool Calling, MCP, Agent, A2A의 차이를 한 문장씩 설명할 수 있다
+- [ ] Java 메서드를 `FunctionToolCallback`으로 감싸 `ChatClient`에 등록할 수 있다
+- [ ] LLM이 Tool을 연쇄 호출할 때 데이터(bookId, ISBN)가 어떻게 전달되는지 설명할 수 있다
+- [ ] 외부 API를 Tool로 감싸고 실패 시 빈 결과를 돌려주도록 처리할 수 있다
+- [ ] `@Tool` 애노테이션 방식과 `FunctionToolCallback` 방식의 장단점을 비교할 수 있다
+- [ ] Telegram Bot이 실제로 어떤 서비스와 Tool을 쓰는지 소스에서 찾아 설명할 수 있다
 
-**참고**: Step 7에서는 기존 AiOrchestrationService를 Function Calling 방식으로 단순화하고, 새로운 단일 Agent 방식(AiLibraryAssistantService)을 추가했습니다.
+## 관련 소스 코드
 
-| 파일 | Step 6 | Step 7 | 변화 |
-|------|--------|--------|------|
-| AiOrchestrationService | 약 450줄 | 약 200줄 | 단순화 (QueryParserAgent + LibraryFunctions) |
-| AiLibraryAssistantService | 0줄 | 약 120줄 | 새로 추가 (단일 Agent) |
-| BookSearchFunction | 0줄 | 약 80줄 | 새로 추가 |
-| ReviewFunction | 0줄 | 약 80줄 | 새로 추가 |
-| LoanCheckFunction | 0줄 | 약 140줄 | 새로 추가 |
-| LibraryFunctions | 0줄 | 약 370줄 | 새로 추가 |
-| 결과 | 수동 Agent 선택 | LLM 자율 선택 | 확장 |
+경로는 `src/main/java/net/java21/library/` 기준입니다.
 
-**두 가지 방식 공존**:
-1. **AiOrchestrationService**: QueryParserAgent로 쿼리를 파싱한 뒤 LLM이 LibraryFunctions(8개)를 선택·실행 (Telegram 일반 메시지 처리)
-2. **AiLibraryAssistantService**: 단일 Agent, FunctionToolCallback 방식 (새로 추가)
+| 클래스 | 역할 | 경로 |
+|---|---|---|
+| `BookSearchFunction` | 내부 DB 하이브리드 검색 Tool | `ai/function/BookSearchFunction.java` |
+| `ReviewFunction` | 리뷰 요약·평점 조회 Tool | `ai/function/ReviewFunction.java` |
+| `LoanCheckFunction` | 대출 가능 도서관 조회 Tool | `ai/function/LoanCheckFunction.java` |
+| `AiLibraryAssistantService` | 위 3개 Tool을 등록한 실습용 서비스 | `ai/service/AiLibraryAssistantService.java` |
+| `LibraryFunctions` | 도서관정보나루 API 8개를 `Function<Req, Res>`로 제공 | `ai/function/LibraryFunctions.java` |
+| `QueryParserAgent` | 질문에서 도서명, 지역명, 의도 추출 | `ai/agent/QueryParserAgent.java` |
+| `AiOrchestrationService` | Telegram에 연결된 Tool 기반 오케스트레이션 (Tool 4개) | `ai/agent/orchestrator/AiOrchestrationService.java` |
+| `LibraryTools` | `@Tool` 메서드 8개 (도서관정보나루 API) | `ai/function/LibraryTools.java` |
+| `InternalBookTools` | `@Tool` 메서드 3개 (내부 DB 검색, 리뷰, 대출 확인) | `ai/function/InternalBookTools.java` |
+| `ToolBasedAiOrchestrationService` | `@Tool` 11개를 `defaultTools()`로 등록 (미연결) | `ai/agent/orchestrator/ToolBasedAiOrchestrationService.java` |
+| `LibraryTelegramBot` | 일반 메시지를 `AiOrchestrationService.ask()`로 위임 | `external/telegram/bot/LibraryTelegramBot.java` |
+| `AiConfig` | `spring.ai.selected-model`로 `@Primary ChatModel` 선택 | `core/config/AiConfig.java` |
 
----
+## 다음 문서
 
-## 학습 로드맵
-
-```
-Phase 1: Function 정의 (1시간)
-├─ LibraryFunctions 클래스 생성
-├─ 8개 Function<Request, Response> 구현
-├─ DTO 정의 (Request/Response)
-└─ LibraryInfoNaruApiClient 연동
-
-Phase 2: LLM 오케스트레이션 (1시간)
-├─ AiOrchestrationService 단순화
-├─ ChatClient 설정
-├─ System Prompt 작성
-└─ LLM 자율 Function 선택 테스트
-
-Phase 3: 실전 테스트 (1시간)
-├─ 다양한 질문 시나리오 테스트
-├─ Function 조합 실행 확인
-├─ 에러 처리 및 Fallback
-└─ 성능 최적화
-
-총 시간: 3시간
-```
-
----
-
-## 기술 스택
-
-### 핵심 기술
-- **Spring AI 1.1.2**: Function Calling 프레임워크
-  - FunctionToolCallback.builder() 방식 (기존 방식)
-  - @Tool 애노테이션 방식 (새로운 권장 방식, 2026년 3월 구현 완료)
-- **Java 21**: Record, Lambda
-- **Ollama (qwen2.5:latest)**: 자체 호스팅 LLM (Function Calling 지원, `spring.ai.selected-model=ollama`)
-- **Gemini 2.0 Flash**: `spring.ai.selected-model=gemini`로 전환 가능
-
-### Function 등록 방식 (두 가지 지원)
-
-**방식 1: FunctionToolCallback.builder()** (현재 사용 중)
-- 프로그래밍 방식으로 Function 등록
-- 순환 의존성 방지를 위해 서비스 내부에서 FunctionToolCallback 생성
-- ChatClient를 매번 새로 생성하여 FunctionToolCallback 등록
-
-**방식 2: @Tool 애노테이션** (권장, Spring AI 1.0부터 지원, 이 프로젝트는 1.1.2)
-- 애노테이션 기반으로 간결한 코드
-- @ToolParam으로 파라미터 설명 직접 제공
-- `defaultTools(도구 객체)`에 객체를 넘기면 그 안의 @Tool 메서드를 찾아 자동 등록
-
-### 활용 기술 (Step 1~6)
-- **Spring Boot**: 웹 프레임워크
-- **LibraryInfoNaruApiClient**: 도서관정보나루 API 클라이언트
-- **Telegram Bot API**: 사용자 인터페이스
-
----
-
-## 예상 소요 시간
-
-| 단계 | 내용 | 시간 |
-|------|------|------|
-| 이론 학습 | Function Calling, LLM 오케스트레이션 | 30분 |
-| Phase 1 | Function 정의 | 1시간 |
-| Phase 2 | LLM 오케스트레이션 | 1시간 |
-| Phase 3 | 테스트 및 디버깅 | 30분 |
-| **총계** | | **3시간** |
-
----
-
-## 시작하기 전 체크리스트
-
-### 환경 점검
-- [ ] Spring AI 1.1.2 의존성 추가됨
-- [ ] Ollama 설치 및 qwen2.5:latest 실행 중
-- [ ] Step 6까지 구현 완료됨
-- [ ] LibraryInfoNaruApiClient 구현됨
-
-### 선행 지식
-- [ ] Spring Boot 기초 (@Component, @Service)
-- [ ] Java Record 타입 이해
-- [ ] 함수형 인터페이스 (Function<R, T>) 이해
-- [ ] LLM 기초(프롬프트, System Role)
-
----
-
-## 학습 체크리스트
-
-완료 후 다음을 할 수 있는지 확인해 보세요.
-
-### 기본 개념
-- [ ] LLM 기반 오케스트레이션을 설명할 수 있다
-- [ ] Function Calling이 무엇인지 이해한다
-- [ ] 수동 Agent 선택 vs LLM 자율 선택의 차이를 안다
-
-### 구현 능력
-- [ ] Function<Request, Response>를 정의할 수 있다
-- [ ] 타입 안전한 Request/Response DTO를 설계할 수 있다
-- [ ] ChatClient에 Function을 등록할 수 있다
-- [ ] LLM이 필요한 Function을 스스로 선택하게 할 수 있다
-
-### 고급 기능
-- [ ] 여러 Function 조합 실행을 이해한다
-- [ ] 시스템 프롬프트로 LLM 행동을 제어할 수 있다
-- [ ] 에러 처리 및 Fallback을 구현할 수 있다
-
----
-
-## 문서 구조
-
-### [00. MCP, A2A, Agent 이론](./00.theory.md)
-- AI Agent의 개념과 정의
-- MCP(Model Context Protocol) 이해
-- A2A(Agent-to-Agent) 통신 패턴 (이 프로젝트의 확장 방향)
-
-### [01. 개요 및 시나리오](./01.overview.md)
-- LLM 기반 오케스트레이션 소개
-- 왜 필요한지, 무엇을 할 수 있는지
-- 시나리오 예시
-
-### [02. 단일 Function 구현](./02.single-function.md)
-- 도서 검색 Function
-- DTO 설계
-- 테스트 방법
-
-### [03. 복수 Function 조합](./03.multiple-functions.md)
-- 리뷰 조회 Function(ReviewFunction) 구현
-- Function 조합 실행
-- 데이터 전달
-
-### [04. 외부 API 연동: 대출 가능 여부 조회](./04.external-api.md)
-- 도서관정보나루 API 연동
-- LoanCheckFunction 구현
-- 에러 처리 및 Fallback
-
-### [05. @Tool 애노테이션 방식](./05.tool-annotation.md)
-- Spring AI 1.1.2 @Tool 애노테이션 활용
-- 더 간결한 Function Calling 구현
-- @ToolParam으로 파라미터 설명
-- FunctionToolCallback.builder()와의 비교
-
-### [06. 실습 가이드](./06.practice-guide.md)
-- 단계별 실습 미션
-- 테스트 시나리오
-- 디버깅 팁
-
----
-
-## 구현 완료 상태 (2026년 3월 6일)
-
-### 구현된 컴포넌트
-
-**LibraryTools** (`ai/function/LibraryTools.java`)
-- Spring AI 1.1.2 @Tool 애노테이션 기반
-- 8개 @Tool 메서드 구현 완료
-- 내부 DB → 도서관정보나루 API Fallback 로직 포함
-
-**InternalBookTools** (`ai/function/InternalBookTools.java`)
-- 내부 DB 검색용 @Tool 기반 클래스
-- 3개 @Tool 메서드 구현 완료
-- 하이브리드 검색, 리뷰 조회, 대출 가능 여부 확인
-
-**ToolBasedAiOrchestrationService** (`ai/agent/orchestrator/ToolBasedAiOrchestrationService.java`)
-- @Tool 기반 오케스트레이션 서비스
-- `.defaultTools()`로 자동 등록
-- 기존 AiOrchestrationService(Tool 기반 오케스트레이션, FunctionToolCallback 방식)와 병행 운영
-
-### 기존 코드 유지
-
-**기존 FunctionToolCallback 방식 유지**:
-- `LibraryFunctions.java` - 8개 `Function<Request, Response>` 메서드 (AiOrchestrationService에서 FunctionToolCallback으로 감싸 등록)
-- `AiOrchestrationService.java` - Tool 기반 오케스트레이션 (QueryParserAgent + LibraryFunctions)
-- `BookSearchFunction.java`, `ReviewFunction.java`, `LoanCheckFunction.java`
-
-### 두 방식 비교
-
-| 특징 | FunctionToolCallback.builder() | @Tool 애노테이션 |
-|------|------------------------------|------------------|
-| 코드 간결성 | Builder 패턴으로 코드가 길어짐 | 애노테이션으로 간결 |
-| 파라미터 설명 | DTO 클래스 필요 | @ToolParam으로 직접 설명 |
-| 등록 방식 | Tool마다 builder로 수동 생성 | `defaultTools(객체)`로 @Tool 메서드 일괄 등록 |
-| 순환 의존성 | 프로그래밍 방식으로 회피 가능 | Bean 주입 시 주의 필요 |
-
-### 선택 가이드
-
-**FunctionToolCallback.builder() 사용**:
-- 순환 의존성 문제가 있는 경우
-- 동적 Tool 등록이 필요한 경우
-- 기존 코드와 호환성이 중요한 경우
-
-**@Tool 애노테이션 사용**:
-- 새로운 프로젝트를 시작하는 경우
-- 코드 간결성이 중요한 경우
-- 파라미터 설명이 중요한 경우
-
----
-
-## 참고 자료
-
-- [Spring AI Function Calling](https://docs.spring.io/spring-ai/reference/api/guide.html)
-- [Ollama Function Calling](https://ollama.com/blog/function-calling-support)
-- [도서관정보나루 API](https://www.data4library.kr/)
-
----
-
-**시작하기**: [00. MCP, A2A, Agent 이론 →](./00.theory.md)
+[00. Tool Calling, MCP, Agent, A2A 이론 →](00.theory.md)

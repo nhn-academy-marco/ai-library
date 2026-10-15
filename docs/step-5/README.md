@@ -1,511 +1,119 @@
-# Step 5: Telegram Bot 피드백 수집 시스템
+# Step 5. Telegram Bot과 사용자 피드백 수집
 
-## 학습 개요
+> 지금까지 웹 화면에서만 쓰던 AI 도서 검색을 Telegram 채팅으로 옮기고, 검색 결과마다 단 버튼으로 사용자의 만족도(피드백)를 모읍니다.
 
-이번 Step에서는 Telegram Bot을 통한 사용자 피드백 수집 시스템을 구축합니다. 사용자가 검색 결과에 대해 만족하는지 아니면 불만족하는지를 피드백으로 수집하고, 이를 통해 검색 품질을 분석할 수 있는 기반을 마련합니다.
+## 이 단계에서 만드는 것
 
-## 학습 목표
+이 단계를 마치면 Telegram 앱에서 다음과 같이 대화할 수 있습니다.
 
-1. **Telegram Bot의 메시지 처리 흐름 이해**
-   - 사용자 메시지 수신부터 응답까지의 전체 과정 이해
-   - 일반 메시지와 Callback Query의 차이 파악
-   - Inline Keyboard의 작동 원리 학습
+```text
+User: /search 해리포터
 
-2. **계층형 아키텍처 설계 경험**
-   - Entity → Repository → Service → Handler → Controller 계층 구조 체험
-   - 각 계층의 역할과 책임 명확히 이해
+Bot:  📚 "해리포터" 검색 결과
 
-3. **데이터 설계와 피드백 모델링**
-   - 사용자 피드백을 어떻게 저장할지 설계
-   - JPA를 활용한 데이터베이스 스키마 설계
+      🤖 AI 추천 사유
+      💬 해리포터 시리즈는 마법 세계를 배경으로 한 판타지 소설로 ...
 
-4. **REST API와 통계 분석**
-   - 관리자용 API 설계
-   - 피드백 데이터를 통계로 변환하는 방법 학습
+      검색된 도서 (3개)
 
----
+Bot:  [표지 이미지]
+      1. 해리포터와 마법사의 돌
+      📖 조앤 K. 롤링
+      🏢 문학수첩
+      📊 RRF 점수: 0.03
+      🔗 상세 보기: https://library.java21.net/books/101
+      [👍 좋았음] [👎 별로였음]
+
+User: (👍 좋았음 버튼을 누름)
+Bot:  ✅ 피드백이 저장되었습니다!   ← 화면 위쪽에 잠깐 뜨는 알림
+
+User: /stats 해리포터
+Bot:  📊 "해리포터" 피드백 통계
+      👍 좋았음: 15건
+      👎 별로였음: 2건
+      📈 전체: 17건
+      💯 긍정 비율: 88.2%
+      ⭐ 피드백 점수: 0.765
+```
+
+관리자는 REST API(`/api/admin/feedback/...`)로 도서별·검색어별 통계를 조회하고, 전체 피드백을 CSV로 내려받을 수 있습니다.
+
+## 왜 이 단계가 필요한가
+
+Step 1~4에서 키워드 검색, 벡터 검색, RAG(Retrieval-Augmented Generation), 시맨틱 캐시까지 만들었습니다. 그런데 한 가지 질문에 아직 답하지 못합니다.
+
+> "이 검색 결과, 사용자는 정말 만족했을까?"
+
+유사도 점수나 RRF 점수는 시스템이 스스로 매긴 점수일 뿐, 사용자가 실제로 원하던 책인지는 알려 주지 않습니다. 검색 품질을 개선하려면 **사용자의 실제 반응(피드백)** 이 필요합니다.
+
+이 단계에서는 두 가지 문제를 함께 해결합니다.
+
+| 이전 단계의 한계 | 이번 단계의 해결 |
+|------------------|------------------|
+| 웹 화면에 접속해야만 검색할 수 있음 | 이미 쓰는 메신저(Telegram)에서 바로 검색 |
+| 검색 결과가 좋았는지 알 방법이 없음 | 도서마다 👍/👎 버튼으로 피드백 수집 |
+| 품질을 숫자로 확인할 수 없음 | 피드백 통계(긍정 비율, 피드백 점수)와 관리자 API |
+
+여기서 모은 피드백은 [Step 6. 개인화 추천](../step-6/README.md)에서 "이 사용자가 좋아한 책과 비슷한 책을 위로 올리는" 데 쓰입니다.
+
+## 전체 흐름
+
+```mermaid
+flowchart LR
+    U["사용자<br/>Telegram 앱"] -->|"/search 해리포터"| T["Telegram 서버"]
+    T -->|"Long Polling"| B["LibraryTelegramBot"]
+    B -->|"RAG 검색"| S["BookSearchService"]
+    S --> B
+    B -->|"결과 + 👍👎 버튼"| U
+    U -->|"버튼 클릭<br/>fb:101:GOOD"| T
+    T --> B
+    B --> H["CallbackQueryHandler"]
+    H --> F["FeedbackService"]
+    F --> DB[("search_feedbacks")]
+    A["관리자"] -->|"REST API"| C["FeedbackAdminController"]
+    C --> F
+```
 
 ## 문서 구성
 
-| 번호 | 문서 | 주요 내용 |
-|------|------|-----------|
-| **01** | [Telegram Bot 설정](./01.telegram-bot-setup.md) | Bot 생성, Long Polling/Webhook 비교, 환경별 설정 분리 |
-| **02** | [Telegram을 통한 RAG 검색](./02.rag-search-via-telegram.md) | RAG 검색 연동, 검색 결과·이미지 포맷팅 |
-| **03** | [사용자 피드백 수집](./03.feedback-entity-repository.md) | 피드백 Entity·Repository·Service 설계, Inline Keyboard |
-| **04** | [피드백 활용: AI 개선 연계](./04.feedback-ui-callback-handler.md) | 피드백 반영 전략, CallbackQueryHandler, 통계 명령어 |
-| **05** | [피드백 루프 아키텍처](./05.feedback-search-integration.md) | 수집 → 분석 → 개선 루프, 관리자 API, 트러블슈팅 |
-| **06** | [피드백 기반 검색 개선](./06.llm-prompt-guidelines.md) | 피드백 점수 계산, LLM 프롬프트 통합 가이드라인 |
+| 순서 | 문서 | 내용 | 예상 시간 |
+|------|------|------|-----------|
+| 01 | [Telegram Bot 설정](01.telegram-bot-setup.md) | BotFather로 Bot 만들기, Long Polling과 Webhook, 토큰 설정, Bot 등록·종료 | 1.5시간 |
+| 02 | [Telegram으로 RAG 검색하기](02.rag-search-via-telegram.md) | 메시지·명령어 분기, `/search`로 RAG 검색 호출, 결과·이미지 전송 | 1.5시간 |
+| 03 | [피드백 데이터 계층 설계](03.feedback-entity-repository.md) | `SearchFeedback` 엔티티, Repository, DTO, `FeedbackService` | 2시간 |
+| 04 | [피드백 버튼과 Callback 처리](04.feedback-ui-callback-handler.md) | Inline Keyboard, `fb:{bookId}:{type}` 포맷, `CallbackQueryHandler`, `/stats` | 2시간 |
+| 05 | [피드백 루프 완성: 관리자 API와 검색 연동](05.feedback-search-integration.md) | 관리자 API, CSV 내보내기, 피드백이 다음 검색에 닿는 경로 | 1.5시간 |
+| 06 | [피드백 기반 검색 개선 설계](06.llm-prompt-guidelines.md) | 피드백 점수, 보너스 재정렬, LLM 프롬프트에 피드백을 넣는 원칙 | 1시간 |
+
+## 이 단계를 마치면
+
+- [ ] BotFather에서 Bot을 만들고 토큰을 `secrets.properties`의 `TELEGRAM_BOT_TOKEN`에 넣어 실행할 수 있다
+- [ ] Long Polling 방식으로 메시지를 받는 원리와 Bot 스레드를 정리해야 하는 이유를 설명할 수 있다
+- [ ] `/search 키워드`로 RAG 검색 결과를 Telegram에서 받을 수 있다
+- [ ] 검색 결과 도서마다 👍/👎 버튼이 붙고, 누르면 `search_feedbacks` 테이블에 저장된다
+- [ ] `callback_data`를 `fb:{bookId}:{type}` 형식으로 짧게 설계한 이유를 설명할 수 있다
+- [ ] `/stats 검색어`, `/mystats`, 관리자 API로 피드백 통계를 확인할 수 있다
+
+## 관련 소스 코드
+
+패키지 루트: `src/main/java/net/java21/library/external/telegram/`
+
+| 클래스 | 역할 | 경로 |
+|--------|------|------|
+| `TelegramBotProperties` | `telegram.bot.*` 설정 바인딩 | `config/TelegramBotProperties.java` |
+| `TelegramBotConfig` | Bot 빈 생성, 시작 시 등록, 종료 시 정리 | `config/TelegramBotConfig.java` |
+| `LibraryTelegramBot` | 메시지 수신, 명령어 분기, 검색 결과 전송 | `bot/LibraryTelegramBot.java` |
+| `TelegramKeyboardFactory` | 👍/👎 Inline Keyboard 생성 | `keyboard/TelegramKeyboardFactory.java` |
+| `CallbackQueryHandler` | 버튼 클릭 처리, 최근 검색어 보관 | `handler/CallbackQueryHandler.java` |
+| `SearchFeedback` | 피드백 엔티티(`search_feedbacks`) | `entity/SearchFeedback.java` |
+| `SearchFeedbackRepository` | 피드백 조회·중복 확인 | `repository/SearchFeedbackRepository.java` |
+| `FeedbackType`, `FeedbackRequest`, `FeedbackStats` | 피드백 타입·요청·통계 DTO | `dto/` |
+| `FeedbackService`, `FeedbackServiceImpl` | 피드백 저장·통계 계산 | `service/` |
+| `FeedbackAdminController` | 관리자 REST API | `api/FeedbackAdminController.java` |
+| `CsvExportService`, `PrivacyUtil` | CSV 내보내기, chatId 해싱·마스킹 | `util/` |
+
+설정 파일: `src/main/resources/telegram.properties`, 프로젝트 루트의 `secrets.properties`(템플릿 `secrets.properties.example`)
 
 ---
 
-## 전체 시스템 아키텍처
-
-### 1. 시스템 구조도
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Telegram 서버                           │
-│  사용자 메시지를 수신하고, 우리 Bot 서버로 전달하는 역할         │
-└───────────────────────────────┬─────────────────────────────┘
-                                │ Long Polling
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      LibraryTelegramBot                        │
-│  • onUpdateReceived(): 메시지 수신                             │
-│  • handleCommand(): /start, /help 등 명령어 처리               │
-│  • handleSearch(): 도서 검색 처리                               │
-│  • CallbackQueryHandler: 버튼 클릭 처리                         │
-└───────┬───────────────────────────────────────┬─────────────────┘
-        │                                   │
-        ▼                                   ▼
-┌─────────────────────────┐     ┌──────────────────────────┐
-│  BookSearchService      │     │ CallbackQueryHandler    │
-│  • 도서 검색 수행         │     │  • 버튼 클릭 해석       │
-│  • 결과 포맷팅           │     │  • 피드백 저장 요청     │
-└──────────┬──────────────┘     └──────────┬───────────────┘
-           │                               │
-           ▼                               ▼
-┌─────────────────────────────────────────────────────────┐
-│                    사용자 전달                            │
-│  • 검색 결과 메시지                                         │
-│  • Inline Keyboard (버튼)                                 │
-└─────────────────────────────────────────────────────────┘
-                                │
-                               ▼
-┌─────────────────────────────────────────────────────────┐
-│                사용자가 버튼 클릭                         │
-│  [👍 좋았음] 또는 [👎 별로였음]                          │
-└───────────────────────────────┬─────────────────────────┘
-                                │ Callback Query
-                                ▼
-┌─────────────────────────────────────────────────────────┐
-│            CallbackQueryHandler 처리                       │
-│  1. Callback 데이터 파싱 (fb:bookId:type)                │
-│  2. 중복 체크                                               │
-│  3. FeedbackService 호출                                   │
-│  4. 감사 메시지 전송                                         │
-└───────────────────────────────┬─────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────┐
-│              FeedbackService (비즈니스 로직)              │
-│  • 피드백 저장                                             │
-│  • 통계 계산 (긍정/부정 비율, 점수)                         │
-│  • 사용자별/검색어별/도서별 조회                             │
-└───────┬───────────────────────────┬───────────────────────┘
-        │                           │
-        ▼                           ▼
-┌─────────────────────┐   ┌──────────────────────┐
-│ SearchFeedbackRepo  │   │ FeedbackAdminController│
-│ (데이터 영속성)      │   │ (REST API)            │
-└─────────────────────┘   └──────────────────────┘
-```
-
-### 2. 데이터 흐름도
-
-```
-[검색 요청]
-    │
-    ▼
-[Telegram 서버] → [LibraryTelegramBot.onUpdateReceived()]
-    │
-    ├─ 일반 메시지?
-    │   └─→ [Command 분기] → /start, /help, /stats 등
-    │
-    └─ Callback Query?
-        └─→ [CallbackQueryHandler.handleCallback()]
-            │
-            ├─ [데이터 파싱] → fb:12345:GOOD
-            │
-            ├─ [중복 체크] → findByChatIdAndQueryAndBookId()
-            │
-            ├─ [피드백 저장] → FeedbackService.recordFeedback()
-            │
-            └─ [감사 메시지] → AnswerCallbackQuery()
-```
-
----
-
-## 핵심 컴포넌트 상세 설명
-
-### 1. Telegram Bot 작동 원리
-
-#### Long Polling 방식
-
-Telegram Bot은 **Long Polling** 방식으로 동작합니다.
-
-```
-[일반적인 Polling]
-Client → 서버에 요청: "메시지 왔어?"
-서버 → 응답: "없음" (연결 종료)
-Client → 1초 후 다시 요청
-→ 불필요한 네트워크 오버헤드
-
-[Long Polling]
-Client → 서버에 요청: "메시지 왔어?"
-서버 → 응답: "없음" (연결 유지, 대기)
-     → 메시지 도착 시 즉시 응답
-→ 효율적인 실시간 통신
-```
-
-**LibraryTelegramBot 설정** (`telegram.properties`)
-```properties
-# Telegram Bot 활성화 여부, Token, 사용자명
-telegram.bot.enabled=true
-telegram.bot.token=${TELEGRAM_BOT_TOKEN}
-telegram.bot.username=your_bot_username
-```
-
-#### 메시지 처리 우선순위
-
-```
-[Update 수신]
-    │
-    ▼
-hasCallbackQuery()? ───YES──→ [CallbackQueryHandler 처리]
-    │                              (버튼 클릭)
-    NO
-    │
-    ▼
-hasMessage() && hasText()? ─YES──→ [Command 분기]
-    │                              /start, /help 등
-    ▼
-[검색 처리]
-```
-
-**왜 우선순위가 중요한가?**
-- Callback Query는 즉시 응답해야 함 (사용자 경험)
-- 일반 메시지는 조금 늦게 처리되어도 무방
-
-### 2. Inline Keyboard와 Callback Query
-
-#### Inline Keyboard 구조
-
-```
-┌─────────────────────────────────────────┐
-│  SendMessage                            │
-│  • text: 메시지 내용                     │
-│  • replyMarkup: InlineKeyboardMarkup     │
-│    └─ keyboard: List<List<Button>>      │
-└─────────────────────────────────────────┘
-
-InlineKeyboardMarkup
-    └─ List<List<InlineKeyboardButton>>
-        ├─ [Row 1] → [Button1, Button2]
-        └─ [Row 2] → [Button3, Button4]
-
-InlineKeyboardButton
-    • text: 버튼 텍스트 (예: "👍 좋았음")
-    • callbackData: 클릭 시 전달될 데이터
-```
-
-#### Callback 데이터 포맷
-
-```
-포맷: fb:{bookId}:{type}
-예: fb:12345:GOOD
-
-구조:
-fb      → 피드백 타입 식별자
-12345   → 도서 ID
-GOOD    → 피드백 타입 (GOOD, BAD)
-```
-
-**제약 사항:**
-- `callback_data` 최대 **64 bytes** 제한
-- 검색어가 길어서 포함 불가
-- 해결책: `CallbackQueryHandler.recentQueries` Map에 저장
-
-### 3. 피드백 데이터 모델
-
-#### Entity 설계
-
-```
-SearchFeedback
-├── id (PK)          : BIGINT          → 자동 생성
-├── chatId          : BIGINT NOT NULL  → Telegram 사용자 ID
-├── query           : VARCHAR(500)     → 검색어
-├── bookId          : BIGINT          → 피드백 대상 도서 ID
-├── type            : VARCHAR(20)     → GOOD, BAD
-└── createdAt       : TIMESTAMP       → 생성 시간
-```
-
-**인덱스 설계:**
-```sql
-CREATE INDEX idx_search_feedbacks_chat_id ON search_feedbacks(chat_id);
-CREATE INDEX idx_search_feedbacks_created_at ON search_feedbacks(created_at);
-CREATE INDEX idx_search_feedbacks_query_book ON search_feedbacks(query, book_id);
-CREATE INDEX idx_search_feedbacks_book_id ON search_feedbacks(book_id);
-```
-
-**왜 이렇게 인덱스를 걸까?**
-1. `chat_id` → 사용자별 피드백 조회 (/mystats)
-2. `created_at` → 최근 피드백 조회 (/recent?days=7)
-3. `(query, book_id)` → 중복 체크
-4. `book_id` → 도서별 통계 조회
-
----
-
-## 환경 설정
-
-### 1. Telegram Bot 설정
-
-**telegram.properties**
-```properties
-# Telegram Bot Token (환경 변수로 관리 권장)
-telegram.bot.token=${TELEGRAM_BOT_TOKEN}
-```
-
-**토큰 발급 방법:**
-1. Telegram에서 `@BotFather` 검색
-2. `/newbot` 명령어 입력
-3. Bot 이름 입력 (예: `ai_library_bot`)
-4. 생성된 Token 복사
-5. 환경 변수 설정: `export TELEGRAM_BOT_TOKEN=your_token`
-
-### 2. 데이터베이스 DDL
-
-**PostgreSQL**
-```sql
--- 테이블 생성
-CREATE TABLE search_feedbacks (
-    id BIGSERIAL PRIMARY KEY,
-    chat_id BIGINT NOT NULL,
-    query VARCHAR(500) NOT NULL,
-    book_id BIGINT,
-    type VARCHAR(20) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 인덱스 생성
-CREATE INDEX idx_search_feedbacks_chat_id ON search_feedbacks(chat_id);
-CREATE INDEX idx_search_feedbacks_created_at ON search_feedbacks(created_at);
-CREATE INDEX idx_search_feedbacks_query_book ON search_feedbacks(query, book_id);
-CREATE INDEX idx_search_feedbacks_book_id ON search_feedbacks(book_id);
-
--- 시퀀스 생성 (수동 권한 부여 필요)
-CREATE SEQUENCE search_feedbacks_sequence;
-```
-
-**왜 시퀀스를 별도로 만드는가?**
-- PostgreSQL의 `BIGSERIAL`이 자동 생성하는 시퀀스는 이름 규칙이 다름
-- `search_feedbacks_id_seq` (자동 생성)
-- 우리가 원하는 이름: `search_feedbacks_sequence`
-- 이식성을 위해 명시적 생성
-
----
-
-## 피드백 수집 흐름 상세 분석
-
-### 시나리오 1: 검색 후 피드백
-
-```
-[Step 1] 사용자 검색
-User: "해리포터"
-  ↓
-[Telegram 서버]
-  → LibraryTelegramBot.onUpdateReceived()
-  → handleSearch("해리포터")
-  → BookSearchService.searchBooks()
-  → 결과 포맷팅
-  → sendSearchResult() + Inline Keyboard
-
-[Step 2] 사용자에게 결과 표시
-Bot: 📚 "해리포터" 검색 결과
-
-     1. 해리포터와 마법사의 돌
-        [👍 좋았음] [👎 별로였음]
-
-     2. 해리포터와 비밀의 방
-        [👍 좋았음] [👎 별로였음]
-
-[Step 3] recentQueries Map에 저장
-CallbackQueryHandler.setRecentQuery(chatId, "해리포터")
-  → 나중에 피드백 저장 때 검색어 사용
-```
-
-### 시나리오 2: 피드백 저장
-
-```
-[Step 1] 버튼 클릭
-User: [👍 좋았음] 클릭
-  ↓
-[Telegram 서버]
-  → Callback Query 전달
-  → callbackData: "fb:12345:GOOD"
-
-[Step 2] Callback Query Handler 처리
-CallbackQueryHandler.handleCallback()
-  ↓
-  [1] 데이터 파싱
-      bookId = 12345
-      type = GOOD
-  ↓
-  [2] 검색어 복원
-      query = recentQueries.get(chatId)  // "해리포터"
-  ↓
-  [3] 중복 체크
-      feedbackService.hasExistingFeedback(chatId, "해리포터", 12345)
-      → 이미 있으면 "⚠️ 이미 피드백을 남기셨습니다."
-      → 없으면 계속 진행
-  ↓
-  [4] 피드백 저장
-      FeedbackService.recordFeedback(chatId, request)
-      → SearchFeedbackEntity 생성
-      → Repository.save()
-  ↓
-  [5] 감사 메시지 전송
-      AnswerCallbackQuery
-      text: "✅ 피드백이 저장되었습니다!"
-```
-
----
-
-## REST API 설계
-
-### 관리자 API 엔드포인트
-
-| 엔드포인트 | 메서드 | 설명 | 응답 |
-|-----------|------|------|------|
-| `/api/admin/feedback/book/{bookId}/stats` | GET | 도서별 피드백 통계 | FeedbackStats |
-| `/api/admin/feedback/stats?query={query}` | GET | 검색어별 피드백 통계 | FeedbackStats |
-| `/api/admin/feedback/recent?days={days}` | GET | 최근 N일 피드백 목록 | List\<SearchFeedback\> |
-| `/api/admin/feedback/user/{chatId}` | GET | 사용자별 피드백 목록 | List\<SearchFeedback\> |
-| `/api/admin/feedback/export/csv` | GET | 전체 피드백 CSV 다운로드 | text/csv |
-
-### FeedbackStats DTO 구조
-
-```java
-{
-  "goodCount": 15,        // 긍정 피드백 수
-  "badCount": 2,          // 부정 피드백 수
-  "totalCount": 17,       // 전체 피드백 수
-  "goodRatio": 0.882,     // 긍정 비율 (15/17)
-  "feedbackScore": 0.764   // 피드백 점수 ((15-2)/17)
-}
-```
-
-**점수 계산 공식:**
-```
-feedbackScore = (goodCount - badCount) / totalCount
-
-예: (15 - 2) / 17 = 0.764
-
-범위: -1.0 (전부 부정) ~ +1.0 (전부 긍정)
-```
-
----
-
-## 구현 완료 현황
-
-### Phase 1: 데이터 계층
-
-| 컴포넌트 | 파일명 | 설명 |
-|----------|--------|------|
-| Entity | `SearchFeedback.java` | JPA Entity, DB 매핑 |
-| Repository | `SearchFeedbackRepository.java` | 데이터 접근 인터페이스 |
-| Enum | `FeedbackType.java` | GOOD(+1), BAD(-1) |
-
-### Phase 2: 비즈니스 계층
-
-| 컴포넌트 | 파일명 | 설명 |
-|----------|--------|------|
-| Service | `FeedbackService.java` | 인터페이스 |
-| Impl | `FeedbackServiceImpl.java` | 구현체 |
-| DTO | `FeedbackRequest.java` | 요청 DTO (record) |
-| DTO | `FeedbackStats.java` | 통계 DTO (record) |
-
-### Phase 3: UI 계층
-
-| 컴포넌트 | 파일명 | 설명 |
-|----------|--------|------|
-| Factory | `TelegramKeyboardFactory.java` | Inline Keyboard 생성 |
-| Handler | `CallbackQueryHandler.java` | Callback 처리 |
-| Bot | `LibraryTelegramBot.java` | Telegram Bot 메인 클래스 |
-
-### Phase 4: 관리자 API
-
-| 컴포넌트 | 파일명 | 설명 |
-|----------|--------|------|
-| Controller | `FeedbackAdminController.java` | REST API |
-| Test | `FeedbackAdminControllerTest.java` | API 테스트 |
-
-### 추가 구현 기능
-
-| 기능 | 파일명 | 설명 |
-|------|--------|------|
-| 중복 방지 | `SearchFeedbackRepository.java` | `findByChatIdAndQueryAndBookId()` |
-| 익명화 유틸리티 | `PrivacyUtil.java` | `hashChatId()`, `maskChatId()` |
-| CSV 내보내기 | `CsvExportService.java` | `/export/csv` 엔드포인트 |
-
----
-
-## 제약 사항과 해결 방안
-
-### 1. Telegram API 제약: callback_data 64 bytes
-
-**문제:**
-- 검색어가 길면 callback_data에 포함 불가
-- 예: `fb:해리포터와 마법사의 돌:12345:GOOD` (초과)
-
-**해결:**
-- `CallbackQueryHandler.recentQueries` Map에 검색어 저장
-- `callbackData`에는 `fb:bookId:type`만 포함
-- 피드백 저장 시 Map에서 검색어 조회
-
-### 2. Sequence 권한 문제
-
-**문제:**
-```
-ERROR: permission denied for sequence search_feedbacks_sequence
-```
-
-**해결:**
-```sql
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO library;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO library;
-```
-
-### 3. 순환 의존성
-
-**문제:**
-- `CallbackQueryHandler` → `LibraryTelegramBot` → `CallbackQueryHandler`
-
-**해결:**
-```java
-public CallbackQueryHandler(
-    FeedbackService feedbackService,
-    @Lazy LibraryTelegramBot libraryTelegramBot  // Lazy 로딩
-) {
-    this.feedbackService = feedbackService;
-    this.libraryTelegramBot = libraryTelegramBot;
-}
-```
-
----
-
-## 다음 단계
-
-### Step 5 완료 항목
-
-1. Telegram Bot 기본 설정 - Bot 토큰 발급, Long Polling 설정
-2. RAG 검색 연동 - AI 추천 사유 생성
-3. 피드백 수집 시스템 - Inline Keyboard, Callback 처리, DB 저장
-4. 관리자 API - 통계 조회, CSV 내보내기
-
-### [Step 6: 개인화 추천 시스템](../step-6/README.md)
-
-**Step 5에서 수집한 피드백 데이터를 활용한 다음 내용을 다룹니다.**
-1. 도서별 피드백 점수 계산
-2. 사용자 선호 벡터 생성 (좋아한 도서들의 임베딩 평균)
-3. RRF 알고리즘에 피드백 가중치 반영
-4. 개인화된 검색 결과 제공
-
----
-
-## 참고 자료
-
-- [Telegram Bot API Documentation](https://core.telegram.org/bots/api)
-- [Spring Boot REST API Guide](https://spring.io/guides/gs/rest-service/)
-- [Feedback Systems in AI](https://arxiv.org/abs/2201.02142)
-- [.junie/guidelines.md](../../.junie/guidelines.md)
+[01. Telegram Bot 설정 →](01.telegram-bot-setup.md)

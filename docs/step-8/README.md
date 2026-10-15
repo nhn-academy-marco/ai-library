@@ -1,202 +1,85 @@
-# Step 8: n8n 워크플로우 자동화
+# Step 8. n8n 워크플로우 자동화 (보너스)
 
-## 학습 개요
+> Step 7까지 만든 Spring AI 기능을 HTTP API로 열고, 워크플로우 자동화 도구 n8n에서 불러 Slack 알림, 정기 리포트 같은 주변 업무를 코드 없이 엮어 봅니다.
 
-Step 7에서 구현한 Spring AI Function Calling 시스템을 n8n과 연동하여 복잡한 워크플로우를 시각화하고 자동화합니다. 코드 없이 노드 기반으로 AI 시스템을 확장하고 운영하는 방법을 배웁니다.
+이 단계는 **선택 과제(보너스)**입니다. Step 7까지 마치면 교재의 핵심 내용(검색 → 벡터 검색 → RAG → 개인화 → Tool Calling)은 모두 끝납니다. 시간이 남거나 "만든 AI 기능을 다른 서비스와 어떻게 연결하는가"가 궁금한 사람만 진행해도 됩니다.
 
-## 학습 목표
+## 이 단계에서 만드는 것
 
-1. **n8n 기초 이해**
-   - 워크플로우 자동화 개념
-   - 노드 기반 프로그래밍
-   - Docker로 n8n 설치 및 실행
+- Docker로 띄운 n8n에서 Spring 애플리케이션의 API를 호출하는 워크플로우 3개
+  - 매일 아침 피드백 통계를 조회해 알림 보내기(기존 API만 사용)
+  - Webhook으로 받은 질문을 AI에게 묻고 결과를 돌려주기
+  - 특정 도서의 리뷰를 모아 AI 요약을 만들고 Slack으로 보내기
+- n8n이 호출할 수 있는 새 REST 컨트롤러(`/api/ai/**`, `/api/books/{bookId}/reviews`)
 
-2. **Spring AI API와 n8n 연동**
-   - HTTP Request 노드로 API 호출
-   - Webhook 트리거로 외부 이벤트 수신
-   - JSON 데이터 전송 및 수신
+완성하면 다음과 같이 동작합니다.
 
-3. **실무 워크플로우 구축**
-   - 도서 검색 → Slack 알림
-   - 리뷰 요약 자동화
-   - 신간 도서 자동 수집
-   - 멀티 단계 오케스트레이션
-
-4. **운영 및 모니터링**
-   - 워크플로우 실행 내역 추적
-   - 에러 핸들링
-   - 성능 최적화
-
----
-
-## 선행 조건
-
-### Step 7 완료 필수
-
-- [ ] Spring AI Function Calling 구현
-- [ ] ChatClient 설정 완료
-- [ ] HTTP API 엔드포인트 노출
-
-### 기술 스택
-
-- **n8n**: 워크플로우 자동화 플랫폼
-- **Docker**: n8n 컨테이너 실행
-- **HTTP/Webhook**: Spring API와 통신
-- **Slack** (선택): 알림 전송 예시
-
----
-
-## 문서 구조
-
-### [01. n8n 연동 가이드](./01.n8n-integration.md)
-
-난이도: 고급 | 예상 시간: 4시간 이상 | 보너스 미션
-
-**내용**:
-1. n8n이란 무엇인가
-2. 아키텍처 설계 (Spring AI + n8n)
-3. Docker로 n8n 설치
-4. 워크플로우 구축 실습
-   - 도서 검색 알림
-   - 리뷰 요약 자동화
-   - 신간 도서 자동 수집
-5. Spring API 엔드포인트 노출
-6. 보너스 챌린지 미션
-
----
-
-## 전체 시스템 아키텍처
-
-### Step 7까지만 구현했을 때
-
-```
-[사용자/Telegram] → [Spring AI] → [Function 호출] → [DB/외부 API]
-                        ↓
-                   [AI 응답]
+```text
+$ curl -X POST http://localhost:5678/webhook/ask \
+    -H "Content-Type: application/json" -d '{"message":"자바 입문서 추천해줘"}'
+{"message":"자바 입문서 추천해줘","answer":"*도서 검색 결과*\n\n1. *이것이 자바다* ..."}
 ```
 
-### Step 8 (n8n 추가 후)
+## 왜 이 단계가 필요한가
 
-```
-[사용자/Telegram] → [Spring AI] → [Function 호출] → [DB/외부 API]
-       ↓                ↓              ↓
-   [n8n Webhook]  [HTTP API]    [데이터 반환]
-       ↓                              ↓
-[n8n 워크플로우]              [n8n 노드로 전달]
-       ↓
-   [Slack 알림]
-   [DB 로그 저장]
-   [이메일 전송]
-   [추가 처리]
-```
+Step 7의 AI 기능은 Telegram Bot 안에서만 쓸 수 있습니다. 그런데 실제 서비스에서는 "검색 결과를 팀 Slack에도 알려 주기", "매일 아침 통계 리포트 보내기", "새 리뷰가 쌓이면 요약해서 공유하기"처럼 AI 기능 주변에 붙는 일이 많습니다. 이런 일을 모두 Java 코드로 만들면 외부 서비스마다 클라이언트, 스케줄러, 재시도 로직을 새로 짜야 합니다.
 
----
+n8n은 이런 연결 작업을 노드를 이어 붙이는 방식으로 처리합니다. Spring 애플리케이션은 "AI 판단과 데이터"를 HTTP API로 제공하고, n8n은 "언제 부르고 결과를 어디로 보낼지"를 맡습니다.
 
-## n8n이 추가되면 할 수 있는 것
-
-### 1) 시각적 워크플로우 관리
-
-**코드로 구현할 때**:
-```java
-// 함수 순서를 바꾸려면 코드를 다시 컴파일해야 함
-searchBooks() → getReviews() → checkLoanAvailability()
+```mermaid
+flowchart LR
+    subgraph N["n8n (연결·스케줄·알림)"]
+        T["트리거<br/>Webhook · Schedule"] --> H["HTTP Request"]
+        H --> C["Code · IF"]
+        C --> O["Slack · Sheets · Email"]
+    end
+    subgraph S["Spring 애플리케이션 (AI·데이터)"]
+        A["REST API<br/>/api/ai/** 등"] --> SV["AiOrchestrationService<br/>ReviewSummarizer 등"]
+    end
+    H -->|"HTTP JSON"| A
 ```
 
-**n8n으로 구현할 때**:
-```
-[검색] → [리뷰] → [대출확인]
-   ↓
-드래그 앤 드롭으로 순서 변경
-바로 실행 가능
-```
+## 문서 구성
 
-### 2) 외부 서비스 연동
+| 순서 | 문서 | 내용 | 예상 시간 |
+|---|---|---|---|
+| 1 | [01. n8n 워크플로우 자동화 연동](./01.n8n-integration.md) | n8n 실행, 새 API 컨트롤러 작성, 워크플로우 3개 구축, 보너스 챌린지 | 4시간 |
 
-- **Slack**: 검색 결과 알림
-- **Email**: 리뷰 요약 전송
-- **Google Sheets**: 검색 로그 저장
-- **Telegram Bot**: 메시지 발신
+## 시작하기 전에
 
-### 3) 자동화 및 스케줄링
+- [Step 7](../step-7/README.md)을 마쳐 Telegram에서 AI 응답이 오는 상태
+- Docker Desktop(또는 Docker Engine + Compose)
+- curl 또는 Postman
+- (선택) 알림을 받을 Slack 워크스페이스와 Incoming Webhook URL. 없으면 n8n 실행 화면에서 결과만 확인해도 됩니다.
 
-- **매일 오전 9시**: 신간 도서 자동 수집
-- **리뷰 10개마다**: AI 요약 자동 생성
-- **검색 100회마다**: 통계 리포트 생성
+## 이 단계를 마치면
 
----
+- [ ] Docker로 n8n을 띄우고 컨테이너 안에서 Spring 애플리케이션에 접속할 수 있다
+- [ ] 기존 API(`/api/admin/feedback/stats`)를 Schedule 트리거로 호출하는 워크플로우를 만들었다
+- [ ] n8n이 호출할 새 컨트롤러를 만들고 Request DTO에 Validation을 적용했다
+- [ ] Webhook → HTTP Request → 응답/알림으로 이어지는 워크플로우를 만들었다
+- [ ] n8n에 맡길 일과 Spring에 둘 일을 구분해 설명할 수 있다
 
-## 예상 소요 시간
+## 관련 소스 코드
 
-- **n8n 설치 및 설정**: 30분
-- **기본 워크플로우 구축**: 1시간
-- **Spring API 연동**: 1시간
-- **고급 워크플로우**: 1.5시간
-- **총계**: 4시간 (선택 사항)
+n8n이 호출하는 API와 그 뒤의 서비스입니다. "새로 작성"으로 표시한 컨트롤러는 현재 소스에 없으며 01 문서에서 직접 만듭니다.
 
----
-
-## 시작하기 전 체크리스트
-
-### 환경 점검
-
-- [ ] Docker 설치 완료
-- [ ] Spring AI Function API 동작 중
-- [ ] HTTP 클라이언트(Postman, curl 등) 설치
-
-### 스킬 체크리스트
-
-- [ ] REST API 기초 이해
-- [ ] JSON 데이터 처리 가능
-- [ ] Docker 기본 명령어 숙지
-
----
-
-## 학습 체크리스트
-
-### n8n 기초
-- [ ] n8n 설치 및 실행
-- [ ] 워크플로우 생성
-- [ ] Webhook 노드 사용
-- [ ] HTTP Request 노드 사용
-
-### Spring API 연동
-- [ ] HTTP API 엔드포인트 노출
-- [ ] n8n에서 API 호출
-- [ ] JSON 데이터 전송/수신
-- [ ] 에러 처리
-
-### 워크플로우 설계
-- [ ] 다중 노드 연결
-- [ ] 조건부 분기 (IF 노드)
-- [ ] 데이터 변환 (Code 노드)
-- [ ] 외부 서비스 연동
-
-### 운영
-- [ ] 실행 내역 추적
-- [ ] 디버깅
-- [ ] 성능 최적화
-
----
-
-## 다음 단계
-
-**Step 8 완료 시 예상 결과:**
-
-1. **시각적 워크플로우**: 코드 없이 AI 시스템 확장
-2. **외부 서비스 연동**: Slack, Email 등과 통합
-3. **자동화**: 스케줄링 기반 작업 자동 실행
-4. **실무 경험**: 엔터프라이즈 워크플로우 자동화 역량
-
----
+| 클래스 | 역할 | 경로 |
+|---|---|---|
+| `FeedbackAdminController` | 피드백 통계 조회 API (`/api/admin/feedback/**`), 기존 | `src/main/java/net/java21/library/external/telegram/api/FeedbackAdminController.java` |
+| `AiApiController` | `/api/ai/ask`, `/api/ai/summarize-reviews` API, **새로 작성** | (예시) `src/main/java/net/java21/library/ai/api/AiApiController.java` |
+| `ReviewApiController` | `/api/books/{bookId}/reviews` 리뷰 JSON 조회, **새로 작성** | (예시) `src/main/java/net/java21/library/core/review/api/ReviewApiController.java` |
+| `AiOrchestrationService` | Tool 기반 오케스트레이션(Telegram `/ai`가 쓰는 서비스) | `src/main/java/net/java21/library/ai/agent/orchestrator/AiOrchestrationService.java` |
+| `ReviewSummarizer` | 리뷰 목록을 Map-Reduce로 요약 | `src/main/java/net/java21/library/core/review/service/ReviewSummarizer.java` |
+| `ReviewService` | 도서별 리뷰 페이지 조회 | `src/main/java/net/java21/library/core/review/service/ReviewService.java` |
+| `BookSearchService` | 개인화 검색(`searchBooks(Pageable, BookSearchRequest, Long)`), 보너스 챌린지에서 사용 | `src/main/java/net/java21/library/core/book/service/search/BookSearchService.java` |
 
 ## 참고 자료
 
 - [n8n 공식 문서](https://docs.n8n.io/)
-- [n8n 워크플로우 예시](https://n8n.io/workflows/)
-- [Spring AI Reference](https://docs.spring.io/spring-ai/reference/)
+- [n8n Docker 설치 안내](https://docs.n8n.io/hosting/installation/docker/)
+- [n8n 워크플로우 예시 모음](https://n8n.io/workflows/)
 
----
+## 다음 문서
 
-**이전 단계**: [← Step 7: LLM 기반 오케스트레이션](../step-7/README.md)
-
-**시작하기**: [01. n8n 연동 가이드 →](./01.n8n-integration.md)
+[01. n8n 워크플로우 자동화 연동 →](01.n8n-integration.md)
