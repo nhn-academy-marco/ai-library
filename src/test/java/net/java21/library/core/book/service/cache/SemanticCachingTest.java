@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.cache.CacheManager;
-import org.springframework.data.domain.PageImpl;
+import net.java21.library.core.book.repository.BookSearchCacheRepository;
+import java.util.stream.StreamSupport;
 import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
@@ -39,10 +39,7 @@ class SemanticCachingTest {
     private BookSearchService bookSearchService;
 
     @Autowired
-    private CacheManager cacheManager;
-
-    @Autowired
-    private org.springframework.context.ApplicationContext applicationContext;
+    private BookSearchCacheRepository cacheRepository;
 
     @MockitoBean
     private ChatModel chatModel;
@@ -71,7 +68,7 @@ class SemanticCachingTest {
         PageRequest pageable = PageRequest.of(0, 10);
 
         // 캐시 초기화
-        cacheManager.getCache("bookSearchCache").clear();
+        cacheRepository.deleteAll();
 
         // Mock 설정
         when(embeddingService.getEmbedding(keyword1)).thenReturn(vector1);
@@ -80,8 +77,8 @@ class SemanticCachingTest {
 
         BookSearchResponse mockResponse = new BookSearchResponse(1L, "123456", "테스트 도서", null, "저자", "출판사", 
                 BigDecimal.valueOf(10000), LocalDate.now(), null, "테스트 내용입니다.");
-        when(bookRepository.search(any(), any())).thenReturn(new PageImpl<>(List.of(mockResponse)));
-        when(bookRepository.vectorSearch(any(), any())).thenReturn(new PageImpl<>(List.of(mockResponse)));
+        when(bookRepository.searchCandidates(any(), anyInt())).thenReturn(List.of(mockResponse));
+        when(bookRepository.vectorSearchCandidates(any(), anyInt())).thenReturn(List.of(mockResponse));
         when(chatModel.call(anyString())).thenReturn("[{\"id\":1, \"relevance\":100, \"why\":\"테스트\"}]");
 
         // When 1: 첫 번째 키워드로 검색 (캐시 생성)
@@ -90,10 +87,8 @@ class SemanticCachingTest {
         
         // Then: 비동기 warm-up이 완료될 때까지 대기
         boolean cached = false;
-        // warm-up 과정에서 저장되는 캐시 키는 isWarmUp=true 상태임
-        BookSearchRequest expectedCacheKey1 = new BookSearchRequest(keyword1, null, SearchType.RAG, vector1, true);
         for (int i = 0; i < 50; i++) {
-            if (cacheManager.getCache("bookSearchCache").get(expectedCacheKey1) != null) {
+            if (isCached(keyword1)) {
                 cached = true;
                 break;
             }
@@ -115,9 +110,8 @@ class SemanticCachingTest {
         bookSearchService.searchBooks(pageable, request3);
         
         // Then: 비동기 warm-up이 완료될 때까지 대기
-        BookSearchRequest expectedCacheKey3 = new BookSearchRequest(keyword3, null, SearchType.RAG, vector3, true);
         for (int i = 0; i < 50; i++) {
-            if (cacheManager.getCache("bookSearchCache").get(expectedCacheKey3) != null) {
+            if (isCached(keyword3)) {
                 break;
             }
             Thread.sleep(100);
@@ -137,22 +131,21 @@ class SemanticCachingTest {
         BookSearchRequest request = new BookSearchRequest(keyword, null, SearchType.RAG, null);
         PageRequest pageable = PageRequest.of(0, 10);
 
-        cacheManager.getCache("bookSearchCache").clear();
+        cacheRepository.deleteAll();
         when(embeddingService.getEmbedding(keyword)).thenReturn(vector);
         
         BookSearchResponse mockResponseExp = new BookSearchResponse(1L, "123456", "테스트 도서", null, "저자", "출판사", 
                 BigDecimal.valueOf(10000), LocalDate.now(), null, "테스트 내용입니다.");
-        when(bookRepository.search(any(), any())).thenReturn(new PageImpl<>(List.of(mockResponseExp)));
-        when(bookRepository.vectorSearch(any(), any())).thenReturn(new PageImpl<>(List.of(mockResponseExp)));
+        when(bookRepository.searchCandidates(any(), anyInt())).thenReturn(List.of(mockResponseExp));
+        when(bookRepository.vectorSearchCandidates(any(), anyInt())).thenReturn(List.of(mockResponseExp));
         when(chatModel.call(anyString())).thenReturn("[{\"id\":1, \"relevance\":100, \"why\":\"테스트\"}]");
 
         // When 1: 첫 번째 검색 (캐시 생성)
         bookSearchService.searchBooks(pageable, request);
         
         // 캐시 생성 대기
-        BookSearchRequest cacheKey = new BookSearchRequest(keyword, null, SearchType.RAG, vector, true);
         for (int i = 0; i < 50; i++) {
-            if (cacheManager.getCache("bookSearchCache").get(cacheKey) != null) break;
+            if (isCached(keyword)) break;
             Thread.sleep(100);
         }
         verify(chatModel, atLeastOnce()).call(anyString());
@@ -160,20 +153,12 @@ class SemanticCachingTest {
                 .filter(inv -> inv.getMethod().getName().equals("call"))
                 .count();
 
-        // 캐시 강제 만료 처리 (createdAt을 과거로 변경)
-        net.java21.library.core.book.dto.BookSearchResult cachedResult = (net.java21.library.core.book.dto.BookSearchResult) cacheManager.getCache("bookSearchCache").get(cacheKey).get();
-        // createdAt을 2분 전으로 설정 (TTL은 1분)
-        net.java21.library.core.book.dto.BookSearchResult expiredResult = new net.java21.library.core.book.dto.BookSearchResult(
-                cachedResult.getBooks(), cachedResult.getAiResponse(), System.currentTimeMillis() - 120000);
-        
-        // Redis 캐시 리포지토리에서도 만료 처리 (FindSimilarResultInCache는 이걸 먼저 봄)
-        for (net.java21.library.core.book.domain.BookSearchCache entry : ((net.java21.library.core.book.repository.BookSearchCacheRepository)applicationContext.getBean(net.java21.library.core.book.repository.BookSearchCacheRepository.class)).findAll()) {
+        // 캐시 강제 만료 처리 (createdAt을 2분 전으로 변경, TTL은 1분)
+        for (net.java21.library.core.book.domain.BookSearchCache entry : cacheRepository.findAll()) {
             if (entry.getKeyword().equals(keyword)) {
                 entry.setCreatedAt(System.currentTimeMillis() - 120000);
             }
         }
-        
-        cacheManager.getCache("bookSearchCache").put(cacheKey, expiredResult);
 
         // When 2: TTL 만료 후 다시 검색
         log.info("Searching after cache expiration...");
@@ -188,5 +173,10 @@ class SemanticCachingTest {
         
         assertThat(secondCallCount).isGreaterThan(firstCallCount);
         log.info("[TEST] Cache expiration verified successfully. (Calls: {} -> {})", firstCallCount, secondCallCount);
+    }
+
+    private boolean isCached(String keyword) {
+        return StreamSupport.stream(cacheRepository.findAll().spliterator(), false)
+                .anyMatch(entry -> keyword.equals(entry.getKeyword()));
     }
 }

@@ -17,9 +17,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.cache.CacheManager;
+import net.java21.library.core.book.repository.BookSearchCacheRepository;
 import org.springframework.context.ApplicationContext;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +27,7 @@ import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -46,7 +46,7 @@ class BookThresholdTest {
     private ApplicationContext applicationContext;
 
     @Autowired
-    private CacheManager cacheManager;
+    private BookSearchCacheRepository cacheRepository;
 
     @MockitoBean
     private BookRepository bookRepository;
@@ -72,8 +72,8 @@ class BookThresholdTest {
                 .mapToObj(i -> new BookSearchResponse((long)i, "isbn"+i, "title"+i, null, "author"+i, "publisher"+i, null, null, null, "content"+i, 0.0))
                 .toList();
         
-        when(bookRepository.search(any(), any())).thenReturn(new PageImpl<>(keywordResults));
-        when(bookRepository.vectorSearch(any(), any())).thenReturn(new PageImpl<>(List.of()));
+        when(bookRepository.searchCandidates(any(), anyInt())).thenReturn(keywordResults);
+        when(bookRepository.vectorSearchCandidates(any(), anyInt())).thenReturn(List.of());
 
         when(chatModel.call(anyString())).thenReturn("[]");
 
@@ -92,8 +92,8 @@ class BookThresholdTest {
         // Given
         String keyword = "테스트_웜업_Fallback";
         when(embeddingService.getEmbedding(anyString())).thenReturn(new float[1024]);
-        when(bookRepository.search(any(), any())).thenReturn(new PageImpl<>(List.of(new BookSearchResponse(0L, "isbn0", "title0", null, "author0", "publisher0", null, null, null, "content0", 0.0))));
-        when(bookRepository.vectorSearch(any(), any())).thenReturn(new PageImpl<>(List.of()));
+        when(bookRepository.searchCandidates(any(), anyInt())).thenReturn(List.of(new BookSearchResponse(0L, "isbn0", "title0", null, "author0", "publisher0", null, null, null, "content0", 0.0)));
+        when(bookRepository.vectorSearchCandidates(any(), anyInt())).thenReturn(List.of());
         when(chatModel.call(anyString())).thenReturn("[]");
 
         // When
@@ -114,13 +114,13 @@ class BookThresholdTest {
         
         BookSearchResponse commonBook = new BookSearchResponse(1L, "isbn1", "title1", null, "author1", "publisher1", null, null, null, "content1", 1.0);
         
-        when(bookRepository.search(any(), any())).thenReturn(new PageImpl<>(List.of(commonBook)));
-        when(bookRepository.vectorSearch(any(), any())).thenReturn(new PageImpl<>(List.of(commonBook)));
+        when(bookRepository.searchCandidates(any(), anyInt())).thenReturn(List.of(commonBook));
+        when(bookRepository.vectorSearchCandidates(any(), anyInt())).thenReturn(List.of(commonBook));
 
         when(chatModel.call(anyString())).thenReturn("[]");
 
         // 캐시가 비어있는지 확인 (이전 테스트 영향 방지)
-        cacheManager.getCache("bookSearchCache").clear();
+        cacheRepository.deleteAll();
 
         // When & Then
         // BookSearchCacheService를 사용하여 warm-up을 수행하면 
@@ -132,6 +132,9 @@ class BookThresholdTest {
         for (int i = 0; i < 20; i++) {
             try {
                 verify(chatModel, atLeastOnce()).call(promptCaptor.capture());
+                if (promptCaptor.getAllValues().stream().noneMatch(prompt -> prompt.contains(keyword))) {
+                    throw new AssertionError("prompt for " + keyword + " not captured yet");
+                }
                 invoked = true;
                 break;
             } catch (Throwable e) {
@@ -140,7 +143,11 @@ class BookThresholdTest {
         }
         assertThat(invoked).as("AI 호출이 발생해야 함").isTrue();
         
-        String renderedPrompt = promptCaptor.getValue();
+        // 다른 테스트가 발행한 비동기 Warm-up이 같은 목(mock)을 호출할 수 있으므로 이 테스트 검색어의 프롬프트만 검사합니다.
+        String renderedPrompt = promptCaptor.getAllValues().stream()
+                .filter(prompt -> prompt.contains(keyword))
+                .reduce((first, last) -> last)
+                .orElseThrow();
         long bookCount = renderedPrompt.lines().filter(line -> line.contains("ID:")).count();
         
         // 1/61 + 1/61 = 0.032... >= 0.02 이므로 포함되어야 함.

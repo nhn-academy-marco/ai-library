@@ -7,6 +7,7 @@ import net.java21.library.ai.function.dto.BookSearchRequest;
 import net.java21.library.ai.function.dto.BookSearchResult;
 import net.java21.library.ai.function.dto.LoanCheckRequest;
 import net.java21.library.ai.function.dto.LoanCheckResult;
+import net.java21.library.ai.function.dto.ReviewRequest;
 import net.java21.library.ai.function.dto.ReviewResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,11 +60,13 @@ public class AiLibraryAssistantService {
                 .inputType(BookSearchRequest.class)
                 .build();
 
-        FunctionToolCallback<Long, ReviewResult> reviewTool =
-            FunctionToolCallback.builder("GetReviews", reviewFunction::getReviews)
+        // 입력 스키마가 JSON object가 되도록 Long 대신 record(ReviewRequest)를 입력 타입으로 사용
+        FunctionToolCallback<ReviewRequest, ReviewResult> reviewTool =
+            FunctionToolCallback.builder("GetReviews",
+                    (ReviewRequest request) -> reviewFunction.getReviews(request.bookId()))
                 .description("도서의 리뷰 목록을 조회합니다. " +
-                            "도서 ID를 받아 리뷰 요약, 평점, 주요 리뷰를 제공합니다.")
-                .inputType(Long.class)
+                            "도서 ID(bookId)를 받아 리뷰 요약, 평점, 주요 리뷰를 제공합니다.")
+                .inputType(ReviewRequest.class)
                 .build();
 
         FunctionToolCallback<LoanCheckRequest, LoanCheckResult> loanCheckTool =

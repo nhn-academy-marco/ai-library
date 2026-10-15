@@ -4,6 +4,7 @@ import net.java21.library.core.book.dto.BookSearchResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,17 +60,26 @@ public class RrfService {
             }
         }
 
-        // 3. 점수 기준 정렬 및 최종 응답 DTO 생성
+        // 3. 최종 응답 DTO 생성 후 결정적 순서로 정렬
+        //    HashMap 순회 순서에 결과가 좌우되지 않도록 동점은 벡터 유사도 → 도서 ID로 가립니다.
         return rrfScores.entrySet().stream()
-                .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue())) // 점수 내림차순 정렬
                 .map(entry -> {
-                    Long id = entry.getKey();
-                    BookSearchResponse original = bookMap.get(id);
+                    BookSearchResponse original = bookMap.get(entry.getKey());
                     // 최종 필드에 RRF 점수를 포함하여 반환
                     return copyOf(original, original.getSimilarity(), entry.getValue());
                 })
+                .sorted(RANKING_ORDER)
                 .toList();
     }
+
+    /**
+     * 최종 순위 정렬 기준: RRF 점수 내림차순 → 벡터 유사도 내림차순(없으면 뒤로) → 도서 ID 오름차순.
+     */
+    private static final Comparator<BookSearchResponse> RANKING_ORDER =
+            Comparator.comparing(BookSearchResponse::getRrfScore, Comparator.reverseOrder())
+                    .thenComparing(BookSearchResponse::getSimilarity,
+                            Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(BookSearchResponse::getId);
 
     /**
      * 원본 DTO를 복사하면서 유사도와 RRF 점수만 바꿉니다. 리뷰 정보(평점·리뷰 수·요약)는 그대로 유지합니다.

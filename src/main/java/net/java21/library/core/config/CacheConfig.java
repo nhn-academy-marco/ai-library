@@ -21,9 +21,8 @@ import java.util.concurrent.TimeUnit;
  * <p>캐시 전략:</p>
  * <ul>
  *   <li>개인화 캐시: 24시간 TTL, 최대 1000개</li>
- *   <li>도서 검색 캐시: 30분 TTL, 최대 500개</li>
- *   <li>도서관 API 캐시: 60분 TTL, 최대 1000개</li>
- *   <li>리뷰 캐시: 30분 TTL, 최대 500개</li>
+ *   <li>검색 결과 캐시(키워드·벡터·하이브리드): 5분 TTL, 최대 500개</li>
+ *   <li>도서관 API 캐시: 기본 Caffeine 설정(cache.book-search.*: 30분 TTL, 최대 500개)</li>
  *   <li>표지 조회 이력(ISBN): 7일 TTL, 최대 100,000개</li>
  * </ul>
  */
@@ -61,7 +60,16 @@ public class CacheConfig {
     @Value("${cache.cover-lookup.max-size:100000}")
     private int coverLookupMaxSize;
 
+    @Value("${cache.search-result.ttl.minutes:5}")
+    private int searchResultTtlMinutes;
+
+    @Value("${cache.search-result.max-size:500}")
+    private int searchResultMaxSize;
+
     public static final String COVER_LOOKUP_CACHE = "coverLookupCache";
+
+    /** 키워드·벡터·하이브리드 검색 결과 캐시 이름 (SearchResultCache에서 사용) */
+    public static final String BOOK_SEARCH_RESULT_CACHE = "bookSearchResultCache";
 
     /**
      * 메인 CacheManager
@@ -76,14 +84,9 @@ public class CacheConfig {
 
         // 캐시 이름 등록 (명시적 등록으로 자동 생성 방지)
         cacheManager.setCacheNames(List.of(
-            // 도서 검색 캐시
-            "bookSearchCache",
-            // 리뷰 캐시
-            "reviewSummaries",
             // 도서관정보나루 API 캐시
             "librarySearch",
             "librarySearchByIsbn",
-            "librarySearchByIsbn10",
             "librarySearchByAuthor",
             "librarySearchByPublisher",
             "libraryLoanItems",
@@ -110,11 +113,19 @@ public class CacheConfig {
             "extendedPopularBooks"
         ));
 
-        // 기본 Caffeine 설정 (도서 검색 및 리뷰 캐시용)
+        // 기본 Caffeine 설정 (위 도서관정보나루 API 캐시에 공통 적용)
+        // 도서 검색 결과는 Spring Cache가 아니라 SemanticCacheService(InMemoryBookSearchCacheRepository)가 캐싱합니다.
         cacheManager.setCaffeine(Caffeine.newBuilder()
             .expireAfterWrite(bookSearchTtlMinutes, TimeUnit.MINUTES)
             .maximumSize(bookSearchMaxSize)
             .recordStats()); // 통계 활성화
+
+        // 검색 결과 캐시는 짧은 TTL을 따로 적용 (리뷰 평점 등 변경이 오래 숨지 않도록)
+        cacheManager.registerCustomCache(BOOK_SEARCH_RESULT_CACHE, Caffeine.newBuilder()
+            .expireAfterWrite(searchResultTtlMinutes, TimeUnit.MINUTES)
+            .maximumSize(searchResultMaxSize)
+            .recordStats()
+            .build());
 
         return cacheManager;
     }

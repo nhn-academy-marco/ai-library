@@ -3,6 +3,7 @@ package net.java21.library.core.book.service.search;
 import net.java21.library.core.book.domain.SearchType;
 import net.java21.library.core.book.dto.BookSearchRequest;
 import net.java21.library.core.book.dto.BookSearchResult;
+import net.java21.library.core.book.service.cache.SearchResultCache;
 import net.java21.library.core.book.service.embedding.EmbeddingService;
 import net.java21.library.core.book.service.search.strategy.HybridSearchStrategy;
 import net.java21.library.core.book.service.search.strategy.KeywordSearchStrategy;
@@ -37,6 +38,8 @@ class BookSearchServiceFallbackTest {
     private KeywordSearchStrategy keywordSearchStrategy;
     @Mock
     private HybridSearchStrategy hybridSearchStrategy;
+    @Mock
+    private SearchResultCache searchResultCache;
 
     @InjectMocks
     private BookSearchService bookSearchService;

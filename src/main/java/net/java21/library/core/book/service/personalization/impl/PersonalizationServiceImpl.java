@@ -86,16 +86,18 @@ public class PersonalizationServiceImpl implements PersonalizationService {
                 double rrfScore = response.getRrfScore() != null ? response.getRrfScore() : 0.0;
                 double finalScore = rrfScore + (similarity * personalizationWeight);
 
-                // 점수 업데이트 (임시로 similarity 필드에 개인화 점수 저장)
-                response.setSimilarity(similarity);
-                response.setRrfScore(finalScore);
+                // 입력 객체는 시맨틱 캐시가 보관 중인 객체일 수 있으므로 직접 수정하지 않고 복사본에 점수를 적용
+                // (원본을 수정하면 같은 캐시 결과로 검색할 때마다 점수가 누적됨)
+                BookSearchResponse personalized = response.copy();
+                personalized.setSimilarity(similarity);
+                personalized.setRrfScore(finalScore);
 
                 if (log.isDebugEnabled()) {
                     log.debug("[PERSONALIZATION] Book: {}, Similarity: {}, Final Score: {}",
                         response.getTitle(), String.format("%.4f", similarity), String.format("%.4f", finalScore));
                 }
 
-                return response;
+                return personalized;
             })
             .sorted((a, b) -> {
                 double scoreA = a.getRrfScore() != null ? a.getRrfScore() : 0.0;

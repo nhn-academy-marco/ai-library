@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -39,10 +41,29 @@ public class FeedbackServiceImpl implements FeedbackService {
 
         SearchFeedback saved = searchFeedbackRepository.save(feedback);
 
-        // 새 피드백이 다음 검색의 선호도 벡터에 반영되도록 캐시 무효화
-        personalizationService.evictUserPreferenceCache(chatId);
+        // 새 피드백이 다음 검색의 선호도 벡터에 반영되도록 캐시 무효화 (커밋 후)
+        evictPreferenceCacheAfterCommit(chatId);
 
         return saved;
+    }
+
+    /**
+     * 트랜잭션 커밋 후에 선호도 벡터 캐시를 무효화합니다.
+     *
+     * <p>커밋 전에 무효화하면, 그사이 들어온 검색이 아직 커밋되지 않은(옛) 피드백으로
+     * 선호도 벡터를 다시 계산해 캐싱할 수 있습니다. 트랜잭션이 없으면 즉시 무효화합니다.</p>
+     */
+    private void evictPreferenceCacheAfterCommit(Long chatId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            personalizationService.evictUserPreferenceCache(chatId);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                personalizationService.evictUserPreferenceCache(chatId);
+            }
+        });
     }
 
     @Override

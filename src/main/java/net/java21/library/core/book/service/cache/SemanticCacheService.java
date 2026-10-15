@@ -9,8 +9,6 @@ import net.java21.library.core.book.util.VectorUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +16,9 @@ import java.util.Optional;
 
 /**
  * 의미적 캐싱 서비스
+ *
+ * <p>검색어 임베딩의 코사인 유사도로 이전 RAG 결과를 찾습니다. 조회·저장·만료는 모두
+ * {@link BookSearchCacheRepository}(인메모리, 최대 건수 제한) 하나로 처리합니다.</p>
  */
 @Slf4j
 @Service
@@ -25,7 +26,6 @@ import java.util.Optional;
 public class SemanticCacheService {
 
     private final BookSearchCacheRepository cacheRepository;
-    private final CacheManager cacheManager;
 
     @Value("${cache.ttl.minutes:30}")
     private int cacheTtlMinutes;
@@ -74,7 +74,6 @@ public class SemanticCacheService {
     public void save(BookSearchRequest request, BookSearchResult result) {
         if (request.searchType() != SearchType.RAG) return;
 
-        // Redis 캐시 저장
         BookSearchCache cacheEntry = BookSearchCache.builder()
                 .keyword(request.keyword())
                 .vector(request.vector())
@@ -83,25 +82,11 @@ public class SemanticCacheService {
                 .createdAt(result.getCreatedAt())
                 .build();
         
-        log.info("[SEMANTIC_CACHE] Putting result into Redis for keyword: {}", request.keyword());
+        log.info("[SEMANTIC_CACHE] Putting result into semantic cache for keyword: {}", request.keyword());
         cacheRepository.save(cacheEntry);
-
-        // Spring Cache(Local) 저장
-        Cache cache = cacheManager.getCache("bookSearchCache");
-        if (cache != null) {
-            cache.put(request, result);
-        }
     }
 
     private void evictCache(BookSearchCache cached) {
         cacheRepository.delete(cached);
-        Cache cache = cacheManager.getCache("bookSearchCache");
-        if (cache != null) {
-            // Warm-up 및 일반 유저 키 모두 만료 처리
-            BookSearchRequest warmUpKey = new BookSearchRequest(cached.getKeyword(), null, SearchType.RAG, cached.getVector(), true);
-            cache.evict(warmUpKey);
-            BookSearchRequest userKey = new BookSearchRequest(cached.getKeyword(), null, SearchType.RAG, cached.getVector(), false);
-            cache.evict(userKey);
-        }
     }
 }

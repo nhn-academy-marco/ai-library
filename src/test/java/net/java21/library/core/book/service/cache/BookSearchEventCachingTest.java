@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import org.springframework.cache.CacheManager;
+import net.java21.library.core.book.repository.BookSearchCacheRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +28,7 @@ class BookSearchEventCachingTest {
     private BookSearchService bookSearchService;
 
     @Autowired
-    private CacheManager cacheManager;
+    private BookSearchCacheRepository cacheRepository;
 
     @Autowired
     private ApplicationEventPublisher eventPublisher;
@@ -44,7 +44,7 @@ class BookSearchEventCachingTest {
         BookSearchRequest request = new BookSearchRequest(keyword, null, SearchType.RAG, null);
         
         // 캐시 비우기
-        cacheManager.getCache("bookSearchCache").clear();
+        cacheRepository.deleteAll();
 
         // When
         net.java21.library.core.book.dto.BookSearchResult result = bookSearchService.searchBooks(PageRequest.of(0, 10), request);
@@ -65,7 +65,7 @@ class BookSearchEventCachingTest {
         BookSearchRequest request = new BookSearchRequest(keyword, null, SearchType.HYBRID, null);
         
         // 캐시 비우기
-        cacheManager.getCache("bookSearchCache").clear();
+        cacheRepository.deleteAll();
 
         // When
         bookSearchService.searchBooks(PageRequest.of(0, 10), request);

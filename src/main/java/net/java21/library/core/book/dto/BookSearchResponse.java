@@ -96,6 +96,20 @@ public class BookSearchResponse {
         );
     }
 
+    /**
+     * 모든 필드를 복사한 새 객체를 반환합니다.
+     *
+     * <p>시맨틱 캐시가 보관 중인 객체를 개인화 점수 계산 등으로 수정하지 않도록,
+     * 점수를 바꾸기 전에 복사본을 만들 때 사용합니다.</p>
+     *
+     * @return 같은 값을 가진 새 BookSearchResponse
+     */
+    public BookSearchResponse copy() {
+        return new BookSearchResponse(id, isbn, title, volumeTitle, authorName, publisherName, price,
+                editionPublishDate, imageUrl, bookContent, similarity, rrfScore,
+                averageRating, reviewCount, reviewSummary);
+    }
+
     // 리뷰 정보 Setter (05.review-rag-integration.md)
 
     public void setAverageRating(BigDecimal averageRating) {

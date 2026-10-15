@@ -14,7 +14,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.context.ApplicationContext;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +22,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -59,8 +59,8 @@ class BookRerankKTest {
         BookSearchResponse common = new BookSearchResponse(1L, "isbn1", "title1", null, "author1", "publisher1", null, null, null, "content1", 1.0);
         
         // any() 대신 matchers를 사용하여 모든 호출에 대해 common 반환
-        when(bookRepository.search(any(), any())).thenReturn(new PageImpl<>(List.of(common)));
-        when(bookRepository.vectorSearch(any(), any())).thenReturn(new PageImpl<>(List.of(common)));
+        when(bookRepository.searchCandidates(any(), anyInt())).thenReturn(List.of(common));
+        when(bookRepository.vectorSearchCandidates(any(), anyInt())).thenReturn(List.of(common));
 
         when(chatModel.call(anyString())).thenReturn("[]");
 

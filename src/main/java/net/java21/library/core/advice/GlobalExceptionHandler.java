@@ -1,6 +1,7 @@
 package net.java21.library.core.advice;
 
 import lombok.extern.slf4j.Slf4j;
+import net.java21.library.core.book.exception.SearchTimeoutException;
 import org.springframework.http.HttpStatus;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -19,6 +20,14 @@ public class GlobalExceptionHandler {
     public String handleException(Exception e, Model model) {
         log.error("Unhandled exception occurred", e);
         model.addAttribute("message", "서버 내부 오류가 발생했습니다.");
+        return "common/error/error";
+    }
+
+    @ExceptionHandler(SearchTimeoutException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public String handleSearchTimeout(SearchTimeoutException e, Model model) {
+        log.warn("Search timed out: {}", e.getMessage());
+        model.addAttribute("message", "검색이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.");
         return "common/error/error";
     }
 

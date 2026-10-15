@@ -27,5 +27,11 @@ public class PostgreSQLFunctionContributor implements FunctionContributor {
                 .registerPattern("vector_cosine_similarity",
                         "(1.0 - (embedding <=> cast(?1 as vector)))",
                         functionContributions.getTypeConfiguration().getBasicTypeRegistry().resolve(StandardBasicTypes.DOUBLE));
+
+        // 정렬 전용: pgvector 인덱스(HNSW 등)가 사용되려면 ORDER BY에 거리 연산자 식이 그대로 와야 합니다.
+        functionContributions.getFunctionRegistry()
+                .registerPattern("vector_cosine_distance",
+                        "(embedding <=> cast(?1 as vector))",
+                        functionContributions.getTypeConfiguration().getBasicTypeRegistry().resolve(StandardBasicTypes.DOUBLE));
     }
 }

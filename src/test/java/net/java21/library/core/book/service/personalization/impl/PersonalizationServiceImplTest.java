@@ -95,10 +95,52 @@ class PersonalizationServiceImplTest {
             personalizationService.personalizedSearch(List.of(book1, book2, book3), CHAT_ID);
 
         // Then
-        assertThat(book3.getSimilarity()).isEqualTo(1.0, org.assertj.core.data.Offset.offset(1e-6));
-        assertThat(book1.getSimilarity()).isEqualTo(0.0, org.assertj.core.data.Offset.offset(1e-6));
         assertThat(personalized.get(0).getId()).isEqualTo(3L);
+        assertThat(personalized.get(0).getSimilarity()).isEqualTo(1.0, org.assertj.core.data.Offset.offset(1e-6));
+        assertThat(personalized).filteredOn(r -> r.getId().equals(1L)).singleElement()
+            .satisfies(r -> assertThat(r.getSimilarity()).isEqualTo(0.0, org.assertj.core.data.Offset.offset(1e-6)));
         verify(bookRepository).findIdAndEmbeddingsByIds(List.of(1L, 2L, 3L));
+    }
+
+    @Test
+    @DisplayName("같은 입력 객체로 두 번 호출해도 개인화 점수가 누적되지 않아야 한다")
+    void personalizedSearch_CalledTwiceWithSameInput_ScoresDoNotAccumulate() {
+        // Given: 시맨틱 캐시가 같은 객체를 다시 돌려주는 상황
+        when(userPreferenceVectorCalculator.calculate(CHAT_ID)).thenReturn(new float[]{1.0f, 0.0f});
+        when(bookRepository.findIdAndEmbeddingsByIds(anyList())).thenReturn(List.<Object[]>of(
+            new Object[]{1L, new float[]{1.0f, 0.0f}}
+        ));
+        BookSearchResponse cached = createBookSearchResponse(1L, "Book 1");
+        cached.setRrfScore(0.5);
+        List<BookSearchResponse> cachedResults = List.of(cached);
+
+        // When
+        double first = personalizationService.personalizedSearch(cachedResults, CHAT_ID).get(0).getRrfScore();
+        double second = personalizationService.personalizedSearch(cachedResults, CHAT_ID).get(0).getRrfScore();
+
+        // Then
+        assertThat(first).isEqualTo(0.8, org.assertj.core.data.Offset.offset(1e-6));
+        assertThat(second).isEqualTo(first);
+    }
+
+    @Test
+    @DisplayName("개인화 점수는 입력 객체를 수정하지 않고 복사본에 적용해야 한다")
+    void personalizedSearch_DoesNotMutateInput() {
+        // Given
+        when(userPreferenceVectorCalculator.calculate(CHAT_ID)).thenReturn(new float[]{1.0f, 0.0f});
+        when(bookRepository.findIdAndEmbeddingsByIds(anyList())).thenReturn(List.<Object[]>of(
+            new Object[]{1L, new float[]{1.0f, 0.0f}}
+        ));
+        BookSearchResponse original = createBookSearchResponse(1L, "Book 1");
+        original.setRrfScore(0.5);
+
+        // When
+        BookSearchResponse result = personalizationService.personalizedSearch(List.of(original), CHAT_ID).get(0);
+
+        // Then
+        assertThat(result).isNotSameAs(original);
+        assertThat(original.getRrfScore()).isEqualTo(0.5);
+        assertThat(original.getSimilarity()).isNull();
     }
 
     @Test

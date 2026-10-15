@@ -11,12 +11,13 @@ import java.util.stream.Collectors;
  * CSV 내보내기 서비스
  *
  * <p>피드백 데이터를 CSV 형식으로 변환합니다.
+ * 사용자 식별자(chatId)는 {@link PrivacyUtil#hashChatId(Long)}로 해시해 내보냅니다.
  */
 @Slf4j
 @Service
 public class CsvExportService {
 
-    private static final String CSV_HEADER = "ID,ChatId,Query,BookId,Type,CreatedAt";
+    private static final String CSV_HEADER = "ID,ChatIdHash,Query,BookId,Type,CreatedAt";
     private static final String LINE_SEPARATOR = "\n";
     private static final String VALUE_SEPARATOR = ",";
 
@@ -37,7 +38,8 @@ public class CsvExportService {
         // 2. 데이터 행 추가
         for (SearchFeedback feedback : feedbacks) {
             csv.append(escapeCsvValue(feedback.getId().toString())).append(VALUE_SEPARATOR);
-            csv.append(escapeCsvValue(feedback.getChatId().toString())).append(VALUE_SEPARATOR);
+            // 개인정보 보호: 원본 chatId 대신 솔트 SHA-256 해시를 내보냄 (같은 사용자는 같은 값이라 사용자별 집계는 가능)
+            csv.append(escapeCsvValue(PrivacyUtil.hashChatId(feedback.getChatId()))).append(VALUE_SEPARATOR);
             csv.append(escapeCsvValue(feedback.getQuery())).append(VALUE_SEPARATOR);
             csv.append(escapeCsvValue(feedback.getBookId() != null ? feedback.getBookId().toString() : "")).append(VALUE_SEPARATOR);
             csv.append(escapeCsvValue(feedback.getType().name())).append(VALUE_SEPARATOR);

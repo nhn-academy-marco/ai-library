@@ -9,6 +9,7 @@ import net.java21.library.core.book.dto.BookSearchResult;
 import net.java21.library.core.book.dto.BookViewResponse;
 import net.java21.library.core.book.exception.BookNotFoundException;
 import net.java21.library.core.book.repository.BookRepository;
+import net.java21.library.core.book.service.cache.SearchResultCache;
 import net.java21.library.core.book.service.embedding.EmbeddingService;
 import net.java21.library.core.book.service.personalization.PersonalizationService;
 import net.java21.library.core.book.service.search.strategy.HybridSearchStrategy;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 도서 검색 서비스
@@ -49,6 +51,7 @@ public class BookSearchService {
     private final BookReviewSummaryRepository bookReviewSummaryRepository;
     private final ReviewSummarizer reviewSummarizer;
     private final PersonalizationService personalizationService;
+    private final SearchResultCache searchResultCache;
 
     // 전략 구현체들
     private final KeywordSearchStrategy keywordSearchStrategy;
@@ -67,19 +70,40 @@ public class BookSearchService {
     public BookSearchResult searchBooks(Pageable pageable, BookSearchRequest request) {
         log.info("Searching books with request: {}, pageable: {}", request, pageable);
 
-        try {
-            request = ensureEmbedding(request);
-        } catch (RuntimeException e) {
-            // 임베딩 서버에 연결할 수 없으면 의미·하이브리드·RAG 검색이 모두 불가능하므로
-            // 오류 화면 대신 키워드 검색 결과로 대체합니다.
-            log.warn("Embedding unavailable for '{}'. Falling back to keyword search: {}", request.keyword(), e.getMessage());
-            BookSearchRequest keywordRequest = new BookSearchRequest(
-                    request.keyword(), request.isbn(), SearchType.KEYWORD, null, request.isWarmUp());
-            return BookSearchResult.keywordFallback(keywordSearchStrategy.search(pageable, keywordRequest).getBooks());
+        // 키워드·벡터·하이브리드는 짧은 TTL 결과 캐시를 먼저 확인 (성능용 보조, 결정성은 정렬 규칙이 보장)
+        if (searchResultCache.isCacheable(pageable, request)) {
+            BookSearchRequest normalized = new BookSearchRequest(
+                    SearchResultCache.normalizeKeyword(request.keyword()), request.isbn(),
+                    request.searchType(), null, request.isWarmUp());
+            Optional<BookSearchResult> cached = searchResultCache.get(pageable, normalized);
+            if (cached.isPresent()) {
+                return cached.get();
+            }
+            BookSearchResult result = executeSearch(pageable, normalized);
+            searchResultCache.put(pageable, normalized, result);
+            return result;
         }
+        return executeSearch(pageable, request);
+    }
 
-        SearchStrategy strategy = selectStrategy(request.searchType());
-        return strategy.search(pageable, request);
+    private BookSearchResult executeSearch(Pageable pageable, BookSearchRequest request) {
+        try {
+            try {
+                request = ensureEmbedding(request);
+            } catch (RuntimeException e) {
+                // 임베딩 서버에 연결할 수 없으면 의미·하이브리드·RAG 검색이 모두 불가능하므로
+                // 오류 화면 대신 키워드 검색 결과로 대체합니다.
+                log.warn("Embedding unavailable for '{}'. Falling back to keyword search: {}", request.keyword(), e.getMessage());
+                BookSearchRequest keywordRequest = new BookSearchRequest(
+                        request.keyword(), request.isbn(), SearchType.KEYWORD, null, request.isWarmUp());
+                return BookSearchResult.keywordFallback(keywordSearchStrategy.search(pageable, keywordRequest).getBooks());
+            }
+
+            SearchStrategy strategy = selectStrategy(request.searchType());
+            return strategy.search(pageable, request);
+        } finally {
+            SearchTimings.clear();
+        }
     }
 
     /**
@@ -128,7 +152,10 @@ public class BookSearchService {
 
     private BookSearchRequest ensureEmbedding(BookSearchRequest request) {
         if (shouldGenerateEmbedding(request)) {
+            long begin = System.nanoTime();
             float[] vector = embeddingService.getEmbedding(request.keyword());
+            // 하이브리드 검색의 단계별 소요 시간 로그에 함께 남깁니다 (캐시 적중 시 0에 가까움)
+            SearchTimings.recordEmbedding(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - begin));
             return new BookSearchRequest(request.keyword(), request.isbn(), request.searchType(), vector, request.isWarmUp());
         }
         return request;
