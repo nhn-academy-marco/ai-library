@@ -24,6 +24,8 @@ public class AiRecommendationService {
     private final ObjectMapper objectMapper;
 
     private static final int MAX_REVIEW_SUMMARY_LENGTH = 100;
+    /** 프롬프트에 넣는 도서 소개 최대 길이 (LLM 입력 토큰 절감) */
+    private static final int MAX_BOOK_CONTENT_LENGTH = 150;
 
     /**
      * 질문과 관련 도서 목록을 바탕으로 AI 추천 응답을 생성합니다.
@@ -77,57 +79,25 @@ public class AiRecommendationService {
             // 출판일과 내용 추가
             bookContext.append(String.format(", 출판일: %s, 내용: %s\n",
                 book.getEditionPublishDate() != null ? book.getEditionPublishDate().toString() : "알 수 없음",
-                book.getBookContent() != null ? book.getBookContent() : "내용 없음"));
+                truncate(book.getBookContent(), MAX_BOOK_CONTENT_LENGTH, "내용 없음")));
 
             context.append(bookContext);
         }
 
         log.info("[AI 추천] 컨텍스트 생성 완료, 길이: {}자", context.length());
 
+        // CPU에서 도는 로컬 LLM은 입력·출력 토큰 수가 곧 응답 시간이므로 규칙을 짧게 유지합니다.
         String template = """
+            query에 맞는 도서를 아래 도서 데이터에서 골라 JSON 배열로만 답하세요.
+
             [규칙]
-            - 사용자가 제공하는 query와 가장 관련 있는 도서를 선별하세요.
-            - 각 도서에 대해 relevance 점수(0~100)를 부여하세요:
-              - 90–100: query와 직접적으로 강하게 연관, 주제 적합성이 매우 높음
-              - 70–89: query와 밀접하게 관련 있지만 일부 범위가 제한적임
-              - 50–69: query와 간접적으로 관련, 배경 지식에 도움이 됨
-              - 50 미만: 관련성이 낮으므로 출력에서 제외
-            - 추천 사유("why")에는 점수를 포함하지 말고, 순수하게 이유만 설명하세요.
-            - 추천 사유("why")는 사용자에게 친절하고 공손한 어투(예: "~입니다", "~를 추천해 드립니다")로 작성하세요.
-            - 추천 사유를 명확히 알 수 없는 경우에는 "추천 사유를 모름" 또는 "추천 사유를 명확히 알 수 없습니다"와 같이 명확하게 모른다는 표현을 사용하세요.
-            - 최신 출간일과 query와의 직접적인 관련성을 함께 고려하세요.
+            - relevance(0~100): 90 이상 직접 관련, 70~89 밀접, 50~69 간접 관련. 50 미만은 제외합니다.
+            - 평점 4.5 이상이고 리뷰 20개 이상이면 +5, 평점 3.5 미만이면 -10을 반영합니다.
+            - why: 한 문장, 60자 이내, 공손한 합니다체. 점수는 쓰지 않습니다. 리뷰 요약이 있으면 근거로 쓰고, 이유를 모르면 "추천 사유를 명확히 알 수 없습니다"라고 씁니다.
+            - relevance 내림차순, 입력에 없는 정보는 추측하지 않습니다.
+            - 마크다운이나 설명 없이 JSON만 출력합니다.
 
-            [규칙 - 리뷰 정보 반영]
-            - 평점과 리뷰 수를 relevance 점수에 반영하세요:
-              - 평점 4.5 이상 + 리뷰 20개 이상: relevance +5점 (검증된 인기 도서)
-              - 평점 4.0 이상 + 리뷰 20개 이상: relevance +3점 (검증된 도서)
-              - 평점 3.5 미만: relevance -10점 (부정적 평가)
-              - 리뷰 없음: relevance ±0점 (변동 없음)
-
-            - 평점이 4.0 이상인 도서를 우선적으로 고려하세요.
-            - 리뷰가 20개 이상인 도서는 검증된 도서로 판단하고 신뢰도를 높게 평가하세요.
-            - 리뷰 요약이 있는 경우, 요약의 내용을 참고하여 구체적인 추천 사유를 작성하세요.
-              - 예: "리뷰어들이 '설명이 쉽고 실전 예제가 많다'고 평가했습니다."
-            - 평점이 3.5 미만인 도서는 주의를 권장하세요.
-              - 예: "평점이 3.2/5.0로 평가가 엇갈립니다. 리뷰 내용을 확인해보세요."
-            - 리뷰가 없는 신간 도서는 "신간 도서로 아직 리뷰가 없습니다"라고 언급하고, 최신성과 내용의 관련성을 더 중요하게 평가하세요.
-
-            [출력 형식]
-            - 출력은 반드시 순수 JSON만 포함하세요.
-            - 마크다운 코드 블록(```json ... ```)이나 추가 설명 텍스트는 절대 포함하지 마세요.
-            - 언어는 반드시 한국어를 사용하세요.
-
-            [JSON STRUCTURE]
-             [
-                {
-                  "id": 123,
-                  "relevance": 95,
-                  "why": "추천 사유"
-                }
-             ]
-
-            - 결과는 relevance 기준 내림차순으로 정렬하세요.
-            - 입력 데이터에 없는 필드는 추측하지 마세요.
+            형식: [{"id": 123, "relevance": 95, "why": "추천 사유"}]
 
             query: {question}
 
@@ -198,5 +168,13 @@ public class AiRecommendationService {
             : summary;
 
         return String.format("요약: \"%s\"", truncated);
+    }
+
+    private static String truncate(String text, int maxLength, String fallback) {
+        if (text == null || text.isBlank()) {
+            return fallback;
+        }
+        String trimmed = text.strip();
+        return trimmed.length() > maxLength ? trimmed.substring(0, maxLength) + "..." : trimmed;
     }
 }
