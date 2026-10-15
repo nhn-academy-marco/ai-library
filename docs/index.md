@@ -1,6 +1,6 @@
 # 공공 도서 데이터 기반 AI 검색 시스템
 
-## 0. 프로젝트 개요
+## 1. 프로젝트 개요
 
 ### 프로젝트명
 `ai-library-platform`
@@ -23,7 +23,7 @@
 
 ---
 
-## 1. 프로젝트 패키지 구조
+## 2. 프로젝트 패키지 구조
 
 ```
 src/main/java/net/java21/library
@@ -71,7 +71,7 @@ src/main/java/net/java21/library
 
 ---
 
-## 2. 기술 스택
+## 3. 기술 스택
 
 * Java 21
 * Spring Boot 3.5
@@ -85,7 +85,7 @@ src/main/java/net/java21/library
 
 ---
 
-## 3. 전체 시스템 흐름 요약
+## 4. 전체 시스템 흐름 요약
 
 1. CSV 기반 데이터 적재
 2. 키워드 기반 검색 구현
@@ -100,7 +100,7 @@ src/main/java/net/java21/library
 
 ---
 
-## 4. 단계별 시나리오
+## 5. 단계별 시나리오
 
 ### Step 1 — 데이터 구축과 전통적 검색
 
@@ -278,7 +278,7 @@ src/main/java/net/java21/library
 
 ---
 
-## 5. MCP 확장 아이디어
+## 6. MCP 확장 아이디어
 
 Step 7에서 구현한 `@Tool` 도구는 MCP(Model Context Protocol) 서버로 노출하여 외부 AI 클라이언트에서도 활용할 수 있습니다.
 
@@ -290,7 +290,7 @@ Step 7에서 구현한 `@Tool` 도구는 MCP(Model Context Protocol) 서버로 �
 
 ---
 
-## 6. 이 프로젝트로 배울 수 있는 것
+## 7. 이 프로젝트로 배울 수 있는 것
 
 * AI 백엔드 시스템 설계 사고방식
 * RAG 실전 적용 구조
@@ -302,7 +302,7 @@ Step 7에서 구현한 `@Tool` 도구는 MCP(Model Context Protocol) 서버로 �
 
 ---
 
-## 7. 최종 요약
+## 8. 최종 요약
 
 > 이 프로젝트는 공공 데이터를 출발점으로,
 > 검색 시스템이 어떻게 AI 시스템으로 진화하는지를
