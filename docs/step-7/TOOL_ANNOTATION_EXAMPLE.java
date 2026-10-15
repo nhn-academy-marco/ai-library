@@ -1,7 +1,7 @@
-package com.nhnacademy.library.ai.function;
+package net.java21.library.ai.function;
 
-import com.nhnacademy.library.core.book.service.search.BookSearchService;
-import com.nhnacademy.library.external.opennaru.client.LibraryInfoNaruApiClient;
+import net.java21.library.core.book.service.search.BookSearchService;
+import net.java21.library.external.opennaru.client.LibraryInfoNaruApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;

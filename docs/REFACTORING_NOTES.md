@@ -4,7 +4,7 @@
 The `LibraryInfoNaruApiClient` class is **1470 lines** and handles multiple responsibilities, violating the Single Responsibility Principle. This document outlines the refactoring strategy and progress.
 
 ## Current State
-- **File**: `src/main/java/com/nhnacademy/library/external/opennaru/client/LibraryInfoNaruApiClient.java`
+- **File**: `src/main/java/net/java21/library/external/opennaru/client/LibraryInfoNaruApiClient.java`
 - **Size**: 1470 lines
 - **Responsibilities**:
   - Book search APIs (5 methods)
@@ -26,7 +26,7 @@ The large class will be split into focused, single-responsibility classes:
 - Error response handling
 - Logging utilities
 
-**Location**: `src/main/java/com/nhnacademy/library/external/opennaru/client/base/LibraryApiBaseClient.java`
+**Location**: `src/main/java/net/java21/library/external/opennaru/client/base/LibraryApiBaseClient.java`
 
 ### 2. Specialized Clients (✅ Created)
 
@@ -38,7 +38,7 @@ The large class will be split into focused, single-responsibility classes:
 - `searchBooksByIsbn10(String isbn)`
 - `searchBooksByPublisher(String publisher)`
 
-**Location**: `src/main/java/com/nhnacademy/library/external/opennaru/client/book/LibraryBookSearchClient.java`
+**Location**: `src/main/java/net/java21/library/external/opennaru/client/book/LibraryBookSearchClient.java`
 
 #### LibraryLibrarySearchClient
 **Responsibility**: Library search APIs
@@ -47,7 +47,7 @@ The large class will be split into focused, single-responsibility classes:
 - `searchLibrariesByRegion(String region)`
 - `searchLibrariesByName(String name)`
 
-**Location**: `src/main/java/com/nhnacademy/library/external/opennaru/client/library/LibraryLibrarySearchClient.java`
+**Location**: `src/main/java/net/java21/library/external/opennaru/client/library/LibraryLibrarySearchClient.java`
 
 #### LibraryLoanInfoClient
 **Responsibility**: Loan information APIs
@@ -55,18 +55,18 @@ The large class will be split into focused, single-responsibility classes:
 - `searchLoanItemsByIsbn(String isbn13)`
 - `searchLoanItemsByLibrary(String isbn13, String libraryName)`
 
-**Location**: `src/main/java/com/nhnacademy/library/external/opennaru/client/loan/LibraryLoanInfoClient.java`
+**Location**: `src/main/java/net/java21/library/external/opennaru/client/loan/LibraryLoanInfoClient.java`
 
 ### 3. Response Parsers (✅ Created)
 
 #### BookSearchResponseParser
-**Location**: `src/main/java/com/nhnacademy/library/external/opennaru/response/BookSearchResponseParser.java`
+**Location**: `src/main/java/net/java21/library/external/opennaru/response/BookSearchResponseParser.java`
 
 #### LibrarySearchResponseParser
-**Location**: `src/main/java/com/nhnacademy/library/external/opennaru/response/LibrarySearchResponseParser.java`
+**Location**: `src/main/java/net/java21/library/external/opennaru/response/LibrarySearchResponseParser.java`
 
 #### LoanInfoResponseParser
-**Location**: `src/main/java/com/nhnacademy/library/external/opennaru/response/LoanInfoResponseParser.java`
+**Location**: `src/main/java/net/java21/library/external/opennaru/response/LoanInfoResponseParser.java`
 
 ## Future Work
 

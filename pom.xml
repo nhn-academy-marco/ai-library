@@ -10,11 +10,11 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
-    <groupId>com.nhnacademy.library</groupId>
-    <artifactId>nhn-academy-ai-library</artifactId>
+    <groupId>net.java21.library</groupId>
+    <artifactId>ai-library</artifactId>
     <version>1.0</version>
-    <name>nhn-academy-ai-library</name>
-    <description>nhn-academy-ai-library</description>
+    <name>ai-library</name>
+    <description>Spring AI 기반 도서 검색·RAG·Tool Calling 학습 프로젝트</description>
     <url/>
     <licenses>
         <license/>

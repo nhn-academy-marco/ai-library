@@ -1,8 +1,8 @@
-package com.nhnacademy.library.ai.agent.orchestrator;
+package net.java21.library.ai.agent.orchestrator;
 
-import com.nhnacademy.library.ai.agent.QueryParserAgent;
-import com.nhnacademy.library.ai.agent.dto.ParsedQuery;
-import com.nhnacademy.library.ai.function.LibraryTools;
+import net.java21.library.ai.agent.QueryParserAgent;
+import net.java21.library.ai.agent.dto.ParsedQuery;
+import net.java21.library.ai.function.LibraryTools;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;

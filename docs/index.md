@@ -26,7 +26,7 @@
 ## 1. 프로젝트 패키지 구조
 
 ```
-src/main/java/com/nhnacademy/library
+src/main/java/net/java21/library
  ├─ batch.init          # 공공 데이터 적재 및 초기화
  ├─ batch.embedding     # 도서 임베딩 생성 스케줄러
  ├─ core.book           # 도서 도메인, 검색 전략, 캐시, 개인화
@@ -40,29 +40,29 @@ src/main/java/com/nhnacademy/library
 
 ### 각 패키지 역할
 
-* **com.nhnacademy.library.core.book**
+* **net.java21.library.core.book**
     * 도서 조회 및 상세 정보 처리
     * 검색 엔진: Keyword, Vector, Hybrid, RAG (Strategy 패턴 적용)
     * 벡터 유사도 기반 시맨틱 캐싱(Semantic Caching)
     * 피드백 기반 개인화
 
-* **com.nhnacademy.library.core.review**
+* **net.java21.library.core.review**
     * 도서 리뷰 도메인 및 리포지토리
     * AI 기반 리뷰 요약 (Map-Reduce 전략)
 
-* **com.nhnacademy.library.batch**
+* **net.java21.library.batch**
     * 공공 CSV 데이터 파싱(Parsing) 및 적재(Load)
     * 임베딩(Embedding) 생성 배치
 
-* **com.nhnacademy.library.ai**
+* **net.java21.library.ai**
     * Spring AI `@Tool` 기반 도구 (`LibraryTools`, `InternalBookTools`)
     * LLM 오케스트레이션 (`ToolBasedAiOrchestrationService`)
 
-* **com.nhnacademy.library.external**
+* **net.java21.library.external**
     * 도서관정보나루 Open API 클라이언트
     * Telegram Bot 기반 검색 UI, 대화 관리 및 피드백 수집
 
-* **com.nhnacademy.library.front.web**
+* **net.java21.library.front.web**
     * 도서 검색 및 상세 페이지 UI 컨트롤러
     * AI 질의 UI
 

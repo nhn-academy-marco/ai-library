@@ -346,5 +346,5 @@
 
 ## 🔗 관련 문서
 
-- [RegionCodeMapper.java](../../src/main/java/com/nhnacademy/library/external/opennaru/util/RegionCodeMapper.java)
+- [RegionCodeMapper.java](../../src/main/java/net/java21/library/external/opennaru/util/RegionCodeMapper.java)
 - [library-info-naru-api.http](../../src/test/resources/library-info-naru-api.http)

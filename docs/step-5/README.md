@@ -462,8 +462,8 @@ ERROR: permission denied for sequence search_feedbacks_sequence
 
 **해결:**
 ```sql
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO nhn_academy;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO nhn_academy;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO library;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO library;
 ```
 
 ### 3. 순환 의존성

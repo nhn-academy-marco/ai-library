@@ -4,11 +4,11 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen)](https://spring.io/projects/spring-boot)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.1.2-6DB33F)](https://spring.io/projects/spring-ai)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-336791)](https://github.com/pgvector/pgvector)
-[![Java CI with Maven](https://github.com/nhn-academy-marco/ai-library/actions/workflows/maven.yml/badge.svg)](.github/workflows/maven.yml)
+[![Demo](https://img.shields.io/badge/Demo-library.java21.net-0A66C2)](https://library.java21.net/)
 
 > 공공 도서 데이터 약 15만 건을 출발점으로, 키워드 검색 → 벡터 검색 → RAG → Tool Calling 순으로 진화하는 AI 백엔드를 Spring AI로 단계별로 구현한 프로젝트이자 교재입니다.
 
-- Demo: [https://library.java21.net](https://library.java21.net)
+- Demo: [https://library.java21.net/](https://library.java21.net/)
 - 교재 목차: [`docs/index.md`](docs/index.md)
 
 ---
@@ -82,7 +82,7 @@ flowchart LR
 ## 프로젝트 구조
 
 ```text
-src/main/java/com/nhnacademy/library
+src/main/java/net/java21/library
  ├─ batch
  │   ├─ init          # 공공 도서 CSV 파싱 및 적재 (이벤트 기반)
  │   └─ embedding     # 도서 임베딩 생성 스케줄러
@@ -130,6 +130,3 @@ src/main/java/com/nhnacademy/library
 - Spring AI MCP Server로 `@Tool` 도구를 노출해 Claude Desktop 등 외부 MCP 클라이언트에서 사용
 - RAG 품질 평가(Evaluation) 자동화
 
----
-
-NHN Academy AI Library Project
