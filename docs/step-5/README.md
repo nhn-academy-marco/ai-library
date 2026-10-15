@@ -25,6 +25,19 @@
 
 ---
 
+## 문서 구성
+
+| 번호 | 문서 | 주요 내용 |
+|------|------|-----------|
+| **01** | [Telegram Bot 설정](./01.telegram-bot-setup.md) | Bot 생성, Long Polling/Webhook 비교, 환경별 설정 분리 |
+| **02** | [Telegram을 통한 RAG 검색](./02.rag-search-via-telegram.md) | RAG 검색 연동, 검색 결과·이미지 포맷팅 |
+| **03** | [사용자 피드백 수집](./03.feedback-entity-repository.md) | 피드백 Entity·Repository·Service 설계, Inline Keyboard |
+| **04** | [피드백 활용: AI 개선 연계](./04.feedback-ui-callback-handler.md) | 피드백 반영 전략, CallbackQueryHandler, 통계 명령어 |
+| **05** | [피드백 루프 아키텍처](./05.feedback-search-integration.md) | 수집 → 분석 → 개선 루프, 관리자 API, 트러블슈팅 |
+| **06** | [피드백 기반 검색 개선](./06.llm-prompt-guidelines.md) | 피드백 점수 계산, LLM 프롬프트 통합 가이드라인 |
+
+---
+
 ## 전체 시스템 아키텍처
 
 ### 1. 시스템 구조도
@@ -199,7 +212,7 @@ fb      → 피드백 타입 식별자
 GOOD    → 피드백 타입 (GOOD, BAD)
 ```
 
-**제약사항:**
+**제약 사항:**
 - `callback_data` 최대 **64 bytes** 제한
 - 검색어가 길어서 포함 불가
 - 해결책: `CallbackQueryHandler.recentQueries` Map에 저장
@@ -275,7 +288,7 @@ CREATE INDEX idx_search_feedbacks_book_id ON search_feedbacks(book_id);
 CREATE SEQUENCE search_feedbacks_sequence;
 ```
 
-**왜 Sequence를 별도 만드는가?**
+**왜 시퀀스를 별도로 만드는가?**
 - PostgreSQL의 `BIGSERIAL`이 자동 생성하는 시퀀스는 이름 규칙이 다름
 - `search_feedbacks_id_seq` (자동 생성)
 - 우리가 원하는 이름: `search_feedbacks_sequence`
@@ -379,7 +392,7 @@ feedbackScore = (goodCount - badCount) / totalCount
 
 예: (15 - 2) / 17 = 0.764
 
-범위: -1.0 (전부 부정) ~ +1.0 (전체 긍정)
+범위: -1.0 (전부 부정) ~ +1.0 (전부 긍정)
 ```
 
 ---
@@ -428,7 +441,7 @@ feedbackScore = (goodCount - badCount) / totalCount
 
 ---
 
-## 제약사항과 해결 방안
+## 제약 사항과 해결 방안
 
 ### 1. Telegram API 제약: callback_data 64 bytes
 
@@ -481,9 +494,9 @@ public CallbackQueryHandler(
 3. **피드백 수집 시스템** - Inline Keyboard, Callback 처리, DB 저장
 4. **관리자 API** - 통계 조회, CSV 내보내기
 
-### Step 6: 개인화 추천 시스템
+### [Step 6: 개인화 추천 시스템](../step-6/README.md)
 
-**Step 5에서 수집한 피드백 데이터를 활용하여:**
+**Step 5에서 수집한 피드백 데이터를 활용한 다음 내용을 다룹니다.**
 1. 도서별 피드백 점수 계산
 2. 사용자 선호 벡터 생성 (좋아한 도서들의 임베딩 평균)
 3. RRF 알고리즘에 피드백 가중치 반영

@@ -2,14 +2,14 @@
 
 ## 학습 개요
 
-Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Function Calling을 통해 **지능형 도서관 도우미 AI**로 통합합니다. 사용자의 자연어 질문 한 번으로 도서 검색부터 리뷰 확인, 대출 가능 여부까지 LLM이 스스로 필요한 API를 선택하고 호출하는 AI 시스템을 구현합니다.
+Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Function Calling(Tool Calling)을 통해 **지능형 도서관 도우미 AI**로 통합합니다. 사용자의 자연어 질문 한 번으로 도서 검색부터 리뷰 확인, 대출 가능 여부까지 LLM이 스스로 필요한 API를 선택하고 호출하는 AI 시스템을 구현합니다.
 
 ## 학습 목표
 
 1. **LLM 기반 오케스트레이션 이론**
    - 수동 오케스트레이션 vs LLM 자율 오케스트레이션
    - Function Calling 개념과 Spring AI 구현
-   - MCP (Model Context Protocol) 이해
+   - MCP(Model Context Protocol) 이해
 
 2. **Function Calling 구현**
    - 7개 도서관정보나루 API를 Function으로 변환
@@ -17,7 +17,7 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
    - ChatClient에 Function 등록
 
 3. **LLM 자율 오케스트레이션**
-   - LLM이 필요한 Function 스스로 선택
+   - LLM이 필요한 Function을 스스로 선택
    - 여러 Function 조합 실행
    - 결과 종합 및 자연어 응답
 
@@ -74,7 +74,7 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 
 ### 핵심 특징
 
-1. **자율성**: LLM이 스스로 함수 선택 (개발자 hardcode 제거)
+1. **자율성**: LLM이 스스로 함수 선택(개발자 하드코딩 제거)
 2. **유연성**: 복잡한 질문도 동적으로 처리
 3. **확장성**: 새로운 Function 추가가 쉬움
 
@@ -82,13 +82,13 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 
 ```
 ❌ 기존 방식 (Step 6 - 수동 Agent 선택)
-사용자: "토비의 스프링 3.1 광주 도서관에서 빌려고 하는데 추천해줘"
+사용자: "토비의 스프링 3.1 광주 도서관에서 빌리려고 하는데 추천해줘"
   → [개발자가 if-else로 Agent 선택]
   → BOOK, LOAN, LIBRARY, RECOMMENDATION Agent 실행
   → 결과가 파편화됨
 
 ✅ LLM 기반 오케스트레이션 (Step 7)
-사용자: "토비의 스프링 3.1 광주 도서관에서 빌려고 하는데 추천해줘"
+사용자: "토비의 스프링 3.1 광주 도서관에서 빌리려고 하는데 추천해줘"
   → [LLM이 질문 분석]
   → 1. searchBooks("토비의 스프링 3.1") → ISBN 확보
   → 2. getLibrariesWithBook(isbn, region="29") → 광주 대출 가능 도서관
@@ -109,7 +109,7 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 | 새로운 Agent 추가 시 코드 수정 | Function만 추가하면 자동 인식 |
 | 파편화된 결과 | LLM이 자연스럽게 종합 |
 
-### 2. 도서관정보나루 API 완벽 활용
+### 2. 도서관정보나루 API 활용
 
 **17개 API → 8개 주요 Function으로 변환:**
 
@@ -119,14 +119,15 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 | `getLibrariesWithBook` | libSrchByBook | 대출 가능 도서관 조회 | LibraryFunctions |
 | `searchLibraries` | libSrch | 도서관 검색 | LibraryFunctions |
 | `getBookDetail` | srchDtlList | 도서 상세 정보 | LibraryFunctions |
-| `getPopularBooks` | loanItemSrch | 인기대출도서 | LibraryFunctions |
+| `getPopularBooks` | loanItemSrch | 인기 대출 도서 | LibraryFunctions |
 | `getHotTrendBooks` | hotTrend | 대출 급상승 도서 | LibraryFunctions |
-| `getRecommendedBooks` | recommandList | 추천도서 | LibraryFunctions |
+| `getRecommendedBooks` | recommandList | 추천 도서 | LibraryFunctions |
 | `checkBookExists` | bookExist | 도서 소장 여부 확인 | LibraryFunctions |
 
 **AiLibraryAssistantService용 Function**:
+
 | Function | 설명 | 구현 위치 |
-|----------|-----|------|
+|----------|------|----------|
 | `BookSearch` | 내부 DB 도서 검색 | BookSearchFunction |
 | `GetReviews` | 리뷰 조회 | ReviewFunction |
 | `CheckLoanAvailability` | 대출 가능 확인 | LoanCheckFunction |
@@ -138,7 +139,7 @@ Step 6까지 구현한 **검색, 추천, 개인화 시스템**을 Spring AI Func
 - LLM 기반 시스템 설계
 - 타입 안전한 Function 설계
 - 오케스트레이션 패턴
-- Prompt Engineering
+- 프롬프트 엔지니어링
 
 ---
 
@@ -205,7 +206,7 @@ String aiResponse = aiLibraryAssistantService.ask(keyword);
 
 ### 코드 간소화 효과
 
-**참고**: Step 7에서는 기존 AiOrchestrationService (A2A 패턴)를 유지하면서 새로운 단일 Agent 방식(AiLibraryAssistantService)을 추가했습니다.
+**참고**: Step 7에서는 기존 AiOrchestrationService(A2A 패턴)를 유지하면서 새로운 단일 Agent 방식(AiLibraryAssistantService)을 추가했습니다.
 
 | 파일 | Step 6 | Step 7 | 변화 |
 |------|--------|--------|------|
@@ -263,7 +264,7 @@ Phase 3: 실전 테스트 (1시간)
 **방식 1: FunctionToolCallback.builder()** (현재 사용 중)
 - 프로그래밍 방식으로 Function 등록
 - 순환 의존성 방지를 위해 서비스 내부에서 FunctionToolCallback 생성
-- ChatClient는 매번 새로 생성하여 FunctionToolCallback 등록
+- ChatClient를 매번 새로 생성하여 FunctionToolCallback 등록
 
 **방식 2: @Tool 애노테이션** (권장, Spring AI 1.1.2+)
 - 애노테이션 기반으로 간결한 코드
@@ -271,7 +272,7 @@ Phase 3: 실전 테스트 (1시간)
 - Spring이 자동으로 @Tool 메서드 스캔 및 등록
 - `defaultTools()`로 자동 등록 가능
 
-### 활용 기술 (Step 1-6)
+### 활용 기술 (Step 1~6)
 - **Spring Boot**: 웹 프레임워크
 - **LibraryInfoNaruApiClient**: 도서관정보나루 API 클라이언트
 - **Telegram Bot API**: 사용자 인터페이스
@@ -302,13 +303,13 @@ Phase 3: 실전 테스트 (1시간)
 - [ ] Spring Boot 기초 (@Component, @Service)
 - [ ] Java Record 타입 이해
 - [ ] 함수형 인터페이스 (Function<R, T>) 이해
-- [ ] LLM 기초 (Prompt, System Role)
+- [ ] LLM 기초(프롬프트, System Role)
 
 ---
 
 ## 학습 체크리스트
 
-완료 후 다음을 할 수 있는지 확인해 보세요:
+완료 후 다음을 할 수 있는지 확인해 보세요.
 
 ### 기본 개념
 - [ ] LLM 기반 오케스트레이션을 설명할 수 있다
@@ -323,7 +324,7 @@ Phase 3: 실전 테스트 (1시간)
 
 ### 고급 기능
 - [ ] 여러 Function 조합 실행을 이해한다
-- [ ] System Prompt으로 LLM 행동을 제어할 수 있다
+- [ ] 시스템 프롬프트로 LLM 행동을 제어할 수 있다
 - [ ] 에러 처리 및 Fallback을 구현할 수 있다
 
 ---
@@ -332,8 +333,8 @@ Phase 3: 실전 테스트 (1시간)
 
 ### [00. MCP, A2A, Agent 이론](./00.theory.md)
 - AI Agent의 개념과 정의
-- MCP (Model Context Protocol) 이해
-- A2A (Agent-to-Agent) 통신 패턴
+- MCP(Model Context Protocol) 이해
+- A2A(Agent-to-Agent) 통신 패턴
 
 ### [01. 개요 및 시나리오](./01.overview.md)
 - LLM 기반 오케스트레이션 소개
@@ -350,16 +351,16 @@ Phase 3: 실전 테스트 (1시간)
 - Function 조합 실행
 - 데이터 전달
 
-### [04. @Tool 애노테이션 방식](./04.tool-annotation.md)
+### [04. 외부 API 연동: 대출 가능 여부 조회](./04.external-api.md)
+- 도서관정보나루 API 연동
+- LoanCheckFunction 구현
+- 에러 처리 및 Fallback
+
+### [05. @Tool 애노테이션 방식](./05.tool-annotation.md)
 - Spring AI 1.1.2 @Tool 애노테이션 활용
 - 더 간결한 Function Calling 구현
 - @ToolParam으로 파라미터 설명
 - FunctionToolCallback.builder()와의 비교
-
-### [05. LLM 오케스트레이션](./05.external-api.md)
-- AiOrchestrationService 단순화
-- ChatClient 설정
-- System Prompt 작성
 
 ### [06. 실습 가이드](./06.practice-guide.md)
 - 단계별 실습 미션

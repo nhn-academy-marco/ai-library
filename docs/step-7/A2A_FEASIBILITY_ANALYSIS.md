@@ -2,7 +2,7 @@
 
 ## 개요
 
-본 문서는 현재 step-7 코드를 분석하고 Spring AI 1.1.2 기반으로 A2A (Agent-to-Agent) 아키텍처를 구현하는 것의 **가능성과 마이그레이션 경로**를 상세히 분석합니다.
+본 문서는 현재 step-7 코드를 분석하고 Spring AI 1.1.2 기반으로 A2A(Agent-to-Agent) 아키텍처를 구현하는 것의 **가능성과 마이그레이션 경로**를 상세히 분석합니다.
 
 ---
 
@@ -122,11 +122,11 @@ Spring AI 1.1.2는 다음과 같은 멀티 에이전트 패턴을 지원합니�
   - 단일 LLM 내에서의 reasoning loop
 
 #### 2.1.3 Coordinator Agent Pattern
-- **개념**: 중앙 코디네이터가 하위 Agent调度
+- **개념**: 중앙 코디네이터가 하위 Agent를 조율
 - **특징**:
   - Main Agent가 Sub Agent들을 Function으로 등록
   - Parallel/Sequential 실행 가능
-  - **현재 step-7와 가장 유사한 패턴**
+  - **현재 step-7과 가장 유사한 패턴**
 
 ### 2.2 Spring AI 1.1.2 핵심 API
 
@@ -156,7 +156,7 @@ FunctionToolCallback<AgentRequest, AgentResponse> agentTool =
 
 ## 3. A2A 구현 가능성 평가
 
-### 3.1 가능성: ✅ **매우 높음 (HIGHLY FEASIBLE)**
+### 3.1 가능성: ✅ **매우 높음(HIGHLY FEASIBLE)**
 
 **이유:**
 
@@ -181,7 +181,7 @@ FunctionToolCallback<AgentRequest, AgentResponse> agentTool =
 
 ### 3.2 기술적 제약사항
 
-**제약 없음** - Spring AI 1.1.2로 A2A 구현에 필요한 모든 기능이 제공됨
+**제약 없음**: Spring AI 1.1.2로 A2A 구현에 필요한 모든 기능이 제공됨
 
 ---
 
@@ -189,7 +189,7 @@ FunctionToolCallback<AgentRequest, AgentResponse> agentTool =
 
 ### 4.1 Phase 1: Agent Function Tool 등록 (가능)
 
-현재 `LibraryFunctions`를 Agent들로 대체:
+현재 `LibraryFunctions`를 Agent들로 대체합니다.
 
 ```java
 // Before: LibraryFunctions
@@ -213,7 +213,7 @@ FunctionToolCallback<AgentRequest, AgentResponse> bookAgentTool =
 
 ### 4.2 Phase 2: Advisor 체인 추가 (권장)
 
-Chat Memory와 Prompt Enhancement 추가:
+Chat Memory와 Prompt Enhancement를 추가합니다.
 
 ```java
 ChatClient chatClient = ChatClient.builder(chatModel)
@@ -227,7 +227,7 @@ ChatClient chatClient = ChatClient.builder(chatModel)
 
 ### 4.3 Phase 3: Multi-Step Orchestration (선택)
 
-복잡한 작업을 여러 Agent가 협력하여 처리:
+복잡한 작업을 여러 Agent가 협력하여 처리합니다.
 
 ```java
 // Step 1: QueryParserAgent로 쿼리 파싱
@@ -406,7 +406,7 @@ public AgentResponse invokeRemoteAgent(String agentName, AgentRequest request) {
 
 ### 7.2 코드 변경 최소화
 
-현재 `AiOrchestrationService`의 핵심 패턴을 유지:
+현재 `AiOrchestrationService`의 핵심 패턴을 유지합니다.
 
 ```java
 // ✅ 유지: QueryParserAgent 파싱
@@ -463,7 +463,7 @@ return chatClient.prompt()
    - 현재 코드가 이미 Function Calling 패턴 사용
    - Agent 인터페이스 이미 존재
 
-2. **마이그레이션 난이도**: **보통 (Medium)**
+2. **마이그레이션 난이도**: **보통(Medium)**
    - 핵심 패턴 유지 가능
    - 점진적 마이그레이션 가능
    - 예상 작업량: ~10시간
@@ -494,7 +494,7 @@ return chatClient.prompt()
 | 기능 | Spring AI 1.1.2 | Spring AI 1.0.0 | 비고 |
 |------|-----------------|-----------------|------|
 | ChatClient API | ✅ | ✅ | 1.1.2 개선됨 |
-| FunctionToolCallback.builder() | ✅ | ❌ | 1.1.2新增 |
+| FunctionToolCallback.builder() | ✅ | ❌ | 1.1.2 신규 |
 | PromptChatMemoryAdvisor | ✅ | ✅ | |
 | ReAct Agent Pattern | ✅ | ✅ | |
 | Flow/Graph Agent | ❌ | ❌ | 1.2.0 예정 |

@@ -141,7 +141,7 @@ searchBooks() → getReviews() → checkLoanAvailability()
 
 - [ ] Docker 설치 완료
 - [ ] Spring AI Function API 동작 중
-- [ ] HTTP 클라이언트 (Postman, curl 등) 설치
+- [ ] HTTP 클라이언트(Postman, curl 등) 설치
 
 ### 스킬 체크리스트
 
@@ -196,5 +196,7 @@ searchBooks() → getReviews() → checkLoanAvailability()
 - [Spring AI Reference](https://docs.spring.io/spring-ai/reference/)
 
 ---
+
+**이전 단계**: [← Step 7: LLM 기반 오케스트레이션](../step-7/README.md)
 
 **시작하기**: [01. n8n 연동 가이드 →](./01.n8n-integration.md)
