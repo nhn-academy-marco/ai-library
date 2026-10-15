@@ -91,6 +91,13 @@ public class AiOrchestrationService {
                     .inputType(LibrarySearchRequest.class)
                     .build();
 
+            FunctionToolCallback<LoanAvailabilityRequest, LoanAvailabilityResult> getLibrariesWithBookTool =
+                FunctionToolCallback.builder("GetLibrariesWithBook", libraryFunctions.getLibrariesWithBook())
+                    .description("ISBN으로 특정 도서를 소장하고 대출 가능한 도서관 목록을 조회합니다. " +
+                                "isbn13은 필수이고, region에 숫자 지역 코드(예: 서울=11, 광주=24)를 넣으면 해당 지역으로 좁힙니다.")
+                    .inputType(LoanAvailabilityRequest.class)
+                    .build();
+
             FunctionToolCallback<BookExistRequest, BookExistResult> checkBookExistsTool =
                 FunctionToolCallback.builder("CheckBookExists", libraryFunctions.checkBookExists())
                     .description("특정 도서관에 도서가 소장되어 있는지 확인합니다. " +
@@ -106,7 +113,7 @@ public class AiOrchestrationService {
             long clientBuildStart = System.currentTimeMillis();
 
             ChatClient chatClient = ChatClient.builder(chatModel)
-                .defaultToolCallbacks(searchBooksTool, searchLibrariesTool, checkBookExistsTool)
+                .defaultToolCallbacks(searchBooksTool, searchLibrariesTool, getLibrariesWithBookTool, checkBookExistsTool)
                 .build();
 
             long clientBuildElapsed = System.currentTimeMillis() - clientBuildStart;

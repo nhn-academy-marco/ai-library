@@ -8,7 +8,7 @@ import lombok.Builder;
 @Builder
 public record LoanAvailabilityRequest(
     String isbn13,
-    String region  // 지역 코드 (예: 11=서울, 29=광주)
+    String region  // 지역 코드 (예: 11=서울, 24=광주)
 ) {
     public static LoanAvailabilityRequest of(String isbn13) {
         return new LoanAvailabilityRequest(isbn13, null);

@@ -147,20 +147,20 @@ public class ToolBasedAiOrchestrationService {
         prompt.append("4. 줄바꿈을 적절히 사용하여 가독성을 높이세요.\n\n");
 
         prompt.append("**도구 호출 가이드:**\n");
-        prompt.append("- SearchBooks: 도서 제목으로 검색하여 ISBN 확보 (내부 DB → 도서관정보나루 Fallback)\n");
-        prompt.append("- SearchInternalBooks: 내부 DB에서만 도서 검색 (하이브리드 검색)\n");
-        prompt.append("- SearchLibraries: 지역 코드(숫자)로 도서관 검색 (한글 지역명 사용 금지!)\n");
-        prompt.append("- GetLibrariesWithBook: ISBN으로 특정 도서의 대출 가능 도서관 조회\n");
-        prompt.append("- CheckBookExists: 도서관 코드와 ISBN으로 소장 여부 확인\n");
-        prompt.append("- GetBookDetail: ISBN으로 도서 상세 정보 조회\n");
-        prompt.append("- GetPopularBooks: 기간별 인기 대출 도서 조회\n");
-        prompt.append("- GetHotTrendBooks: 대출 급상승 도서 조회\n");
-        prompt.append("- GetRecommendedBooks: 연관 도서 추천\n");
-        prompt.append("- GetReviews: 도서 ID로 리뷰 조회\n");
-        prompt.append("- CheckLoanAvailability: ISBN으로 대출 가능 여부 조회\n\n");
+        prompt.append("- searchBooks: 도서 제목으로 검색하여 ISBN 확보 (내부 DB → 도서관정보나루 Fallback)\n");
+        prompt.append("- searchInternalBooks: 내부 DB에서만 도서 검색 (하이브리드 검색)\n");
+        prompt.append("- searchLibraries: 지역 코드(숫자)로 도서관 검색 (한글 지역명 사용 금지!)\n");
+        prompt.append("- getLibrariesWithBook: ISBN으로 특정 도서의 대출 가능 도서관 조회\n");
+        prompt.append("- checkBookExists: 도서관 코드와 ISBN으로 소장 여부 확인\n");
+        prompt.append("- getBookDetail: ISBN으로 도서 상세 정보 조회\n");
+        prompt.append("- getPopularBooks: 기간별 인기 대출 도서 조회\n");
+        prompt.append("- getHotTrendBooks: 대출 급상승 도서 조회\n");
+        prompt.append("- getRecommendedBooks: 연관 도서 추천\n");
+        prompt.append("- getReviews: 도서 ID로 리뷰 조회\n");
+        prompt.append("- checkLoanAvailability: ISBN으로 대출 가능 여부 조회\n\n");
 
         prompt.append("**⚠️ 매우 중요 - 각 도서별로 대출 가능 여부 확인:**\n");
-        prompt.append("검색된 도서가 여러 권인 경우, 각 도서마다 GetLibrariesWithBook을 호출하여 ");
+        prompt.append("검색된 도서가 여러 권인 경우, 각 도서마다 getLibrariesWithBook을 호출하여 ");
         prompt.append("해당 도서의 대출 가능 여부를 개별적으로 확인해야 합니다.\n");
         prompt.append("절대 여러 도서를 합쳐서 대출 가능 도서관을 표시하지 마세요.\n\n");
 
