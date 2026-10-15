@@ -138,7 +138,7 @@ Step 6까지 구현한 검색, 추천, 개인화 시스템을 Spring AI Function
 - Spring AI Function Calling
 - LLM 기반 시스템 설계
 - 타입 안전한 Function 설계
-- 오케스트레이션 패턴
+- Tool 기반 오케스트레이션 패턴 (단일 LLM + 여러 Tool 조합)
 - 프롬프트 엔지니어링
 
 ---
@@ -147,7 +147,7 @@ Step 6까지 구현한 검색, 추천, 개인화 시스템을 Spring AI Function
 
 ### 핵심 컴포넌트
 
-두 가지 오케스트레이션 방식이 공존합니다.
+두 가지 오케스트레이션 방식이 공존합니다. 두 방식 모두 단일 LLM이 여러 Tool을 조합하는 Tool 기반 오케스트레이션이며, 여러 Agent가 서로 통신하는 A2A는 확장 방향으로 [00. 이론](./00.theory.md)에서 다룹니다.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -159,7 +159,8 @@ Step 6까지 구현한 검색, 추천, 개인화 시스템을 Spring AI Function
          │                             │
          ↓                             ↓
 ┌──────────────────────┐   ┌──────────────────────────────┐
-│  단일 Agent 방식      │   │  A2A 방식 (Telegram 기본)    │
+│  단일 Agent 방식      │   │  Tool 기반 오케스트레이션    │
+│                      │   │  (Telegram 기본)             │
 │                      │   │                              │
 │ AiLibraryAssistant   │   │  AiOrchestrationService      │
 │   Service            │   │  - QueryParserAgent          │
@@ -196,7 +197,7 @@ Step 6까지 구현한 검색, 추천, 개인화 시스템을 Spring AI Function
 
 **Telegram Bot**:
 ```java
-// 일반 메시지: AiOrchestrationService (A2A) 호출 (LibraryTelegramBot.handleAiAgentSearch)
+// 일반 메시지: AiOrchestrationService (Tool 기반 오케스트레이션) 호출 (LibraryTelegramBot.handleAiAgentSearch)
 String aiResponse = aiOrchestrationService.ask(keyword);
 
 // 단일 Agent 방식으로 바꾸려면: AiLibraryAssistantService 호출
@@ -334,7 +335,7 @@ Phase 3: 실전 테스트 (1시간)
 ### [00. MCP, A2A, Agent 이론](./00.theory.md)
 - AI Agent의 개념과 정의
 - MCP(Model Context Protocol) 이해
-- A2A(Agent-to-Agent) 통신 패턴
+- A2A(Agent-to-Agent) 통신 패턴 (이 프로젝트의 확장 방향)
 
 ### [01. 개요 및 시나리오](./01.overview.md)
 - LLM 기반 오케스트레이션 소개
@@ -386,13 +387,13 @@ Phase 3: 실전 테스트 (1시간)
 **ToolBasedAiOrchestrationService** (`ai/agent/orchestrator/ToolBasedAiOrchestrationService.java`)
 - @Tool 기반 오케스트레이션 서비스
 - `.defaultTools()`로 자동 등록
-- 기존 AiOrchestrationService(A2A)와 병행 운영
+- 기존 AiOrchestrationService(Tool 기반 오케스트레이션, FunctionToolCallback 방식)와 병행 운영
 
 ### 기존 코드 유지
 
 **기존 FunctionToolCallback 방식 유지**:
 - `LibraryFunctions.java` - 8개 `Function<Request, Response>` 메서드 (AiOrchestrationService에서 FunctionToolCallback으로 감싸 등록)
-- `AiOrchestrationService.java` - A2A 패턴 오케스트레이션
+- `AiOrchestrationService.java` - Tool 기반 오케스트레이션 (QueryParserAgent + LibraryFunctions)
 - `BookSearchFunction.java`, `ReviewFunction.java`, `LoanCheckFunction.java`
 
 ### 두 방식 비교

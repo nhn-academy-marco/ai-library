@@ -6,20 +6,20 @@
 `ai-library-platform`
 
 ### 목적
-공공 도서 데이터를 활용하여 **전통적인 검색 시스템이 AI 시스템(RAG · Vector · MCP)으로 진화하는 전체 흐름**을 학습합니다.
+공공 도서 데이터를 활용하여 전통적인 검색 시스템이 AI 시스템(RAG · Vector · MCP)으로 진화하는 전체 흐름을 학습합니다.
 
 이 프로젝트는 단순히 AI 기능을 붙이는 것이 아니라 다음을 단계적으로 경험하는 것을 목표로 합니다.
 
-* **왜** AI가 필요한지
-* AI를 기존 백엔드 아키텍처에 **어떻게** 녹여 내는지
-* AI 도입 시 발생하는 **성능·비용·운영** 문제를 어떻게 다루는지
+* 왜 AI가 필요한지
+* AI를 기존 백엔드 아키텍처에 어떻게 녹여 내는지
+* AI 도입 시 발생하는 성능·비용·운영 문제를 어떻게 다루는지
 
-> **핵심 메시지**
-> AI는 처음부터 등장하지 않습니다. **데이터 → 검색 → 의미 → 생성 → 판단 → 도구 활용**으로 진화합니다.
+> 핵심 메시지
+> AI는 처음부터 등장하지 않습니다. 데이터 → 검색 → 의미 → 생성 → 판단 → 도구 활용으로 진화합니다.
 
 ### 학습 가이드
-이 교재는 단순히 소스 코드를 제공하는 것이 아니라, 각 단계에서 **무엇을(What), 어떻게(How), 왜(Why)** 구현해야 하는지를 안내합니다.
-코드를 직접 작성하기 전에 해당 단계의 문서를 충분히 읽고, 제시된 **학습 포인트**를 통해 기술적 배경을 먼저 이해하는 것을 권장합니다.
+이 교재는 단순히 소스 코드를 제공하는 것이 아니라, 각 단계에서 무엇을(What), 어떻게(How), 왜(Why) 구현해야 하는지를 안내합니다.
+코드를 직접 작성하기 전에 해당 단계의 문서를 충분히 읽고, 제시된 학습 포인트를 통해 기술적 배경을 먼저 이해하는 것을 권장합니다.
 
 ---
 
@@ -66,7 +66,7 @@ src/main/java/com/nhnacademy/library
     * 도서 검색 및 상세 페이지 UI 컨트롤러
     * AI 질의 UI
 
-> 외부 Open API는 **배치 또는 Tool(MCP)을 통해서만 접근**하며,
+> 외부 Open API는 배치 또는 Tool(MCP)을 통해서만 접근하며,
 > 서비스 런타임 검색에서는 직접 호출하지 않습니다.
 
 ---
@@ -93,7 +93,7 @@ src/main/java/com/nhnacademy/library
 4. 벡터 검색 도입
 5. RAG 기반 AI 응답 생성
 6. AI 성능·비용 튜닝
-7. **Telegram Bot 기반 UI 구축**
+7. Telegram Bot 기반 UI 구축
 8. 피드백 기반 개인화
 9. Tool(MCP) 기반 AI 도구 활용
 10. n8n 워크플로우 자동화
@@ -108,7 +108,7 @@ src/main/java/com/nhnacademy/library
 
 * [01. 데이터 적재: 공공 도서 CSV 배치 적재](step-1/01.csv-batch-load.md)
 * [02. 기본 검색: LIKE 기반 동적 쿼리 구현](step-1/02.basic-search-implementation.md)
-* [03. 검색 화면: 검색 UI와 엔드포인트 구현](step-1/03.search-api.md)
+* [03. 검색 UI: Thymeleaf와 Tabler 기반 화면 구축](step-1/03.search-ui.md)
 * [04. 성능 최적화: 인덱싱과 전문 검색(Full Text Search)](step-1/04.search-optimization.md)
 
 #### 학습 포인트
@@ -160,7 +160,7 @@ src/main/java/com/nhnacademy/library
 * [Step 4 개요](step-4/README.md)
 * [01. 성능과 비용: 응답 지연 및 비용 문제 인식](step-4/01.performance-cost.md)
 * [02. 최적화: Top-K 및 컨텍스트 길이 제한](step-4/02.topk-optimization.md)
-* [03. 캐싱: 시맨틱 캐싱(Semantic Caching)](step-4/03.semantic-caching.md)
+* [03. 시맨틱 캐싱: 비용 절감과 성능 향상](step-4/03.semantic-caching.md)
 * [04. 요약 전략과 리뷰 요약 실습](step-4/04.review-summarization.md)
 * [05. 리뷰 정보를 RAG 검색에 반영하기](step-4/05.review-rag-integration.md)
 
@@ -237,9 +237,8 @@ src/main/java/com/nhnacademy/library
 
 * **Function Calling(Tool Calling)**: LLM이 스스로 적절한 Function을 선택
 * **@Tool 애노테이션**: Spring AI 1.1.2의 간결한 Function 정의 방식
-* **A2A 패턴**: Agent 간(Agent-to-Agent) 통신을 통한 복잡한 작업 처리
-* **오케스트레이션**: 여러 Function 조합과 결과 종합
-* **도서관정보나루 API 17개 → 주요 Function 8개**로 변환
+* **Tool 기반 오케스트레이션**: 하나의 LLM이 여러 Tool을 조합해 복잡한 요청 처리 (A2A는 확장 방향으로 이론에서 다룸)
+* 도서관정보나루 API 17개 → 주요 Function 8개로 변환
 
 #### 구현된 컴포넌트
 
@@ -299,7 +298,7 @@ Step 7에서 구현한 `@Tool` 도구는 MCP(Model Context Protocol) 서버로 �
 * AI 성능·비용 튜닝 포인트
 * Tool(MCP) 기반 도구 사용 패턴
 * Spring 기반 서비스에 AI 통합
-* **대화형 UI 구현 능력**
+* 대화형 UI 구현 능력
 
 ---
 
@@ -307,4 +306,4 @@ Step 7에서 구현한 `@Tool` 도구는 MCP(Model Context Protocol) 서버로 �
 
 > 이 프로젝트는 공공 데이터를 출발점으로,
 > 검색 시스템이 어떻게 AI 시스템으로 진화하는지를
-> **데이터 → 의미 → 생성 → 판단 → 도구 활용**의 흐름으로 경험하는 실습형 AI 백엔드 시나리오입니다.
+> 데이터 → 의미 → 생성 → 판단 → 도구 활용의 흐름으로 경험하는 실습형 AI 백엔드 시나리오입니다.

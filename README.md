@@ -4,7 +4,7 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen)](https://spring.io/projects/spring-boot)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.1.2-6DB33F)](https://spring.io/projects/spring-ai)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-336791)](https://github.com/pgvector/pgvector)
-[![Java CI with Maven](https://github.com/AIoT-3/ai-library/actions/workflows/maven.yml/badge.svg)](.github/workflows/maven.yml)
+[![Java CI with Maven](https://github.com/nhn-academy-marco/ai-library/actions/workflows/maven.yml/badge.svg)](.github/workflows/maven.yml)
 
 > 공공 도서 데이터 약 15만 건을 출발점으로, 키워드 검색 → 벡터 검색 → RAG → Tool Calling 순으로 진화하는 AI 백엔드를 Spring AI로 단계별로 구현한 프로젝트이자 교재입니다.
 
