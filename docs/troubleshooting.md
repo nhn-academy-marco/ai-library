@@ -33,6 +33,10 @@
 | [사례 11. 같은 하이브리드 검색인데 결과가 매번 다름](#사례-11-같은-하이브리드-검색인데-결과가-매번-다름) | 검색 결정성 | Step 2 |
 | [사례 12. 개인화 점수가 검색할 때마다 커짐](#사례-12-개인화-점수가-검색할-때마다-커짐) | 캐시·공유 객체 | Step 6 |
 | [사례 13. 운영 DB에 HNSW 인덱스를 만들다 공간 부족으로 실패함](#사례-13-운영-db에-hnsw-인덱스를-만들다-공간-부족으로-실패함) | 운영 DB·인덱스 | Step 2, Step 4 |
+| [사례 14. 하이브리드 검색이 1.2초 넘게 걸림](#사례-14-하이브리드-검색이-12초-넘게-걸림) | 성능 측정·인덱스 | Step 2, Step 4 |
+| [사례 15. AI 추천을 다시 검색하면 결과 목록이 1~5권으로 줄어듦](#사례-15-ai-추천을-다시-검색하면-결과-목록이-15권으로-줄어듦) | 캐시 설계·비동기 표시 | Step 3, Step 4 |
+| [사례 16. 같은 AI 추천 검색이 가끔 7.7초 걸림](#사례-16-같은-ai-추천-검색이-가끔-77초-걸림) | 커넥션 풀 | Step 4 |
+| [사례 17. 로컬 LLM AI 추천이 60초 넘게 걸림](#사례-17-로컬-llm-ai-추천이-60초-넘게-걸림) | LLM 응답 시간 | Step 3, Step 4 |
 
 ---
 
@@ -1107,15 +1111,393 @@ HNSW 인덱스는 정확한 최근접 이웃이 아니라 근사(approximate) �
 
 ---
 
+## 사례 14. 하이브리드 검색이 1.2초 넘게 걸림
+
+### 증상
+
+하이브리드 검색 한 번에 1.2초 넘게 걸렸습니다. 키워드 검색과 벡터 검색을 합치는 구조라 어느 정도 느린 것은 예상했지만, 원인이 어디인지 몰라 무엇을 고칠지 정할 수 없었습니다.
+
+### 원인 찾기
+
+추측 대신 단계별로 시간을 쟀습니다. 운영 DB에서 "spring"으로 하이브리드 검색이 실행하는 쿼리를 각각 `EXPLAIN ANALYZE`로 측정했습니다.
+
+| 단계 | 소요 시간 | 관찰 |
+|---|---|---|
+| 질의 임베딩 생성(API) | 약 50ms | 원인 아님 |
+| 키워드 후보 100건 | 0.65초 | `LIKE '%spring%'`이 인덱스를 못 써 15만 건 전체 스캔 |
+| 키워드 전체 건수(count) | 0.79초 | 같은 조건으로 한 번 더 전체 스캔 |
+| 벡터 후보 100건 | 0.73초 | 벡터 인덱스가 없어 15만 건과 거리를 모두 계산 |
+| 벡터 전체 건수(count) | 0.38초 | 임베딩이 있는 행 수를 셈 |
+
+네 쿼리가 **순서대로** 실행되었습니다. 그리고 하이브리드 검색은 상위 100건씩만 RRF로 합치므로 전체 건수(count)는 쓰지도 않는 값이었습니다.
+
+### 해결
+
+**1. 쿼리 형태에 맞는 인덱스를 만듭니다.** 스크립트는 `src/main/resources/db/search-indexes.sql`입니다.
+
+```sql
+-- 벡터 검색: 코사인 거리(<=>) 근사 최근접 검색용 HNSW 인덱스
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_books_embedding_hnsw
+    ON books USING hnsw (embedding vector_cosine_ops);
+
+-- 키워드 검색: lower(컬럼) LIKE '%검색어%'를 위한 trigram GIN 인덱스 (제목·저자·출판사·부제·권제목 5개)
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_books_title_trgm
+    ON books USING gin (lower(title) gin_trgm_ops);
+```
+
+인덱스는 쿼리 형태와 짝이 맞아야 쓰입니다.
+
+- QueryDSL의 `containsIgnoreCase()`는 SQL에서 `lower(title) like ?`로 바뀝니다. 그래서 `title` 컬럼 인덱스가 아니라 `lower(title)` **표현식 인덱스**를 만듭니다. 앞에 `%`가 붙은 `LIKE`는 일반 B-tree 인덱스를 쓸 수 없으므로 trigram(pg_trgm) GIN 인덱스를 씁니다.
+- HNSW 인덱스는 `ORDER BY embedding <=> q`(거리 오름차순) 형태에서만 쓰입니다. 기존 쿼리는 유사도 `1 - (embedding <=> q)`를 내림차순으로 정렬해 순서는 같아도 인덱스를 못 썼습니다. 그래서 정렬을 거리 오름차순으로 바꿨습니다([사례 11](#사례-11-같은-하이브리드-검색인데-결과가-매번-다름)).
+- pgvector의 HNSW는 탐색 폭 `hnsw.ef_search`(기본 40)보다 많은 결과를 돌려주지 못합니다. `LIMIT 100`인데 40건만 오는 일을 막으려고 조회 직전에 같은 트랜잭션 안에서 값을 올립니다(설정 `search.vector.ef-search=120`).
+
+```java
+// BookRepositoryImpl: SET LOCAL과 같은 효과 (현재 트랜잭션에만 적용)
+private static final String SET_LOCAL_EF_SEARCH_SQL = "SELECT set_config('hnsw.ef_search', ?1, true)";
+
+private void applyHnswEfSearch(long requiredRows) {
+    long efSearch = Math.min(MAX_HNSW_EF_SEARCH, Math.max(hnswEfSearch, requiredRows));
+    entityManager.createNativeQuery(SET_LOCAL_EF_SEARCH_SQL)
+            .setParameter(1, String.valueOf(efSearch))
+            .getSingleResult();
+}
+```
+
+인덱스 적용 후 키워드 후보 조회는 648ms에서 14ms(Bitmap Index Scan을 `BitmapOr`로 합침), 벡터 후보 조회는 734ms에서 15ms(HNSW Index Scan)로 줄었습니다. 인덱스를 만드는 과정에서 겪은 문제는 [사례 13](#사례-13-운영-db에-hnsw-인덱스를-만들다-공간-부족으로-실패함)에 정리했습니다.
+
+**2. 코드를 고칩니다.**
+
+- **count 제거**: 하이브리드용 후보 조회 메서드 `searchCandidates()`, `vectorSearchCandidates()`를 따로 두고 전체 건수를 세지 않습니다. 키워드 단독 검색처럼 전체 페이지 수가 필요한 곳만 count를 유지합니다.
+- **병렬 실행**: 키워드·벡터 후보를 전용 스레드 풀(`hybridSearchExecutor`, 8스레드)에서 동시에 조회합니다. 스레드마다 자체 읽기 전용 트랜잭션을 열어 `SET LOCAL hnsw.ef_search`가 그 조회에 적용되게 합니다.
+- **캐시**: 같은 검색어의 임베딩은 Caffeine에 1시간 보관해 임베딩 API를 다시 부르지 않고, 결과는 5분 결과 캐시(`SearchResultCache`)에 둡니다.
+- **단계별 로그**: 다음에 느려지면 바로 원인을 볼 수 있도록 단계별 시간을 남깁니다.
+
+```java
+// HybridSearchStrategy.search()
+CompletableFuture<Timed> keywordFuture = submit(() -> bookRepository.searchCandidates(request, CANDIDATE_SIZE));
+CompletableFuture<Timed> vectorFuture = submit(() -> bookRepository.vectorSearchCandidates(request, CANDIDATE_SIZE));
+awaitBoth(keywordFuture, vectorFuture, request.keyword());   // 한쪽이 실패하면 바로 전파, 제한 시간 10초
+// ...
+log.info("[HYBRID_SEARCH] keyword='{}' embedding={}ms keyword={}ms vector={}ms rrf={}ms total={}ms candidates={}/{} fused={}", ...);
+```
+
+```java
+// HybridSearchStrategy: 후보 조회를 전용 Executor에서 읽기 전용 트랜잭션으로 실행
+private CompletableFuture<Timed> submit(Supplier<List<BookSearchResponse>> query) {
+    return CompletableFuture.supplyAsync(() -> {
+        long begin = System.nanoTime();
+        List<BookSearchResponse> results = readOnlyTransaction.execute(status -> query.get());
+        return new Timed(results == null ? List.of() : results, elapsedMillis(begin));
+    }, executor);
+}
+```
+
+### 결과
+
+로컬에서 측정한 결과입니다.
+
+| 경우 | 수정 전 | 수정 후 |
+|---|---|---|
+| 처음 검색하는 질의 | 약 1.2초 | 약 0.2초 안팎(하이브리드 내부 70~80ms) |
+| 같은 질의 반복 | - | 0.06~0.14초 |
+
+애플리케이션을 막 띄운 뒤 첫 검색은 여전히 1.2초 정도 걸립니다. DB 커넥션 생성, JIT 컴파일, HNSW 인덱스 페이지를 디스크에서 메모리로 읽는 비용이 첫 요청에 몰리기 때문입니다(워밍업 비용). 이 값을 평소 성능으로 착각하지 않도록 측정은 몇 번 반복한 뒤의 값을 봅니다.
+
+전체 코드: [`core/book/service/search/strategy/HybridSearchStrategy.java`](../src/main/java/net/java21/library/core/book/service/search/strategy/HybridSearchStrategy.java), [`core/book/repository/impl/BookRepositoryImpl.java`](../src/main/java/net/java21/library/core/book/repository/impl/BookRepositoryImpl.java), [`core/book/service/embedding/EmbeddingService.java`](../src/main/java/net/java21/library/core/book/service/embedding/EmbeddingService.java), [`db/search-indexes.sql`](../src/main/resources/db/search-indexes.sql)
+
+### 배운 점
+
+- 추측하지 말고 측정합니다. `EXPLAIN ANALYZE`와 단계별 로그가 있으면 고칠 곳이 정해집니다. 이번에도 의심했던 임베딩 API(50ms)는 원인이 아니었습니다.
+- 인덱스는 쿼리 형태와 짝입니다. `lower(col) LIKE '%...%'`에는 표현식 trigram 인덱스, 벡터에는 `ORDER BY embedding <=> q` 형태가 필요합니다.
+- 쓰지 않는 값(count)을 계산하지 않는 것도 최적화입니다.
+- 서로 의존하지 않는 조회는 병렬로 실행할 수 있습니다. 단, 그만큼 커넥션을 더 씁니다([사례 16](#사례-16-같은-ai-추천-검색이-가끔-77초-걸림)).
+
+### 관련 문서
+
+- [Step 2-04. 자연어 검색](step-2/04.natural-language-search.md): 벡터 검색 쿼리와 거리 연산자
+- [Step 2-05. 하이브리드 검색](step-2/05.hybrid-search.md): 후보 조회와 RRF
+- [Step 4-01. 성능과 비용](step-4/01.performance-cost.md): 성능 측정
+
+### 생각해 볼 문제
+
+trigram GIN 인덱스는 검색은 빠르게 하지만 도서를 추가·수정할 때 비용이 듭니다. 15만 건을 한 번에 적재하는 배치(Step 1)를 다시 실행해야 한다면, 인덱스를 언제 만들고 언제 지우는 것이 좋을까요?
+
+---
+
+## 사례 15. AI 추천을 다시 검색하면 결과 목록이 1~5권으로 줄어듦
+
+### 증상
+
+AI 추천(RAG) 검색을 처음 하면 하이브리드 결과 목록이 여러 페이지로 나오는데, 잠시 뒤 같은 검색어로 다시 검색하면 목록이 1~5권으로 줄었습니다. 화면은 이 검색 방식을 "하이브리드 검색 상위 후보를 AI가 검토해 추천"한다고 설명하므로, 사용자는 나머지 도서가 왜 사라졌는지 알 수 없었습니다.
+
+### 원인 찾기
+
+첫 검색과 두 번째 검색의 차이는 시맨틱 캐시 적중 여부였습니다.
+
+- 첫 검색(캐시 미스): 하이브리드 결과를 바로 보여 주고, 백그라운드 웜업이 LLM 추천을 만들어 시맨틱 캐시에 저장합니다.
+- 두 번째 검색(캐시 적중): 캐시에 저장된 `BookSearchResult`를 그대로 돌려줍니다.
+
+수정 전 웜업은 LLM이 relevance 50 이상으로 승인한 도서만으로 목록(`books`)을 만들어 캐시에 저장했습니다(`git show 89cb269`). 후보는 최대 5권이므로, 캐시 적중 시 화면 목록이 그 몇 권으로 바뀐 것입니다. 같은 검색어인데 캐시 적중 여부에 따라 화면이 달라졌고, 화면 설명과도 맞지 않았습니다.
+
+### 해결
+
+캐시에 무엇을 두는지 다시 정했습니다.
+
+- **시맨틱 캐시에는 AI 추천만 저장합니다.** LLM 호출은 비싸고 느리므로 재사용할 가치가 있습니다.
+- **목록은 매 요청 하이브리드 검색으로 채웁니다.** 하이브리드 검색은 빠르고([사례 14](#사례-14-하이브리드-검색이-12초-넘게-걸림)) 5분 결과 캐시도 공유합니다. RAG 화면도 하이브리드와 같은 목록과 페이징을 갖습니다.
+
+```java
+// RagSearchStrategy.search()
+BookSearchResult hybrid = hybridResult(pageable, request);   // 목록은 항상 하이브리드 결과
+Optional<List<BookAiRecommendationResponse>> cached = semanticCacheService.findRecommendations(request);
+if (cached.isPresent()) {
+    return new BookSearchResult(hybrid.getBooks(), cached.get(), 0L, false, false);
+}
+
+// 캐시 미스: 목록은 바로 보여 주고, AI 추천 생성은 백그라운드(Warm-up)로 위임합니다.
+boolean canWarmUp = StringUtils.hasText(request.keyword());
+if (canWarmUp) {
+    eventPublisher.publishEvent(new BookSearchEvent(this, request.keyword()));
+}
+return new BookSearchResult(hybrid.getBooks(), List.of(), 0L, false, canWarmUp);   // 마지막 값: aiPending
+```
+
+이미 저장된 예전 형식의 캐시 항목(추천에 도서 정보가 없고 `books`가 남아 있는 것)은 `SemanticCacheService`가 읽을 때 현재 형식으로 맞춰 줍니다.
+
+캐시 미스일 때 사용자가 다시 검색해야만 추천을 볼 수 있는 문제도 함께 고쳤습니다. 화면은 "AI가 후보를 검토하고 있습니다"를 표시하고, 추천이 준비될 때까지 `GET /api/recommendations`를 폴링합니다. 이 API는 캐시를 조회만 하고 LLM을 호출하지 않습니다.
+
+```javascript
+// templates/index/index.html
+const POLL_INTERVAL_MS = 1500;
+const POLL_TIMEOUT_MS = 90000; // 로컬 LLM(CPU)은 추천 생성에 30~60초가 걸릴 수 있어 넉넉히 기다립니다
+```
+
+```mermaid
+sequenceDiagram
+    participant U as 브라우저
+    participant S as 검색화면
+    participant W as 웜업(Async)
+    participant C as 시맨틱캐시
+    participant API as 추천API
+
+    U->>S: RAG 검색
+    S->>C: AI 추천 조회(미스)
+    S--)W: 웜업 이벤트
+    S-->>U: 하이브리드 목록과 검토 중 표시
+    W->>W: 후보 5권으로 LLM 추천 생성
+    W->>C: AI 추천만 저장
+    loop 1.5초 간격, 최대 90초
+        U->>API: GET /api/recommendations
+        API->>C: 조회만(LLM 호출 없음)
+        API-->>U: pending 또는 ready
+    end
+    U->>U: ready면 추천 패널 표시
+```
+
+웜업이 실패하면 캐시에 저장하지 않고, 같은 검색어의 중복 웜업을 막는 표시를 `finally`에서 지웁니다. 그래야 다음 검색이 웜업을 다시 시도할 수 있습니다.
+
+전체 코드: [`core/book/service/search/strategy/RagSearchStrategy.java`](../src/main/java/net/java21/library/core/book/service/search/strategy/RagSearchStrategy.java), [`core/book/service/cache/SemanticCacheService.java`](../src/main/java/net/java21/library/core/book/service/cache/SemanticCacheService.java), [`front/api/AiRecommendationApiController.java`](../src/main/java/net/java21/library/front/api/AiRecommendationApiController.java), [`core/book/service/cache/BookSearchCacheService.java`](../src/main/java/net/java21/library/core/book/service/cache/BookSearchCacheService.java)
+
+### 배운 점
+
+- 캐시에는 "비싸게 만든 것"(LLM 결과)만 두고, 싸게 다시 만들 수 있는 것은 매번 계산합니다. 둘을 한 덩어리로 캐시하면 싼 부분이 비싼 부분의 모양에 묶입니다.
+- 캐시 적중 여부에 따라 화면의 의미가 달라지면 안 됩니다. 캐시는 속도만 바꿔야 합니다.
+- 비동기로 만든 결과는 사용자가 다시 요청하지 않아도 보이게 합니다(폴링, 서버 푸시 등).
+- 실패한 비동기 작업은 다시 시도할 수 있는 상태로 돌려놓습니다.
+
+### 관련 문서
+
+- [Step 3-03. LLM 연동](step-3/03.llm-integration.md): AI 추천 생성과 응답 처리
+- [Step 4-03. 시맨틱 캐싱](step-4/03.semantic-caching.md): 유사한 질의의 결과 재사용
+
+### 생각해 볼 문제
+
+폴링 대신 SSE(Server-Sent Events)나 WebSocket으로 추천이 준비되면 서버가 알려 줄 수도 있습니다. 이 프로젝트 규모에서 폴링을 택했을 때의 장단점은 무엇일까요?
+
+---
+
+## 사례 16. 같은 AI 추천 검색이 가끔 7.7초 걸림
+
+### 증상
+
+같은 AI 추천 검색이 대부분은 빠르게 끝나는데 가끔 7.7초 걸렸습니다. 매번 재현되지는 않아 검색 로직보다는 다른 요인을 의심했습니다.
+
+### 원인 찾기
+
+단계별 로그([사례 14](#사례-14-하이브리드-검색이-12초-넘게-걸림))에서 쿼리 자체는 빨랐습니다. 쿼리를 실행하기 **전에** 기다리고 있었다는 뜻이므로, DB 커넥션 풀을 확인했습니다.
+
+| 설정·구조 | 수정 전 |
+|---|---|
+| 커넥션 풀(dbcp2) 최대 크기 | `max-total=5` |
+| 커넥션을 빌릴 때 검사 | `test-on-borrow=true`(빌릴 때마다 `SELECT 1` 왕복) |
+| 풀이 비었을 때 대기 상한 | 없음(기본값 -1, 무기한 대기) |
+| `BookSearchService.searchBooks()` | 클래스 전체 `@Transactional(readOnly = true)` |
+
+검색 요청 하나가 쓰는 커넥션을 세어 보니 다음과 같았습니다.
+
+1. `BookSearchService`의 읽기 전용 트랜잭션이 커넥션 1개를 잡습니다.
+2. 그 안에서 하이브리드 검색이 키워드·벡터 후보를 병렬로 조회하며, 스레드마다 커넥션을 1개씩 더 빌립니다. 요청 하나가 3개를 씁니다.
+3. 백그라운드 웜업도 같은 `searchBooks()`를 거치므로 바깥 트랜잭션의 커넥션을 쥔 채 **LLM 응답을 기다립니다**(수십 초).
+
+풀 크기가 5이므로 웜업 하나와 검색 하나만 겹쳐도 풀이 바닥납니다. 그러면 다음 요청은 커넥션이 반납될 때까지 상한 없이 기다렸습니다.
+
+### 해결
+
+1. **검색 메서드의 바깥 트랜잭션을 없앴습니다.** 트랜잭션은 DB를 실제로 조회하는 범위(키워드·벡터 전략은 메서드 단위, 하이브리드는 후보 조회 스레드마다)에서만 엽니다. 웜업은 LLM을 기다리는 동안 커넥션을 쥐지 않습니다.
+
+   ```java
+   /**
+    * <p>검색({@link #searchBooks})은 트랜잭션을 열지 않습니다. 트랜잭션은 DB를 실제로 조회하는 전략이 필요한 범위만큼 엽니다
+    * (키워드·벡터 전략은 메서드 단위, 하이브리드는 후보 조회 스레드마다). 바깥에서 커넥션을 쥔 채 하이브리드 병렬 조회가
+    * 커넥션을 2개 더 빌리거나, RAG 웜업이 LLM 응답을 기다리는 동안 커넥션을 붙잡지 않게 하기 위해서입니다.</p>
+    */
+   @Slf4j
+   @Service
+   @RequiredArgsConstructor
+   public class BookSearchService {
+   ```
+
+2. **풀 설정을 요청당 커넥션 수에 맞게 다시 계산했습니다.**
+
+   ```properties
+   # application.properties
+   # 하이브리드 검색은 요청당 커넥션 2개(키워드·벡터 후보를 hybridSearchExecutor 8스레드에서 동시 조회)를 쓰고,
+   # 검색 서비스는 바깥 트랜잭션을 열지 않으므로 하이브리드 조회 몫은 최대 8개입니다. (... 배치·웜업 등을 더해 20)
+   spring.datasource.dbcp2.max-total=20
+   spring.datasource.dbcp2.max-idle=10
+   # 풀이 고갈되면 무한정 기다리지 않고 실패합니다(기본값 -1은 무기한 대기). 하이브리드 제한 시간(10초)보다 짧게 둡니다.
+   spring.datasource.dbcp2.max-wait-millis=5000
+   # 빌릴 때마다 검사하는 대신 유휴 커넥션을 30초마다 백그라운드에서 검사합니다.
+   spring.datasource.dbcp2.test-on-borrow=false
+   spring.datasource.dbcp2.test-while-idle=true
+   spring.datasource.dbcp2.time-between-eviction-runs-millis=30000
+   # 오래된 커넥션은 30분마다 교체합니다.
+   spring.datasource.dbcp2.max-conn-lifetime-millis=1800000
+   ```
+
+풀을 늘리기 전에 DB 서버의 `max_connections`(9000)가 "애플리케이션 인스턴스 수 × 풀 최대 크기"를 충분히 감당하는지 확인했습니다.
+
+전체 코드: [`core/book/service/search/BookSearchService.java`](../src/main/java/net/java21/library/core/book/service/search/BookSearchService.java), [`application.properties`](../src/main/resources/application.properties)
+
+### 배운 점
+
+- 외부 호출(LLM, 외부 API)을 기다리는 동안 DB 커넥션을 쥐지 않습니다. [사례 2](#사례-2-리뷰-등록이-19초-멈춘-이유)의 행 잠금과 같은 뿌리의 문제입니다. 트랜잭션은 잠금뿐 아니라 커넥션도 붙잡습니다.
+- 병렬화하면 요청 하나가 쓰는 커넥션 수가 늘어납니다. 스레드 수, 요청당 커넥션 수, 풀 크기, DB `max_connections`를 함께 계산합니다.
+- 대기에는 상한을 둡니다. 무기한 대기는 장애를 느린 응답으로 숨깁니다.
+- "가끔 느리다"는 공유 자원(풀, 잠금, 스레드)이 겹칠 때 생기는 경우가 많습니다. 느린 요청과 같은 시각에 무엇이 함께 돌고 있었는지 봅니다.
+
+### 관련 문서
+
+- [Step 4-01. 성능과 비용](step-4/01.performance-cost.md): 응답 시간 측정과 병목 찾기
+
+### 생각해 볼 문제
+
+`max-wait-millis=5000`이면 풀이 고갈됐을 때 5초 뒤 예외가 납니다. 사용자에게는 이 상황을 어떻게 보여 주는 것이 좋을까요? 하이브리드 검색의 제한 시간(10초)보다 짧게 둔 이유도 생각해 봅시다.
+
+---
+
+## 사례 17. 로컬 LLM AI 추천이 60초 넘게 걸림
+
+### 증상
+
+LLM을 로컬 Ollama(`spring.ai.selected-model=ollama`, qwen2.5)로 바꾸자 AI 추천 하나를 만드는 데 61초가 걸렸습니다. 같은 프롬프트로 Gemini를 쓸 때는 1~3초였습니다.
+
+참고로 로컬 PC에서 Ollama에 접속할 때는 내부 주소의 11434 포트(Ollama 기본 포트)를 써야 했습니다. 80번 포트는 프록시 전용이라 API 호출에 쓸 수 없었습니다. 접속 문제를 정리한 뒤 남은 문제가 속도였습니다.
+
+### 원인 찾기
+
+LLM 응답 시간은 대략 "모델 로딩 + 입력 처리 + 출력 토큰 수 ÷ 생성 속도"입니다. 하나씩 확인했습니다.
+
+| 확인 항목 | 방법 | 결과 |
+|---|---|---|
+| GPU 사용 여부 | Ollama `/api/ps`의 `size_vram` | 0, 즉 GPU 없이 CPU로 실행 (qwen2.5 7.6B, Q4 양자화) |
+| 생성 속도 | 응답의 토큰 수와 시간 | 약 15토큰/초 |
+| 모델 로딩 | 응답의 로딩 시간 | 0.15초, 원인 아님 |
+| 입력 길이 | 프롬프트 | 규칙 약 1,500자 + 도서 5권의 소개 본문 |
+| 출력 길이 | 응답 | 도서별 추천 사유가 긴 JSON |
+
+CPU에서 초당 15토큰이면 출력 400토큰에만 약 27초가 걸립니다. 긴 입력을 읽는 시간도 CPU에서는 무시할 수 없습니다. 결국 **토큰 수**가 문제였습니다.
+
+### 선택지 비교
+
+| 선택지 | 예상 효과 | 비용·제약 |
+|---|---|---|
+| Gemini로 전환 | 1~3초 | API 비용, 키 관리, 외부 전송 |
+| 작은 모델 사용 | 빨라짐 | 추천 품질과 JSON 형식 준수율 저하 우려 |
+| GPU 서버 | 크게 빨라짐 | 장비 비용 |
+| 입력·출력 줄이기 | 토큰 수만큼 빨라짐 | 추천 사유가 짧아짐 |
+
+로컬 모델을 유지하면서 바로 적용할 수 있는 "입력·출력 줄이기"를 택했습니다.
+
+### 해결
+
+```java
+// AiRecommendationService
+/** 프롬프트에 넣는 도서 소개 최대 길이 (LLM 입력 토큰 절감) */
+private static final int MAX_BOOK_CONTENT_LENGTH = 150;
+
+// CPU에서 도는 로컬 LLM은 입력·출력 토큰 수가 곧 응답 시간이므로 규칙을 짧게 유지합니다.
+String template = """
+    query에 맞는 도서를 아래 도서 데이터에서 골라 JSON 배열로만 답하세요.
+
+    [규칙]
+    - relevance(0~100): 90 이상 직접 관련, 70~89 밀접, 50~69 간접 관련. 50 미만은 제외합니다.
+    - 평점 4.5 이상이고 리뷰 20개 이상이면 +5, 평점 3.5 미만이면 -10을 반영합니다.
+    - why: 한 문장, 60자 이내, 공손한 합니다체. 점수는 쓰지 않습니다. 리뷰 요약이 있으면 근거로 쓰고, 이유를 모르면 "추천 사유를 명확히 알 수 없습니다"라고 씁니다.
+    - relevance 내림차순, 입력에 없는 정보는 추측하지 않습니다.
+    - 마크다운이나 설명 없이 JSON만 출력합니다.
+    ...
+    """;
+```
+
+```properties
+# application.properties
+# 로컬 LLM(CPU) 응답 시간 단축: 출력 토큰 상한, 모델을 메모리에 30분 유지(재로딩 방지)
+spring.ai.ollama.chat.options.num-predict=400
+spring.ai.ollama.chat.options.keep-alive=30m
+```
+
+- 규칙 문장을 압축하고, 추천 사유를 "한 문장, 60자 이내"로 제한했습니다.
+- 컨텍스트에 넣는 도서 소개를 150자로 잘랐습니다.
+- `num-predict=400`으로 출력 토큰 상한을 두어, 모델이 길게 늘어놓더라도 끝이 정해지게 했습니다.
+- `keep-alive=30m`으로 모델을 메모리에 남겨 두어 다음 요청에서 다시 로딩하지 않게 했습니다.
+
+결과는 61초에서 17~31초로 줄었습니다. 여전히 길지만, AI 추천은 백그라운드 웜업과 폴링([사례 15](#사례-15-ai-추천을-다시-검색하면-결과-목록이-15권으로-줄어듦))으로 처리하므로 사용자는 기다리지 않고 하이브리드 결과를 먼저 봅니다. 폴링 제한 시간을 90초로 넉넉히 둔 것도 이 때문입니다.
+
+전체 코드: [`core/book/service/ai/AiRecommendationService.java`](../src/main/java/net/java21/library/core/book/service/ai/AiRecommendationService.java)
+
+### 배운 점
+
+- LLM 응답 시간은 입력·출력 토큰 수에 비례합니다. 특히 CPU에서는 프롬프트 길이와 출력 형식이 곧 성능입니다.
+- 느린 원인을 측정으로 나눕니다(로딩, 입력 처리, 출력 생성). 이번에는 모델 로딩이 아니라 토큰 수였습니다.
+- 줄일 수 없는 지연은 사용자의 동기 경로에서 빼고 비동기로 처리합니다.
+- 선택지를 비용·품질·속도로 비교해 고르고, 고른 이유를 남깁니다.
+
+### 관련 문서
+
+- [Step 3-03. LLM 연동](step-3/03.llm-integration.md): Gemini와 Ollama 선택
+- [Step 4-01. 성능과 비용](step-4/01.performance-cost.md): LLM 호출 비용과 응답 시간
+- [Step 4-02. Top-K 최적화](step-4/02.topk-optimization.md): LLM에 넣는 후보 수 줄이기
+
+### 생각해 볼 문제
+
+추천 사유를 60자로 줄이면 응답은 빨라지지만 설명이 빈약해질 수 있습니다. 속도와 품질 사이의 적절한 지점을 정하려면 무엇을 측정해야 할까요?
+
+---
+
 ## 사례 전체에서 반복된 원칙
 
 | 원칙 | 해당 사례 |
 |---|---|
-| LLM·외부 API 호출을 DB 트랜잭션과 사용자 응답 경로에서 분리한다 | 2, 9 |
+| LLM·외부 API 호출을 DB 트랜잭션과 사용자 응답 경로에서 분리한다 | 2, 9, 15, 16, 17 |
 | 외부 의존성은 실패를 전제로 빠르게 실패하고 대체 경로를 둔다 | 4, 9 |
 | 상위 N건을 고르는 조회와 정렬에는 유일한 값까지 포함한 결정적 순서를 둔다 | 5, 11 |
 | 캐시에서 꺼낸 객체는 수정하지 않고, 캐시 무효화는 커밋 후에 한다 | 12 |
+| 캐시에는 비싸게 만든 것만 두고, 캐시 적중 여부가 화면의 의미를 바꾸지 않게 한다 | 15 |
+| 추측 대신 단계별로 측정하고, 인덱스는 쿼리 형태와 짝을 맞춘다 | 14, 17 |
+| 병렬화·풀 크기·대기 상한을 함께 계산한다 | 14, 16 |
 | LLM에게 주는 지시(출력 형식, Tool 목록)는 실제 코드와 일치시키고 후처리로 방어한다 | 1, 7 |
 | 프록시 기반 애노테이션은 별도 빈에서 호출한다 | 2, 6, 9 |
 | 공유 자원과 비밀값은 실수해도 안전한 기본값으로 보호하고, 권한은 최소·임시로 준다 | 8, 10, 13 |
-| 로그의 시각·횟수·건수와 재현 조건으로 원인을 좁힌다 | 2, 4, 5, 9, 11, 13 |
+| 로그의 시각·횟수·건수와 재현 조건으로 원인을 좁힌다 | 2, 4, 5, 9, 11, 13, 16 |
