@@ -36,9 +36,17 @@
 
 ## 아키텍처
 
-<p align="center"><img src="docs/images/architecture.svg" alt="AI Library 아키텍처" width="100%"></p>
+<p align="center"><a href="https://raw.githubusercontent.com/nhn-academy-marco/ai-library/main/docs/images/architecture.svg"><img src="docs/images/architecture.svg" alt="AI Library 아키텍처" width="100%"></a></p>
+
+<sub>이미지를 누르면 원본 크기로 열려 확대해 볼 수 있습니다.</sub>
 
 데이터 모델(테이블과 관계)은 [ERD](https://crowfoot.java21.net/share/3LZoyyvhkS2CiMAAlvGNkN)에서 볼 수 있습니다. 그림의 아이콘은 [Simple Icons](https://simpleicons.org/)(CC0)를 사용했습니다.
+
+### 애플리케이션 내부
+
+<p align="center"><a href="https://raw.githubusercontent.com/nhn-academy-marco/ai-library/main/docs/images/architecture-app.svg"><img src="docs/images/architecture-app.svg" alt="AI Library 애플리케이션 내부" width="100%"></a></p>
+
+<sub>이미지를 누르면 원본 크기로 열려 확대해 볼 수 있습니다.</sub>
 
 ### 구성 요소
 

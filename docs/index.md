@@ -133,6 +133,7 @@ flowchart LR
 - [용어집](glossary.md)
 - [실전 트러블슈팅 사례집](troubleshooting.md): 운영 중 겪은 문제의 진단·해결 기록
 - [문서 작성 템플릿](TEMPLATE.md)
+- [도서관 정보나루 API 클라이언트 리팩터링 계획](REFACTORING_NOTES.md)
 
 ## 실습 환경 요약
 

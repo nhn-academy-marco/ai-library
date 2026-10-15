@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1540" viewBox="0 0 1000 1540" font-family="system-ui, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif">
+<title>AI Library 애플리케이션 내부</title>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748B"/></marker></defs>
+<rect x="0" y="0" width="1000" height="1540" rx="24" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+<text x="40" y="58" font-size="28" font-weight="800" fill="#0F172A" text-anchor="start">애플리케이션 내부</text>
+<text x="40" y="90" font-size="17" font-weight="400" fill="#475569" text-anchor="start">Spring Boot 3.5 · Java 21 · Spring AI 1.1.2</text>
+<rect x="20" y="116" width="960" height="150" rx="16" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2"/>
+<text x="40" y="154" font-size="22" font-weight="700" fill="#0F172A" text-anchor="start">Interface</text>
+<rect x="50" y="172" width="210" height="76" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5"/>
+<text x="155.0" y="204.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">Telegram Bot</text>
+<text x="155.0" y="228.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">롱 폴링 · AI 질의</text>
+<rect x="280" y="172" width="210" height="76" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5"/>
+<text x="385.0" y="204.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">검색 화면</text>
+<text x="385.0" y="228.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">4가지 검색</text>
+<rect x="510" y="172" width="210" height="76" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5"/>
+<text x="615.0" y="204.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">추천 API</text>
+<text x="615.0" y="228.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">추천 폴링</text>
+<rect x="740" y="172" width="210" height="76" rx="10" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5"/>
+<text x="845.0" y="204.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">리뷰 화면</text>
+<text x="845.0" y="228.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">등록 · 조회</text>
+<rect x="20" y="336" width="960" height="380" rx="16" fill="#F0FDF4" stroke="#16A34A" stroke-width="2"/>
+<text x="40" y="374" font-size="22" font-weight="700" fill="#0F172A" text-anchor="start">검색</text>
+<text x="110" y="374" font-size="16" font-weight="400" fill="#475569" text-anchor="start">SearchType으로 전략 선택 · 임베딩 장애 시 키워드로 대체</text>
+<rect x="50" y="396" width="210" height="80" rx="10" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.5"/>
+<text x="155.0" y="430.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">키워드</text>
+<text x="155.0" y="454.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">LIKE + 전문 검색</text>
+<rect x="280" y="396" width="210" height="80" rx="10" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.5"/>
+<text x="385.0" y="430.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">벡터</text>
+<text x="385.0" y="454.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">pgvector 유사도</text>
+<rect x="510" y="396" width="210" height="80" rx="10" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.5"/>
+<text x="615.0" y="430.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">하이브리드</text>
+<text x="615.0" y="454.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">RRF로 순위 결합</text>
+<rect x="740" y="396" width="210" height="80" rx="10" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.5"/>
+<text x="845.0" y="430.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">RAG</text>
+<text x="845.0" y="454.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">하이브리드 + AI 추천</text>
+<text x="500" y="508" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">하이브리드 = 키워드 · 벡터 후보를 병렬 조회해 합침</text>
+<text x="50" y="550" font-size="18" font-weight="700" fill="#15803D" text-anchor="start">캐시 (Caffeine)</text>
+<rect x="50" y="568" width="290" height="80" rx="10" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
+<text x="195.0" y="602.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">검색 결과 캐시</text>
+<text x="195.0" y="626.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">같은 검색 재사용</text>
+<rect x="355" y="568" width="290" height="80" rx="10" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
+<text x="500.0" y="602.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">시맨틱 캐시</text>
+<text x="500.0" y="626.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">비슷한 질문의 AI 추천</text>
+<rect x="660" y="568" width="290" height="80" rx="10" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
+<text x="805.0" y="602.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">질의 임베딩 캐시</text>
+<text x="805.0" y="626.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">임베딩 호출 절약</text>
+<text x="500" y="684" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">시맨틱 캐시에는 AI 추천만 저장 · 목록은 항상 하이브리드 결과</text>
+<polyline points="385.0,248 385.0,336" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#arr)"/>
+<rect x="340.5" y="282" width="88.9" height="26" rx="5" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+<text x="385.0" y="301" font-size="16" font-weight="600" fill="#334155" text-anchor="middle">검색 요청</text>
+<polyline points="615.0,248 615.0,336" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#arr)"/>
+<rect x="570.5" y="282" width="88.9" height="26" rx="5" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+<text x="615.0" y="301" font-size="16" font-weight="600" fill="#334155" text-anchor="middle">캐시 조회</text>
+<rect x="20" y="806" width="470" height="400" rx="16" fill="#FAF5FF" stroke="#A855F7" stroke-width="2"/>
+<g transform="translate(38 820) scale(1.2500)"><path fill="#6DB33F" d="M21.8537 1.4158a10.4504 10.4504 0 0 1-1.284 2.2471A11.9666 11.9666 0 1 0 3.8518 20.7757l.4445.3951a11.9543 11.9543 0 0 0 19.6316-8.2971c.3457-3.0126-.568-6.8649-2.0743-11.458zM5.5805 20.8745a1.0174 1.0174 0 1 1-.1482-1.4323 1.0396 1.0396 0 0 1 .1482 1.4323zm16.1991-3.5806c-2.9385 3.9263-9.2601 2.5928-13.2852 2.7904 0 0-.7161.0494-1.4323.1481 0 0 .2717-.1234.6174-.2469 2.8398-.9877 4.1732-1.1853 5.9018-2.0743 3.2349-1.6545 6.4698-5.2844 7.1118-9.0379-1.2347 3.6053-4.9881 6.7167-8.3959 7.9761-2.3459.8643-6.5685 1.7039-6.5685 1.7039l-.1729-.0988c-2.8645-1.4076-2.9632-7.6304 2.2718-9.6306 2.2966-.889 4.4696-.395 6.9637-.9877 2.6422-.6174 5.7043-2.5929 6.939-5.1857 1.3828 4.1732 3.062 10.643.0493 14.6434z"/></g>
+<text x="78" y="844" font-size="22" font-weight="700" fill="#0F172A" text-anchor="start">AI · Spring AI</text>
+<rect x="510" y="806" width="470" height="400" rx="16" fill="#F0FDF4" stroke="#16A34A" stroke-width="2"/>
+<text x="530" y="844" font-size="22" font-weight="700" fill="#0F172A" text-anchor="start">리뷰 요약</text>
+<rect x="50" y="866" width="410" height="84" rx="10" fill="#FFFFFF" stroke="#D8B4FE" stroke-width="1.5"/>
+<text x="70" y="902.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="start">ChatClient</text>
+<text x="70" y="926.65" font-size="16" font-weight="400" fill="#475569" text-anchor="start">설정으로 LLM 선택 (Ollama · Gemini)</text>
+<rect x="50" y="966" width="410" height="84" rx="10" fill="#FFFFFF" stroke="#D8B4FE" stroke-width="1.5"/>
+<text x="70" y="1002.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="start">AI 추천</text>
+<text x="70" y="1026.65" font-size="16" font-weight="400" fill="#475569" text-anchor="start">후보를 읽고 추천 사유 생성</text>
+<rect x="50" y="1066" width="410" height="116" rx="10" fill="#FFFFFF" stroke="#D8B4FE" stroke-width="1.5"/>
+<text x="70" y="1106.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="start">Tool Calling</text>
+<text x="70" y="1130.65" font-size="16" font-weight="400" fill="#475569" text-anchor="start">LLM이 Tool 4개를 조합</text>
+<text x="70" y="1154.65" font-size="16" font-weight="400" fill="#475569" text-anchor="start">도서 · 도서관 · 소장 조회</text>
+<rect x="530" y="866" width="420" height="84" rx="10" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.5"/>
+<text x="550" y="902.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="start">리뷰 저장</text>
+<text x="550" y="926.65" font-size="16" font-weight="400" fill="#475569" text-anchor="start">커밋 후 이벤트 발행</text>
+<polyline points="740.0,950 740.0,982" fill="none" stroke="#64748B" stroke-width="2" stroke-dasharray="8 5" marker-end="url(#arr)"/>
+<rect x="530" y="982" width="420" height="84" rx="10" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.5"/>
+<g transform="translate(546 1004.0) scale(1.6667)"><path fill="#FF6600" d="M23.035 9.601h-7.677a.956.956 0 01-.962-.962V.962a.956.956 0 00-.962-.956H10.56a.956.956 0 00-.962.956V8.64a.956.956 0 01-.962.962H5.762a.956.956 0 01-.961-.962V.962A.956.956 0 003.839 0H.959a.956.956 0 00-.956.962v22.076A.956.956 0 00.965 24h22.07a.956.956 0 00.962-.962V10.58a.956.956 0 00-.962-.98zm-3.86 8.152a1.437 1.437 0 01-1.437 1.443h-1.924a1.437 1.437 0 01-1.436-1.443v-1.917a1.437 1.437 0 011.436-1.443h1.924a1.437 1.437 0 011.437 1.443z"/></g>
+<text x="600" y="1018.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="start">RabbitMQ 큐</text>
+<text x="600" y="1042.65" font-size="16" font-weight="400" fill="#475569" text-anchor="start">Consumer 3~5 · 실패 시 DLQ</text>
+<polyline points="740.0,1066 740.0,1098" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#arr)"/>
+<rect x="530" y="1098" width="420" height="84" rx="10" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.5"/>
+<text x="550" y="1134.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="start">Map-Reduce 요약</text>
+<text x="550" y="1158.65" font-size="16" font-weight="400" fill="#475569" text-anchor="start">10건씩 요약 후 합침 (LLM)</text>
+<polyline points="150,716 150,806" fill="none" stroke="#64748B" stroke-width="2" stroke-dasharray="8 5" marker-end="url(#arr)"/>
+<rect x="90.6" y="748" width="118.8" height="26" rx="5" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+<text x="150" y="767" font-size="16" font-weight="600" fill="#334155" text-anchor="middle">웜업 (비동기)</text>
+<polyline points="360,806 360,716" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#arr)"/>
+<rect x="312.5" y="748" width="95.0" height="26" rx="5" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+<text x="360" y="767" font-size="16" font-weight="600" fill="#334155" text-anchor="middle">Tool 호출</text>
+<polyline points="155.0,248 155.0,288 33,288 33,908 50,908" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#arr)"/>
+<rect x="65.0" y="274" width="78.1" height="26" rx="5" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+<text x="104.0" y="294" font-size="16" font-weight="600" fill="#334155" text-anchor="middle">AI 질의</text>
+<polyline points="845.0,248 845.0,288 967,288 967,908 950,908" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#arr)"/>
+<rect x="861.5" y="274" width="88.9" height="26" rx="5" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+<text x="906.0" y="294" font-size="16" font-weight="600" fill="#334155" text-anchor="middle">리뷰 등록</text>
+<rect x="20" y="1246" width="960" height="270" rx="16" fill="#F8FAFC" stroke="#64748B" stroke-width="2"/>
+<text x="40" y="1284" font-size="22" font-weight="700" fill="#0F172A" text-anchor="start">공통 · 배치</text>
+<rect x="50" y="1306" width="290" height="80" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5"/>
+<text x="195.0" y="1340.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">개인화</text>
+<text x="195.0" y="1364.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">피드백으로 선호 벡터 계산</text>
+<rect x="355" y="1306" width="290" height="80" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5"/>
+<text x="500.0" y="1340.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">배치</text>
+<text x="500.0" y="1364.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">CSV 적재 · 임베딩 생성</text>
+<rect x="660" y="1306" width="290" height="80" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5"/>
+<text x="805.0" y="1340.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="middle">표지 보강</text>
+<text x="805.0" y="1364.65" font-size="16" font-weight="400" fill="#475569" text-anchor="middle">정보나루로 비동기 조회</text>
+<rect x="50" y="1406" width="900" height="84" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5"/>
+<text x="70" y="1442.65" font-size="19" font-weight="700" fill="#0F172A" text-anchor="start">비동기 실행</text>
+<text x="70" y="1466.65" font-size="16" font-weight="400" fill="#475569" text-anchor="start">@Async 이벤트 (웜업 · 통계 · 표지) · 하이브리드 병렬 조회 스레드 풀</text>
+</svg>
