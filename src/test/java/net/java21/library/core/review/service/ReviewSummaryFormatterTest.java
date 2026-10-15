@@ -69,4 +69,18 @@ class ReviewSummaryFormatterTest {
         assertThat(ReviewSummaryFormatter.parse(null)).isEmpty();
         assertThat(ReviewSummaryFormatter.clean(null)).isNull();
     }
+
+    @Test
+    @DisplayName("다음 줄을 소개하기만 하는 서두 문장을 제거한다")
+    void cleanRemovesIntroLine() {
+        String raw = """
+                이 책의 최종 평판 요약은 다음과 같습니다:
+                [장점] 예제가 풍부합니다.
+                [총평] 입문자에게 권합니다.
+                """;
+
+        assertThat(ReviewSummaryFormatter.parse(raw))
+                .extracting(ReviewSummaryFormatter.Section::label)
+                .containsExactly("장점", "총평");
+    }
 }

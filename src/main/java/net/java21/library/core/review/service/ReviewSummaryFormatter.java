@@ -22,6 +22,9 @@ public final class ReviewSummaryFormatter {
     private static final Pattern TITLE_LINE = Pattern.compile("^\\s*\\[?(최종\\s*)?(평판\\s*)?요약\\]?\\s*:?\\s*$");
     private static final Pattern PREAMBLE_LINE = Pattern.compile(
             "^\\s*(물론|네[,!. ]|알겠습니다|좋습니다|다음은|아래는).*(드리겠습니다|드립니다|정리했습니다|입니다)[.!]?\\s*$");
+    /** "이 책의 최종 평판 요약은 다음과 같습니다:"처럼 내용 없이 다음 줄을 소개하는 문장 */
+    private static final Pattern INTRO_LINE = Pattern.compile(
+            "^.*(다음과 같습니다|아래와 같습니다|정리하면 다음과 같습니다)\\s*[:：.]?\\s*$");
     /** [장점], 장점:, [추천대상]: 처럼 다양한 항목 머리말을 인식 */
     private static final Pattern SECTION_HEAD = Pattern.compile(
             "^\\s*\\[?\\s*(장점|단점|추천\\s*대상|총평)\\s*\\]?\\s*[:：]?\\s*(.*)$");
@@ -48,7 +51,8 @@ public final class ReviewSummaryFormatter {
         List<String> lines = new ArrayList<>();
         for (String line : raw.strip().split("\\R")) {
             String cleaned = LEADING_MARKDOWN.matcher(MARKDOWN_EMPHASIS.matcher(line).replaceAll("")).replaceFirst("").strip();
-            if (TITLE_LINE.matcher(cleaned).matches() || PREAMBLE_LINE.matcher(cleaned).matches()) {
+            if (TITLE_LINE.matcher(cleaned).matches() || PREAMBLE_LINE.matcher(cleaned).matches()
+                    || INTRO_LINE.matcher(cleaned).matches()) {
                 continue;
             }
             if (cleaned.isEmpty() && (lines.isEmpty() || lines.get(lines.size() - 1).isEmpty())) {
