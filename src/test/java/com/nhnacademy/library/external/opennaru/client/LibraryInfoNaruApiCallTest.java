@@ -36,7 +36,7 @@ class LibraryInfoNaruApiCallTest {
         // 프로퍼티 설정
         LibraryApiProperties properties = new LibraryApiProperties();
         properties.setUrl("https://www.data4library.kr/api");
-        properties.setKey("***REMOVED***");
+        properties.setKey(TestApiKeys.libraryApiKey());
         properties.setTimeout(5000);
 
         // 클라이언트 인스턴스 생성 (리플렉션 사용)

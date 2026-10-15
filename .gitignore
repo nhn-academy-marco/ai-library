@@ -37,3 +37,6 @@ build/
 /mvnw
 /mvnw.cmd
 *.backup
+
+### Secrets ###
+secrets.properties

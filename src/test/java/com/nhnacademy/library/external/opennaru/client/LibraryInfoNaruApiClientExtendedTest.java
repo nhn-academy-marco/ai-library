@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @TestPropertySource(properties = {
     "spring.ai.selected-model=ollama",
     "rabbitmq.queue.review-summary=nhnacademy-library-review",
-    "library.api.key=***REMOVED***"
+    "library.api.key=${LIBRARY_API_KEY:test-key}"
 })
 class LibraryInfoNaruApiClientExtendedTest {
 

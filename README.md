@@ -114,7 +114,11 @@ src/main/java/com/nhnacademy/library
    ```bash
    docker run -d --name pgvector -p 5432:5432 -e POSTGRES_PASSWORD=postgres pgvector/pgvector:pg16
    ```
-2. 설정: `src/main/resources/application.properties`에서 DB 연결 정보와 API 키를 설정합니다. (`spring.ai.selected-model`로 Gemini/Ollama 선택)
+2. 비밀값 설정: `secrets.properties.example`을 복사해 DB 비밀번호와 API 키를 채웁니다. `secrets.properties`는 커밋되지 않으며, 같은 이름의 환경 변수로 대신할 수도 있습니다.
+   ```bash
+   cp secrets.properties.example secrets.properties
+   ```
+   DB 접속 주소 등 나머지 설정은 `src/main/resources/application.properties`에 있습니다. (`spring.ai.selected-model`로 Gemini/Ollama 선택)
 3. 실행:
    ```bash
    mvn spring-boot:run

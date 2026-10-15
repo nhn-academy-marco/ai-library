@@ -26,7 +26,7 @@ class ApiClientTestConfig {
     @Bean
     public LibraryApiProperties libraryApiProperties() {
         LibraryApiProperties properties = new LibraryApiProperties();
-        properties.setKey("***REMOVED***");
+        properties.setKey(TestApiKeys.libraryApiKey());
         return properties;
     }
 
